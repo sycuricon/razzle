@@ -1,0 +1,2 @@
+bitstring >= 4.0.0
+python-constraint >= 1.4.0

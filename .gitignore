@@ -1,0 +1,10 @@
+*.pyc
+*.o
+
+__pycache__/
+out/
+build/
+
+venv/
+.idea/
+.vscode/
