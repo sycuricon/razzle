@@ -77,4 +77,4 @@ _start:
 
 .section .data
 reg_info:
-    .incbin "reginfo.bin"
+    .incbin REG_STATE_BIN
