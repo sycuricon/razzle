@@ -226,9 +226,9 @@
                 "L":"0"
             }
         },
-        "pmpaddr0"  :   "0000000020000000",
-        "pmpaddr1"  :   "0000000020005800",
-        "pmpaddr2"  :   "003fffffffffffff",
+        "pmpaddr0"  :   "0000000080000000",
+        "pmpaddr1"  :   "0000000080016000",
+        "pmpaddr2"  :   "00fffffffffffffc",
         "pmpaddr3"  :   "0000000000000000",
         "pmpaddr4"  :   "0000000000000000",
         "pmpaddr5"  :   "0000000000000000",
