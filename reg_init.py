@@ -1,6 +1,7 @@
 import sys
 import json
 import struct
+from copy import copy
 
 def encode_bit(dict,name_set,offset_set,len_set):
     val = 0
@@ -26,9 +27,6 @@ def encode_reg(dict):
 
 def encode_priv(dict):
     return int(dict,base=2)
-
-def encode_pmpaddr(dict):
-    return int(dict,base=16) >> 2
 
 def encode_satp(dict):
     return (int(dict["PPN"],base=16) >> 12) | (int(dict["ASID"],base=16) << 44) | (int(dict["MODE"],base=16) << 60)
@@ -61,31 +59,44 @@ def encode_mie(dict):
     len=[1,1,1,1,1,1,1,1,1,1,1,1]
     return encode_bit(dict,name,offset,len)
 
-def encode_subpmpcfg(dict):
-    name=["R","W","X","A","L"];
+def encode_pmp(dict,pmpaddr_fore):
+    a_map={
+        "OFF":"00",
+        "TOR":"01",
+        "NA4":"10",
+        "NAPOT":"11"
+    }
+    dict["A"]=a_map[dict["A"]]
+    name=["R","W","X","A","L"]
     offset=[0,1,2,3,7]
     len=[1,1,1,2,1]
-    return encode_bit(dict,name,offset,len)
+    cfg=encode_bit(dict,name,offset,len)
+    mode=int(dict["A"],base=2)
+    begin=int(dict["begin"],base=16)
+    end=int(dict["end"],base=16)
+    if(mode==0):
+        end>>=2
+    elif(mode==1):
+        if(end<begin or pmpaddr_fore != begin>>2):
+            raise "this pmp section's begin is not equal to the fore pmpaddr's value"
+        end>>=2
+    elif(mode==2):
+        if(begin>>2 != end>>2 or begin&0b11!=0 or end&0b11 != 0b11):
+            raise "NA4's begin and end's format is wrong"
+        end>>=2
+    else:
+        len=1+end-begin
+        if(len > 1<<57 or len&(len-1) !=0 ):
+            raise "the length of the section is larger than 1^57 or is not aligned to 2^exp"
+        mask=len-1
+        if(begin&mask!=0):
+            raise "the addr of the section is not aligned to 2^exp"
+        mask>>=1
+        end=begin|mask
+        end>>=2
+    return cfg,end
+        
 
-def encode_pmpcfg0(dict):
-    sub_pmpcfg_name=["pmp0cfg","pmp1cfg","pmp2cfg","pmp3cfg",\
-        "pmp4cfg","pmp5cfg","pmp6cfg","pmp7cfg"]
-    sub_pmpcfg_name.reverse()
-    data=0
-    for name in sub_pmpcfg_name:
-        data<<=8
-        data|=encode_subpmpcfg(dict[name])
-    return data
-
-def encode_pmpcfg2(dict):
-    sub_pmpcfg_name=["pmp8cfg","pmp9cfg","pmp10cfg","pmp11cfg",\
-        "pmp12cfg","pmp13cfg","pmp14cfg","pmp15cfg"]
-    sub_pmpcfg_name.reverse()
-    data=0
-    for name in sub_pmpcfg_name:
-        data<<=8
-        data|=encode_subpmpcfg(dict[name])
-    return data
 
 def encode_mstatus(dict):
     name=["SIE","MIE","SPIE","UBE","MPIE","SPP","VS","MPP","FS","XS","MPRV",\
@@ -108,28 +119,32 @@ def generate_bin(filename,targetname):
             ("mideleg",encode_mideleg),
             ("mie",encode_mie),
             ("mtvec",encode_tvec),
-            ("mcounteren",encode_countern),
-            ("pmpcfg0",encode_pmpcfg0),
-            ("pmpcfg2",encode_pmpcfg2),
-            ("pmpaddr0",encode_pmpaddr),
-            ("pmpaddr1",encode_pmpaddr),
-            ("pmpaddr2",encode_pmpaddr),
-            ("pmpaddr3",encode_pmpaddr),
-            ("pmpaddr4",encode_pmpaddr),
-            ("pmpaddr5",encode_pmpaddr),
-            ("pmpaddr6",encode_pmpaddr),
-            ("pmpaddr7",encode_pmpaddr),
-            ("pmpaddr8",encode_pmpaddr),
-            ("pmpaddr9",encode_pmpaddr),
-            ("pmpaddr10",encode_pmpaddr),
-            ("pmpaddr11",encode_pmpaddr),
-            ("pmpaddr12",encode_pmpaddr),
-            ("pmpaddr13",encode_pmpaddr),
-            ("pmpaddr14",encode_pmpaddr),
-            ("pmpaddr15",encode_pmpaddr)
+            ("mcounteren",encode_countern)
         ]
         for name,func in reg_encoder:
             f.write(struct.pack('Q',func(reg_state["csr"][name])))
+
+        pmp_set = reg_state["pmp"]
+        pmpcfg_name=["pmp0cfg","pmp1cfg","pmp2cfg","pmp3cfg",
+        "pmp4cfg","pmp5cfg","pmp6cfg","pmp7cfg",
+        "pmp8cfg","pmp9cfg","pmp10cfg","pmp11cfg",
+        "pmp12cfg","pmp13cfg","pmp14cfg","pmp15cfg"]
+        pmpcfg_set=[]
+        pmpcfg=0
+        pmpaddr_set=[]
+        for i,name in enumerate(pmpcfg_name):
+            cfg,addr=encode_pmp(pmp_set[name],0 if i==0 else pmpaddr_set[-1])
+            pmpcfg|=cfg<<64
+            pmpcfg>>=8
+            if(i%8==0):
+                pmpcfg_set.append(copy(pmpcfg))
+                pmpcfg=0
+            pmpaddr_set.append(addr)
+        for cfg in pmpcfg_set:
+            f.write(struct.pack('Q',cfg))
+        for addr in pmpaddr_set:
+            f.write(struct.pack('Q',addr))
+
         target_set = reg_state["target"]
         mstatus = encode_mstatus(target_set["mstatus"])
         priv = encode_priv(target_set["priv"])
@@ -165,28 +180,33 @@ def generate_hex(filename,targetname):
             ("mideleg",encode_mideleg),
             ("mie",encode_mie),
             ("mtvec",encode_tvec),
-            ("mcounteren",encode_countern),
-            ("pmpcfg0",encode_pmpcfg0),
-            ("pmpcfg2",encode_pmpcfg2),
-            ("pmpaddr0",encode_pmpaddr),
-            ("pmpaddr1",encode_pmpaddr),
-            ("pmpaddr2",encode_pmpaddr),
-            ("pmpaddr3",encode_pmpaddr),
-            ("pmpaddr4",encode_pmpaddr),
-            ("pmpaddr5",encode_pmpaddr),
-            ("pmpaddr6",encode_pmpaddr),
-            ("pmpaddr7",encode_pmpaddr),
-            ("pmpaddr8",encode_pmpaddr),
-            ("pmpaddr9",encode_pmpaddr),
-            ("pmpaddr10",encode_pmpaddr),
-            ("pmpaddr11",encode_pmpaddr),
-            ("pmpaddr12",encode_pmpaddr),
-            ("pmpaddr13",encode_pmpaddr),
-            ("pmpaddr14",encode_pmpaddr),
-            ("pmpaddr15",encode_pmpaddr)
+            ("mcounteren",encode_countern)
         ]
         for name,func in reg_encoder:
             word.extend(word2hex(func(reg_state['csr'][name])))
+
+        pmp_set = reg_state["pmp"]
+        pmpcfg_name=["pmp0cfg","pmp1cfg","pmp2cfg","pmp3cfg",
+        "pmp4cfg","pmp5cfg","pmp6cfg","pmp7cfg",
+        "pmp8cfg","pmp9cfg","pmp10cfg","pmp11cfg",
+        "pmp12cfg","pmp13cfg","pmp14cfg","pmp15cfg"]
+        pmpcfg_set=[]
+        pmpcfg=0
+        pmpaddr_set=[]
+        for i,name in enumerate(pmpcfg_name):
+            cfg,addr=encode_pmp(pmp_set[name],0 if i==0 else pmpaddr_set[-1])
+            pmpcfg|=cfg<<64
+            pmpcfg>>=8
+            print("cfg",hex(pmpcfg))
+            if((i+1)%8==0):
+                pmpcfg_set.append(copy(pmpcfg))
+                pmpcfg=0
+            pmpaddr_set.append(addr)
+        for cfg in pmpcfg_set:
+            word.extend(word2hex(cfg))
+        for addr in pmpaddr_set:
+            word.extend(word2hex(addr))
+
         target_set = reg_state["target"]
         mstatus = encode_mstatus(target_set["mstatus"])
         priv = encode_priv(target_set["priv"])
@@ -215,7 +235,7 @@ if __name__ == "__main__":
     targetname = sys.argv[2]
     choose = sys.argv[3]
     print("get the register state from",filename)
-    print("geenrate",choose)
+    print("genrate",choose)
     if choose == "bin":
         generate_bin(filename,targetname)
     else:

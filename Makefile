@@ -28,7 +28,7 @@ $(REG_STATE_TEXT_HEX):dump_initial.S
 	od -v -An -tx4 dump_initial.bin > $(REG_STATE_TEXT_HEX)
 	rm -rf dump_initial.bin
 
-$(REG_STATE_DATA_HEX):$(REG_STATE_FILE)
+$(REG_STATE_DATA_HEX):$(REG_STATE_FILE) reg_init.py
 	python3 reg_init.py $(REG_STATE_FILE) $(REG_STATE_DATA_HEX) hex
 
 dummy:
