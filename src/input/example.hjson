@@ -1,0 +1,72 @@
+{
+    xreg: [
+        /* x1  */ 0x1010101010101011
+        /* x2  */ 0x1010101010101012
+        /* x3  */ 0x1010101010101013
+        /* x4  */ 0x1010101010101014
+        /* x5  */ 0x1010101010101015
+        /* x6  */ 0x1010101010101016
+        /* x7  */ 0x1010101010101017
+        /* x8  */ 0x1010101010101018
+        /* x9  */ 0x1010101010101019
+        /* x10 */ 0x101010101010101a
+        /* x11 */ 0x101010101010101b
+        /* x12 */ 0x101010101010101c
+        /* x13 */ 0x101010101010101d
+        /* x14 */ 0x101010101010101e
+        /* x15 */ 0x101010101010101f
+        /* x16 */ 0x1010101010101020
+        /* x17 */ 0x1010101010101021
+        /* x18 */ 0x1010101010101022
+        /* x19 */ 0x1010101010101023
+        /* x20 */ 0x1010101010101024
+        /* x21 */ 0x1010101010101025
+        /* x22 */ 0x1010101010101026
+        /* x23 */ 0x1010101010101027
+        /* x24 */ 0x1010101010101028
+        /* x25 */ 0x1010101010101029
+        /* x26 */ 0x101010101010102a
+        /* x27 */ 0x101010101010102b
+        /* x28 */ 0x101010101010102c
+        /* x29 */ 0x101010101010102d
+        /* x30 */ 0x101010101010102e
+        /* x31 */ 0x101010101010102f
+    ]
+    freg: [
+        /* f0  */ 0xaaaaaaaaaaaaaa10
+        /* f1  */ 0xaaaaaaaaaaaaaa11
+        /* f2  */ 0xaaaaaaaaaaaaaa12
+        /* f3  */ 0xaaaaaaaaaaaaaa13
+        /* f4  */ 0xaaaaaaaaaaaaaa14
+        /* f5  */ 0xaaaaaaaaaaaaaa15
+        /* f6  */ 0xaaaaaaaaaaaaaa16
+        /* f7  */ 0xaaaaaaaaaaaaaa17
+        /* f8  */ 0xaaaaaaaaaaaaaa18
+        /* f9  */ 0xaaaaaaaaaaaaaa19
+        /* f10 */ 0xaaaaaaaaaaaaaa1a
+        /* f11 */ 0xaaaaaaaaaaaaaa1b
+        /* f12 */ 0xaaaaaaaaaaaaaa1c
+        /* f13 */ 0xaaaaaaaaaaaaaa1d
+        /* f14 */ 0xaaaaaaaaaaaaaa1e
+        /* f15 */ 0xaaaaaaaaaaaaaa1f
+        /* f16 */ 0xaaaaaaaaaaaaaa20
+        /* f17 */ 0xaaaaaaaaaaaaaa21
+        /* f18 */ 0xaaaaaaaaaaaaaa22
+        /* f19 */ 0xaaaaaaaaaaaaaa23
+        /* f20 */ 0xaaaaaaaaaaaaaa24
+        /* f21 */ 0xaaaaaaaaaaaaaa25
+        /* f22 */ 0xaaaaaaaaaaaaaa26
+        /* f23 */ 0xaaaaaaaaaaaaaa27
+        /* f24 */ 0xaaaaaaaaaaaaaa28
+        /* f25 */ 0xaaaaaaaaaaaaaa29
+        /* f26 */ 0xaaaaaaaaaaaaaa2a
+        /* f27 */ 0xaaaaaaaaaaaaaa2b
+        /* f28 */ 0xaaaaaaaaaaaaaa2c
+        /* f29 */ 0xaaaaaaaaaaaaaa2d
+        /* f30 */ 0xaaaaaaaaaaaaaa2e
+        /* f31 */ 0xaaaaaaaaaaaaaa2f
+    ]
+    csr: {
+        
+    }
+}
