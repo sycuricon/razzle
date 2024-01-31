@@ -1,7 +1,7 @@
-import sys
 import json
 import struct
 from copy import copy
+import argparse
 
 
 def encode_bit(dict, name_set, offset_set, len_set):
@@ -521,16 +521,16 @@ def generate_hex(filename, targetname):
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print(
-            "we need filename of register state, the out filename, the choice of hex or bin"
-        )
-    filename = sys.argv[1]
-    targetname = sys.argv[2]
-    choose = sys.argv[3]
-    print("get the register state from", filename)
-    print("genrate", choose)
-    if choose == "bin":
-        generate_bin(filename, targetname)
+    parse = argparse.ArgumentParser(description="RVSnap is a RISC-V processor snapshot generator with a user-friendly interface that allows editing in JSON format.")
+    parse.add_argument("-I", "--input", dest="input", required=True, help="input json")
+    parse.add_argument("-O", "--output", dest="output", help="output file")
+    parse.add_argument("-f", "--format", dest="format", default="hex", help="snapshot format")
+    args = parse.parse_args()
+
+    if args.output is None:
+        args.output = f"default.{args.format}"
+
+    if args.format == "bin":
+        generate_bin(args.input, args.output)
     else:
-        generate_hex(filename, targetname)
+        generate_hex(args.input, args.output)
