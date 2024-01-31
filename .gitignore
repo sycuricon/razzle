@@ -1,5 +1,13 @@
+build/
 *.o
 *.bin
 *.hex
 
+__pycache__/
+*.pyc
+
 .vscode/
+.pytest_cache/
+
+
+.idea/
