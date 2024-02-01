@@ -2,146 +2,143 @@ import hjson
 import logging
 from riscv import *
 
-def parse_march(march):
-    if len(march) < 5:
-        return None, None
-    march = march.lower().replace("rv64g", "rv64imafd").replace("rv32g", "rv32imafd")
-    if march[0:5] not in ['rv64i', 'rv32i']:
-        logging.error(f"Unsupported march {march[0:5]}")
-        return None, None
 
-    xlen = int(march[2:4])
-    ext_list = march[4:].split('_')
-    exts = set()
+class RISCVReg:
+    def dump(self):
+        logging.info(f"{self}: {self.__dict__}")
 
-    for base_ext in ext_list[0]:
-        if base_ext not in "imafdc":
-            logging.error(f"Unsupported base extension {base_ext}")
-            return None, None
-        exts.add(base_ext)
+    def decode_raw(self, reg_str, base):
+        return int(reg_str, base=base)
 
-    if len(ext_list) == 1:
-        return xlen, exts
+    def decode_hex(self, reg_str):
+        return self.decode_raw(reg_str, 16)
 
-    for ext in ext_list[1:]:
-        if ext[0] != 'z':
-            logging.error(f"Unsupported extension {ext}")
-            return None, None
-        exts.add(ext)
+    def decode_dec(self, reg_str):
+        return self.decode_raw(reg_str, 10)
 
-    return xlen, exts
+    def decode_bin(self, reg_str):
+        return self.decode_raw(reg_str, 2)
 
-def decode_raw(reg_str, base):
-    return int(reg_str, base=base)
+    def decode_reg(self, reg_str):
+        if len(reg_str) <= 2:
+            return self.decode_dec(reg_str)
 
-def decode_hex(reg_str):
-    return decode_raw(reg_str, 16)
+        if reg_str[1] == "x":
+            return self.decode_hex(reg_str)
+        elif reg_str[1] == "b":
+            return self.decode_bin(reg_str)
+        else:
+            return self.decode_dec(reg_str)
 
-def decode_dec(reg_str):
-    return decode_raw(reg_str, 10)
+    def decode_fields(self, val_dict, meta_list):
+        val = 0
+        for name, offset, mask in meta_list:
+            val |= (
+                (self.decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))
+            ) << offset
+        return val
 
-def decode_bin(reg_str):
-    return decode_raw(reg_str, 2)
 
-def decode_reg(reg_str):
-    if len(reg_str) <= 2:
-        return decode_dec(reg_str)
+for rf in ["xreg", "freg"]:
+    globals()[f"RISCVReg_{rf}"] = type(
+        f"RISCVReg_{rf}",
+        (RISCVReg,),
+        {
+            "name": rf,
+            "decode": lambda self, xlen, init_state: setattr(
+                self, "data", [self.decode_reg(reg) for reg in init_state[self.name]]
+            ),
+        },
+    )
 
-    if reg_str[1] == 'x':
-        return decode_hex(reg_str)
-    elif reg_str[1] == 'b':
-        return decode_bin(reg_str)
-    else:
-        return decode_dec(reg_str)
+for csr in SUPPORTED_CSR:
+    globals()[f"RISCVReg_{csr}"] = type(
+        f"RISCVReg_{csr}",
+        (RISCVReg,),
+        {
+            "name": csr,
+            "decode": lambda self, xlen, init_state: setattr(
+                self,
+                "data",
+                self.decode_fields(
+                    init_state["csr"][self.name],
+                    globals()[f"RV{xlen}_{self.name.upper()}_META"],
+                ),
+            ),
+        },
+    )
 
-def decode_fields(val_dict, meta_list):
-    val = 0
-    for name, offset, width in meta_list:
-        val |= (decode_reg(val_dict[name]) & ((1 << width) - 1)) << offset
-    return val
-
-def decode_mstatus(state_dict):
-    return decode_fields(state_dict["csr"]["mstatus"], MSTATUS_META)
-
-def decode_misa(state_dict):
-    return decode_fields(state_dict["csr"]["misa"], MISA_META)
-
-def decode_mcounteren(state_dict):
-    return decode_fields(state_dict["csr"]["mcounteren"], MCOUNTEREN_META)
-
-def decode_scounteren(state_dict):
-    return decode_fields(state_dict["csr"]["scounteren"], MCOUNTEREN_META)
-
-def decode_mie(state_dict):
-    return decode_fields(state_dict["csr"]["mie"], MIE_META)
-
-def decode_mideleg(state_dict):
-    return decode_fields(state_dict["csr"]["mideleg"], MIE_META)
-
-def decode_medeleg(state_dict):
-    return decode_fields(state_dict["csr"]["medeleg"], MEDELEG_META)
-
-def decode_masked_fields(val_dict, meta_list):
-    val = 0
-    for name, offset, mask in meta_list:
-        val |= ((decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))) << offset
-    return val
-
-def deccode_mtvec(state_dict):
-    return decode_masked_fields(state_dict["csr"]["mtvec"], MTVEC_META)
-
-def deccode_stvec(state_dict):
-    return decode_masked_fields(state_dict["csr"]["stvec"], MTVEC_META)
-
-def decode_satp(state_dict):
-    return decode_masked_fields(state_dict["csr"]["satp"], SATP_META)
 
 class RISCVState:
-    def __init__(self):
-        self.xreg = None
-        self.freg = None
-        self.mstatus = None
-        self.misa = None
-        self.medeleg = None
-        self.mideleg = None
-        self.mie = None
-        self.mtvec = None
-        self.stvec = None
-        self.mcounteren = None
-        self.scounteren = None
-        self.satp = None
+    def __init__(self, xlen, has_float, csr_list):
+        self.xlen = xlen
+        self.has_float = has_float
+        self.csr_list = csr_list
 
-    def dump_state(self):
+        self.target_list = [
+            t for t in [
+                "xreg",
+                "freg" if self.has_float else None,
+            ] if t is not None
+        ] + csr_list
+
+        for t in self.target_list:
+            setattr(self, t, globals()[f"RISCVReg_{t}"]())
+
+    def dump(self):
         logging.info(f"{self}: {self.__dict__}")
 
     def load_state(self, init_state):
-        self.xreg = [decode_reg(reg) for reg in init_state["xreg"]]
-        self.freg = [decode_reg(reg) for reg in init_state["freg"]]
-        self.mstatus = decode_mstatus(init_state)
-        self.misa = decode_misa(init_state)
-        self.mie = decode_mie(init_state)
-        self.mideleg = decode_mideleg(init_state)
-        self.medeleg = decode_medeleg(init_state)
-        self.mcounteren = decode_mcounteren(init_state)
-        self.scounteren = decode_scounteren(init_state)
-        self.mtvec = deccode_mtvec(init_state)
-        self.stvec = deccode_stvec(init_state)
-        self.satp = decode_satp(init_state)
+        print(csr)
+        for t in self.target_list:
+            getattr(self, t).decode(self.xlen, init_state)
+            getattr(self, t).dump()
+
 
 class RISCVSnapshot:
-    def __init__(self, march, pmp_num):
-        self.xlen, self.extension = parse_march(march)
+    def __init__(self, march, pmp_num, selected_csr):
+        self.xlen, self.extension = self.parse_march(march)
         self.pmp_num = pmp_num
-        self.state = RISCVState()
+        self.state = RISCVState(
+            self.xlen, self.extension.issuperset(["f", "d"]), selected_csr
+        )
 
-    def dump_arch(self):
+    def parse_march(self, march):
+        if len(march) < 5:
+            return None, None
+        march = march.lower().replace("rv64g", "rv64imafd").replace("rv32g", "rv32imafd")
+        if march[0:5] not in ["rv64i", "rv32i"]:
+            logging.error(f"Unsupported march {march[0:5]}")
+            return None, None
+
+        xlen = int(march[2:4])
+        ext_list = march[4:].split("_")
+        exts = set()
+
+        for base_ext in ext_list[0]:
+            if base_ext not in "imafdc":
+                logging.error(f"Unsupported base extension {base_ext}")
+                return None, None
+            exts.add(base_ext)
+
+        if len(ext_list) == 1:
+            return xlen, exts
+
+        for ext in ext_list[1:]:
+            if ext[0] != "z":
+                logging.error(f"Unsupported extension {ext}")
+                return None, None
+            exts.add(ext)
+
+        return xlen, exts
+
+    def dump(self):
         logging.info(f"{self}: {self.__dict__}")
 
     def load_snapshot(self, init_file):
         init_state = hjson.load(open(init_file, "r"))
         self.state.load_state(init_state)
-        self.state.dump_state()
-        self.dump_arch()
+        self.state.dump()
 
 
 def encode_bit(dict, name_set, offset_set, len_set):
@@ -150,8 +147,10 @@ def encode_bit(dict, name_set, offset_set, len_set):
         val |= (int(dict[name], base=2) & ((1 << len) - 1)) << offset
     return val
 
+
 def encode_priv(dict):
     return int(dict, base=2)
+
 
 def encode_pmp(dict, pmpaddr_fore):
     a_map = {"OFF": "00", "TOR": "01", "NA4": "10", "NAPOT": "11"}

@@ -231,7 +231,8 @@ if __name__ == "__main__":
     else:
         logging.basicConfig(level=logging.INFO)
 
-    design = RISCVSnapshot("rv64gc", 8)
+    design = RISCVSnapshot("rv64gc", 8, SUPPORTED_CSR)
+    design.dump()
     design.load_snapshot(args.input)
 
     # if args.format == "bin":
