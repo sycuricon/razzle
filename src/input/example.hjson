@@ -110,6 +110,34 @@
 			X:      0b0
 			MXL:    0b10
 		}
+        mie: {
+			USI:    0b0
+			SSI:    0b0
+			HSI:    0b0
+			MSI:    0b1
+			UTI:    0b0
+			STI:    0b0
+			HTI:    0b0
+			MTI:    0b0
+			UEI:    0b0
+			SEI:    0b0
+			HEI:    0b0
+			MEI:    0b0
+		}
+        mideleg: {
+			USI:    0b0
+			SSI:    0b1
+			HSI:    0b0
+			MSI:    0b0
+			UTI:    0b0
+			STI:    0b1
+			HTI:    0b0
+			MTI:    0b0
+			UEI:    0b0
+			SEI:    0b1
+			HEI:    0b0
+			MEI:    0b0
+		}
         medeleg: {
 			Inst_Addr_Misalign:     0b1
 			Inst_Access_Fault:      0b0
@@ -127,33 +155,86 @@
 			Load_Page_Fault:        0b1
 			Store_Page_Fault:       0b1
 		}
-        mideleg: {
-			USI:    0b0
-			SSI:    0b1
-			HSI:    0b0
-			MSI:    0b0
-			UTI:    0b0
-			STI:    0b1
-			HTI:    0b0
-			MTI:    0b0
-			UEI:    0b0
-			SEI:    0b1
-			HEI:    0b0
-			MEI:    0b0
+		mcounteren: {
+			CY:		0b1
+			TM:		0b1
+			IR:		0b1
+			HPM3:	0b1
+			HPM4:	0b1
+			HPM5:	0b1
+			HPM6:	0b1
+			HPM7:	0b1
+			HPM8:	0b1
+			HPM9:	0b1
+			HPM10:	0b1
+			HPM11:	0b1
+			HPM12:	0b1
+			HPM13:	0b1
+			HPM14:	0b1
+			HPM15:	0b1
+			HPM16:	0b1
+			HPM17:	0b1
+			HPM18:	0b1
+			HPM19:	0b1
+			HPM20:	0b1
+			HPM21:	0b1
+			HPM22:	0b1
+			HPM23:	0b1
+			HPM24:	0b1
+			HPM25:	0b1
+			HPM26:	0b1
+			HPM27:	0b1
+			HPM28:	0b1
+			HPM29:	0b1
+			HPM30:	0b1
+			HPM31:	0b1
 		}
-        mie: {
-			USI:    0b0
-			SSI:    0b0
-			HSI:    0b0
-			MSI:    0b1
-			UTI:    0b0
-			STI:    0b0
-			HTI:    0b0
-			MTI:    0b0
-			UEI:    0b0
-			SEI:    0b0
-			HEI:    0b0
-			MEI:    0b0
+		scounteren: {
+			CY:		0b1
+			TM:		0b1
+			IR:		0b1
+			HPM3:	0b1
+			HPM4:	0b1
+			HPM5:	0b1
+			HPM6:	0b1
+			HPM7:	0b1
+			HPM8:	0b1
+			HPM9:	0b1
+			HPM10:	0b1
+			HPM11:	0b1
+			HPM12:	0b1
+			HPM13:	0b1
+			HPM14:	0b1
+			HPM15:	0b1
+			HPM16:	0b1
+			HPM17:	0b1
+			HPM18:	0b1
+			HPM19:	0b1
+			HPM20:	0b1
+			HPM21:	0b1
+			HPM22:	0b1
+			HPM23:	0b1
+			HPM24:	0b1
+			HPM25:	0b1
+			HPM26:	0b1
+			HPM27:	0b1
+			HPM28:	0b1
+			HPM29:	0b1
+			HPM30:	0b1
+			HPM31:	0b1
+		}
+		mtvec: {
+			BASE:	0x0000000080000004
+			MODE:	0b00
+		}
+		stvec: {
+			BASE:	0x0000000080000004
+			MODE:	0b00
+		}
+		satp: {
+			PPN:	0x0
+			ASID:	0x0
+			MODE:	0x0
 		}
     }
 }

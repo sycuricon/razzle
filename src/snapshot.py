@@ -81,14 +81,20 @@ def decode_mideleg(state_dict):
 def decode_medeleg(state_dict):
     return decode_fields(state_dict["csr"]["medeleg"], MEDELEG_META)
 
+def decode_masked_fields(val_dict, meta_list):
+    val = 0
+    for name, offset, mask in meta_list:
+        val |= ((decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))) << offset
+    return val
+
 def deccode_mtvec(state_dict):
-    return decode_fields(state_dict["csr"]["mtvec"], MTVEC_META)
+    return decode_masked_fields(state_dict["csr"]["mtvec"], MTVEC_META)
 
 def deccode_stvec(state_dict):
-    return decode_fields(state_dict["csr"]["stvec"], MTVEC_META)
+    return decode_masked_fields(state_dict["csr"]["stvec"], MTVEC_META)
 
 def decode_satp(state_dict):
-    return decode_fields(state_dict["csr"]["satp"], SATP_META)
+    return decode_masked_fields(state_dict["csr"]["satp"], SATP_META)
 
 class RISCVState:
     def __init__(self):
@@ -113,14 +119,14 @@ class RISCVState:
         self.freg = [decode_reg(reg) for reg in init_state["freg"]]
         self.mstatus = decode_mstatus(init_state)
         self.misa = decode_misa(init_state)
-        self.medeleg = decode_medeleg(init_state)
-        self.mideleg = decode_mideleg(init_state)
         self.mie = decode_mie(init_state)
-        # self.mtvec = deccode_mtvec(init_state)
-        # self.mcounteren = decode_mcounteren(init_state)
-        # self.scounteren = decode_scounteren(init_state)
-        # self.stvec = deccode_stvec(init_state)
-        # self.satp = decode_satp(init_state)
+        self.mideleg = decode_mideleg(init_state)
+        self.medeleg = decode_medeleg(init_state)
+        self.mcounteren = decode_mcounteren(init_state)
+        self.scounteren = decode_scounteren(init_state)
+        self.mtvec = deccode_mtvec(init_state)
+        self.stvec = deccode_stvec(init_state)
+        self.satp = decode_satp(init_state)
 
 class RISCVSnapshot:
     def __init__(self, march, pmp_num):

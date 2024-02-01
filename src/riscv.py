@@ -117,14 +117,14 @@ MEDELEG_META = [
 ]
 
 MTVEC_META = [
-#   (name,    offset,  width)
-    ("MODE",    0,      2),
-    ("BASE",    2,      62),
+#   (name,    offset,   mask)
+    ("MODE",    0,      0x3),
+    ("BASE",    2,      0xffff_ffff_ffff_fffc),
 ]
 
 SATP_META = [
-#   (name,    offset,  width)
-    ("PPN",     0,      44),
-    ("ASID",    44,     16),
-    ("MODE",    60,     4),
+#   (name,    offset,   mask)
+    ("PPN",     0,      0x00ff_ffff_ffff_f000),
+    ("ASID",    44,     0xffff),
+    ("MODE",    60,     0xf),
 ]
