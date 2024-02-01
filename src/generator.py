@@ -3,7 +3,7 @@ import struct
 from copy import copy
 import logging
 import argparse
-from riscv import *
+from snapshot import *
 
 def generate_bin(filename, targetname):
     binary_filename = targetname
@@ -12,7 +12,7 @@ def generate_bin(filename, targetname):
         reg_encoder = [
             ("stvec", encode_tvec),
             ("scounteren", encode_countern),
-            ("sscratch", encode_reg),
+            ("sscratch", decode_reg),
             ("satp", encode_satp),
             ("misa", encode_misa),
             ("medeleg", encode_medeleg),
@@ -65,7 +65,7 @@ def generate_bin(filename, targetname):
         mstatus = (mstatus & ~(0b11 << 11)) | ((priv & 0b11) << 11)
         mstatus |= (mstatus & (0b1 << 3)) << 4
         f.write(struct.pack("Q", mstatus))
-        pc = encode_reg(target_set["address"])
+        pc = decode_reg(target_set["address"])
         f.write(struct.pack("Q", pc))
         reg_name = [
             "x1",
@@ -101,7 +101,7 @@ def generate_bin(filename, targetname):
             "x31",
         ]
         for name in reg_name:
-            f.write(struct.pack("Q", encode_reg(reg_state["GPR"][name])))
+            f.write(struct.pack("Q", decode_reg(reg_state["GPR"][name])))
 
 
 def generate_hex(filename, targetname):
@@ -117,7 +117,7 @@ def generate_hex(filename, targetname):
         reg_encoder = [
             ("stvec", encode_tvec),
             ("scounteren", encode_countern),
-            ("sscratch", encode_reg),
+            ("sscratch", decode_reg),
             ("satp", encode_satp),
             ("misa", encode_misa),
             ("medeleg", encode_medeleg),
@@ -171,7 +171,7 @@ def generate_hex(filename, targetname):
         mstatus = (mstatus & ~(0b11 << 11)) | ((priv & 0b11) << 11)
         mstatus |= (mstatus & (0b1 << 3)) << 4
         word.extend(word2hex(mstatus))
-        pc = encode_reg(target_set["address"])
+        pc = decode_reg(target_set["address"])
         word.extend(word2hex(pc))
         reg_name = [
             "x1",
@@ -207,7 +207,7 @@ def generate_hex(filename, targetname):
             "x31",
         ]
         for name in reg_name:
-            word.extend(word2hex(encode_reg(reg_state["GPR"][name])))
+            word.extend(word2hex(decode_reg(reg_state["GPR"][name])))
         if len(word) % 4 != 0:
             word.extend(["00000000", "00000000"])
         word_line = [" ".join(word[i : i + 4]) + "\n" for i in range(0, len(word), 4)]

@@ -1,9 +1,6 @@
 import hjson
 import logging
 
-BASE_EXTS = "imafdc"
-EXT_PREFIX = "zsx"
-
 def parse_march(march):
     if len(march) < 5:
         return None, None
@@ -17,7 +14,7 @@ def parse_march(march):
     exts = set()
 
     for base_ext in ext_list[0]:
-        if base_ext not in BASE_EXTS:
+        if base_ext not in "imafdc":
             logging.error(f"Unsupported base extension {base_ext}")
             return None, None
         exts.add(base_ext)
@@ -26,18 +23,45 @@ def parse_march(march):
         return xlen, exts
 
     for ext in ext_list[1:]:
-        if ext[0] not in EXT_PREFIX:
+        if ext[0] != 'z':
             logging.error(f"Unsupported extension {ext}")
             return None, None
         exts.add(ext)
 
     return xlen, exts
 
+def decode_raw(reg_str, base):
+    return int(reg_str, base=base)
+
+def decode_hex(reg_str):
+    return decode_raw(reg_str, 16)
+
+def decode_dec(reg_str):
+    return decode_raw(reg_str, 10)
+
+def decode_bin(reg_str):
+    return decode_raw(reg_str, 2)
+
+def decode_reg(reg_str):
+    if len(reg_str) <= 2:
+        return decode_dec(reg_str)
+
+    if reg_str[1] == 'x':
+        return decode_hex(reg_str)
+    elif reg_str[1] == 'b':
+        return decode_bin(reg_str)
+    else:
+        return decode_dec(reg_str)
+
+def decode_fields(val_dict, meta_list):
+    val = 0
+    for name, offset, width in meta_list:
+        val |= (decode_reg(val_dict[name]) & ((1 << width) - 1)) << offset
+    return val
+
 class RISCVState:
-    def __init__(self):
-        self.xreg = [0] * 31
-        self.freg = [0] * 32
-        # self.csr.mie = 0
+    def __init__(self, width):
+        self.width = width
 
     def dump_state(self):
         logging.info(f"{self}: {self.__dict__}")
@@ -173,8 +197,7 @@ def encode_countern(dict):
     return encode_bit(dict, name, offset, len)
 
 
-def encode_reg(dict):
-    return int(dict, base=16)
+
 
 
 def encode_priv(dict):
