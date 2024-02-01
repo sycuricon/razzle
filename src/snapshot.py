@@ -79,7 +79,7 @@ def decode_mideleg(state_dict):
     return decode_fields(state_dict["csr"]["mideleg"], MIE_META)
 
 def decode_medeleg(state_dict):
-    return decode_fields(state_dict["csr"]["medeleg"], MIE_META)
+    return decode_fields(state_dict["csr"]["medeleg"], MEDELEG_META)
 
 def deccode_mtvec(state_dict):
     return decode_fields(state_dict["csr"]["mtvec"], MTVEC_META)
@@ -91,11 +91,36 @@ def decode_satp(state_dict):
     return decode_fields(state_dict["csr"]["satp"], SATP_META)
 
 class RISCVState:
-    def __init__(self, width):
-        self.width = width
+    def __init__(self):
+        self.xreg = None
+        self.freg = None
+        self.mstatus = None
+        self.misa = None
+        self.medeleg = None
+        self.mideleg = None
+        self.mie = None
+        self.mtvec = None
+        self.stvec = None
+        self.mcounteren = None
+        self.scounteren = None
+        self.satp = None
 
     def dump_state(self):
         logging.info(f"{self}: {self.__dict__}")
+
+    def load_state(self, init_state):
+        self.xreg = [decode_reg(reg) for reg in init_state["xreg"]]
+        self.freg = [decode_reg(reg) for reg in init_state["freg"]]
+        self.mstatus = decode_mstatus(init_state)
+        self.misa = decode_misa(init_state)
+        self.medeleg = decode_medeleg(init_state)
+        self.mideleg = decode_mideleg(init_state)
+        self.mie = decode_mie(init_state)
+        # self.mtvec = deccode_mtvec(init_state)
+        # self.mcounteren = decode_mcounteren(init_state)
+        # self.scounteren = decode_scounteren(init_state)
+        # self.stvec = deccode_stvec(init_state)
+        # self.satp = decode_satp(init_state)
 
 class RISCVSnapshot:
     def __init__(self, march, pmp_num):
@@ -108,7 +133,9 @@ class RISCVSnapshot:
 
     def load_snapshot(self, init_file):
         init_state = hjson.load(open(init_file, "r"))
-        self.state.dump_state() 
+        self.state.load_state(init_state)
+        self.state.dump_state()
+        self.dump_arch()
 
 
 def encode_bit(dict, name_set, offset_set, len_set):
