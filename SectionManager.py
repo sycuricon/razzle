@@ -16,14 +16,18 @@ class SectionManager:
             self.virtual_memory_pool.extend(list(range(begin,end,0x1000)))
         self.section=[]
         self.page_manager=page_manager
-
-    def get_new_page(self):
+    
+    def choose_new_page(self):
         if len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0:
             raise "no memory in memory pool"
         paddr=self.memory_pool[0]
         vaddr=self.virtual_memory_pool[0]
         self.memory_pool.pop(0)
         self.virtual_memory_pool.pop(0)
+        return paddr,vaddr
+
+    def get_new_page(self):
+        paddr,vaddr=self.choose_new_page()
         self.page_manager.add_page(vaddr,paddr)
         return paddr,vaddr
     
