@@ -1,5 +1,6 @@
 import hjson
 import logging
+from riscv import *
 
 def parse_march(march):
     if len(march) < 5:
@@ -59,6 +60,36 @@ def decode_fields(val_dict, meta_list):
         val |= (decode_reg(val_dict[name]) & ((1 << width) - 1)) << offset
     return val
 
+def decode_mstatus(state_dict):
+    return decode_fields(state_dict["csr"]["mstatus"], MSTATUS_META)
+
+def decode_misa(state_dict):
+    return decode_fields(state_dict["csr"]["misa"], MISA_META)
+
+def decode_mcounteren(state_dict):
+    return decode_fields(state_dict["csr"]["mcounteren"], MCOUNTEREN_META)
+
+def decode_scounteren(state_dict):
+    return decode_fields(state_dict["csr"]["scounteren"], MCOUNTEREN_META)
+
+def decode_mie(state_dict):
+    return decode_fields(state_dict["csr"]["mie"], MIE_META)
+
+def decode_mideleg(state_dict):
+    return decode_fields(state_dict["csr"]["mideleg"], MIE_META)
+
+def decode_medeleg(state_dict):
+    return decode_fields(state_dict["csr"]["medeleg"], MIE_META)
+
+def deccode_mtvec(state_dict):
+    return decode_fields(state_dict["csr"]["mtvec"], MTVEC_META)
+
+def deccode_stvec(state_dict):
+    return decode_fields(state_dict["csr"]["stvec"], MTVEC_META)
+
+def decode_satp(state_dict):
+    return decode_fields(state_dict["csr"]["satp"], SATP_META)
+
 class RISCVState:
     def __init__(self, width):
         self.width = width
@@ -86,220 +117,8 @@ def encode_bit(dict, name_set, offset_set, len_set):
         val |= (int(dict[name], base=2) & ((1 << len) - 1)) << offset
     return val
 
-
-def encode_tvec(dict):
-    return int(dict["BASE"], base=16) | int(dict["MODE"], base=2)
-
-
-def encode_countern(dict):
-    name = [
-        "CY",
-        "TM",
-        "IR",
-        "HPM3",
-        "HPM4",
-        "HPM5",
-        "HPM6",
-        "HPM7",
-        "HPM8",
-        "HPM9",
-        "HPM10",
-        "HPM11",
-        "HPM12",
-        "HPM13",
-        "HPM14",
-        "HPM15",
-        "HPM16",
-        "HPM17",
-        "HPM18",
-        "HPM19",
-        "HPM20",
-        "HPM21",
-        "HPM22",
-        "HPM23",
-        "HPM24",
-        "HPM25",
-        "HPM26",
-        "HPM27",
-        "HPM28",
-        "HPM29",
-        "HPM30",
-        "HPM31",
-    ]
-    offset = [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18,
-        19,
-        20,
-        21,
-        22,
-        23,
-        24,
-        25,
-        26,
-        27,
-        28,
-        29,
-        30,
-        31,
-    ]
-    len = [
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-        1,
-    ]
-    return encode_bit(dict, name, offset, len)
-
-
-
-
-
 def encode_priv(dict):
     return int(dict, base=2)
-
-
-def encode_satp(dict):
-    return (
-        (int(dict["PPN"], base=16) >> 12)
-        | (int(dict["ASID"], base=16) << 44)
-        | (int(dict["MODE"], base=16) << 60)
-    )
-
-
-def encode_misa(dict):
-    name = [
-        "A",
-        "B",
-        "C",
-        "D",
-        "E",
-        "F",
-        "H",
-        "I",
-        "J",
-        "M",
-        "N",
-        "P",
-        "Q",
-        "S",
-        "U",
-        "V",
-        "X",
-        "64",
-    ]
-    offset = [0, 1, 2, 3, 4, 5, 7, 8, 9, 12, 13, 15, 16, 18, 20, 21, 23, 63]
-    len = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    return encode_bit(dict, name, offset, len)
-
-
-def encode_medeleg(dict):
-    name = [
-        "Iaddr_Misalign",
-        "Iaccess_Fault",
-        "Illegal_Inst",
-        "Breakpoint",
-        "Laddr_Misalign",
-        "Laccess_Fault",
-        "Saddr_Misalign",
-        "Saccess_Fault",
-        "Ecall_U",
-        "Ecall_S",
-        "Ecall_H",
-        "Ecall_M",
-        "IPage_Fault",
-        "LPage_Fault",
-        "SPage_Fault",
-    ]
-    offset = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 15]
-    len = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    return encode_bit(dict, name, offset, len)
-
-
-def encode_mideleg(dict):
-    name = [
-        "USI",
-        "SSI",
-        "HSI",
-        "MSI",
-        "UTI",
-        "STI",
-        "HTI",
-        "MTI",
-        "UEI",
-        "SEI",
-        "HEI",
-        "MEI",
-    ]
-    offset = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    len = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    return encode_bit(dict, name, offset, len)
-
-
-def encode_mie(dict):
-    name = [
-        "USIE",
-        "SSIE",
-        "HSIE",
-        "MSIE",
-        "UTIE",
-        "STIE",
-        "HTIE",
-        "MTIE",
-        "UEIE",
-        "SEIE",
-        "HEIE",
-        "MEIE",
-    ]
-    offset = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
-    len = [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
-    return encode_bit(dict, name, offset, len)
-
 
 def encode_pmp(dict, pmpaddr_fore):
     a_map = {"OFF": "00", "TOR": "01", "NA4": "10", "NAPOT": "11"}
@@ -332,54 +151,3 @@ def encode_pmp(dict, pmpaddr_fore):
         end = begin | mask
         end >>= 2
     return cfg, end
-
-
-def encode_mstatus(dict):
-    name = [
-        "SIE",
-        "MIE",
-        "SPIE",
-        "UBE",
-        "MPIE",
-        "SPP",
-        "VS",
-        "MPP",
-        "FS",
-        "XS",
-        "MPRV",
-        "SUM",
-        "MXR",
-        "TVM",
-        "TW",
-        "TSR",
-        "UXL",
-        "SXL",
-        "SBE",
-        "MBE",
-        "SD",
-    ]
-    offset = [
-        1,
-        3,
-        5,
-        6,
-        7,
-        8,
-        9,
-        11,
-        13,
-        15,
-        17,
-        18,
-        19,
-        20,
-        21,
-        22,
-        32,
-        34,
-        36,
-        37,
-        63,
-    ]
-    len = [1, 1, 1, 1, 1, 1, 2, 2, 2, 2, 1, 1, 1, 1, 1, 1, 2, 2, 1, 1, 1]
-    return encode_bit(dict, name, offset, len)

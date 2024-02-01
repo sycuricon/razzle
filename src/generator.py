@@ -10,16 +10,16 @@ def generate_bin(filename, targetname):
     reg_state = json.load(open(filename))
     with open(binary_filename, "wb") as f:
         reg_encoder = [
-            ("stvec", encode_tvec),
-            ("scounteren", encode_countern),
+            ("stvec", deccode_stvec),
+            ("scounteren", decode_scounteren),
             ("sscratch", decode_reg),
-            ("satp", encode_satp),
-            ("misa", encode_misa),
-            ("medeleg", encode_medeleg),
-            ("mideleg", encode_mideleg),
-            ("mie", encode_mie),
-            ("mtvec", encode_tvec),
-            ("mcounteren", encode_countern),
+            ("satp", decode_satp),
+            ("misa", decode_misa),
+            ("medeleg", decode_medeleg),
+            ("mideleg", decode_mideleg),
+            ("mie", decode_mie),
+            ("mtvec", deccode_mtvec),
+            ("mcounteren", decode_mcounteren),
         ]
         for name, func in reg_encoder:
             f.write(struct.pack("Q", func(reg_state["csr"][name])))
@@ -60,7 +60,7 @@ def generate_bin(filename, targetname):
             f.write(struct.pack("Q", addr))
 
         target_set = reg_state["target"]
-        mstatus = encode_mstatus(target_set["mstatus"])
+        mstatus = decode_mstatus(target_set["mstatus"])
         priv = encode_priv(target_set["priv"])
         mstatus = (mstatus & ~(0b11 << 11)) | ((priv & 0b11) << 11)
         mstatus |= (mstatus & (0b1 << 3)) << 4
@@ -115,16 +115,16 @@ def generate_hex(filename, targetname):
     word = []
     with open(hex_filename, "wt") as f:
         reg_encoder = [
-            ("stvec", encode_tvec),
-            ("scounteren", encode_countern),
+            ("stvec", deccode_stvec),
+            ("scounteren", decode_scounteren),
             ("sscratch", decode_reg),
-            ("satp", encode_satp),
-            ("misa", encode_misa),
-            ("medeleg", encode_medeleg),
-            ("mideleg", encode_mideleg),
-            ("mie", encode_mie),
-            ("mtvec", encode_tvec),
-            ("mcounteren", encode_countern),
+            ("satp", decode_satp),
+            ("misa", decode_misa),
+            ("medeleg", decode_medeleg),
+            ("mideleg", decode_mideleg),
+            ("mie", decode_mie),
+            ("mtvec", deccode_mtvec),
+            ("mcounteren", decode_mcounteren),
         ]
         for name, func in reg_encoder:
             word.extend(word2hex(func(reg_state["csr"][name])))
@@ -166,7 +166,7 @@ def generate_hex(filename, targetname):
             word.extend(word2hex(addr))
 
         target_set = reg_state["target"]
-        mstatus = encode_mstatus(target_set["mstatus"])
+        mstatus = decode_mstatus(target_set["mstatus"])
         priv = encode_priv(target_set["priv"])
         mstatus = (mstatus & ~(0b11 << 11)) | ((priv & 0b11) << 11)
         mstatus |= (mstatus & (0b1 << 3)) << 4
