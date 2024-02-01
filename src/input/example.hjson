@@ -228,7 +228,7 @@
 			MODE:	0b00
 		}
 		stvec: {
-			BASE:	0x0000000080000004
+			BASE:	0x0
 			MODE:	0b00
 		}
 		satp: {

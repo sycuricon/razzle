@@ -4,6 +4,9 @@ from riscv import *
 
 
 class RISCVReg:
+    def __init__(self, width):
+        self.width = width
+
     def dump(self):
         logging.info(f"{self}: {self.__dict__}")
 
@@ -37,7 +40,19 @@ class RISCVReg:
                 (self.decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))
             ) << offset
         return val
+    
+    def __save(self, func):
+        if isinstance(self.data, list):
+            return [func(d) for d in self.data]
+        else:
+            return [func(self.data)]
 
+    def save(self, format="hex"):
+        match format:
+            case "hex":
+                return self.__save(lambda d: hex(d)[2:].zfill(self.width // 4))
+            case "bin":
+                return self.__save(lambda d: d.to_bytes(self.width // 8, "little"))
 
 for rf in ["xreg", "freg"]:
     globals()[f"RISCVReg_{rf}"] = type(
@@ -45,7 +60,8 @@ for rf in ["xreg", "freg"]:
         (RISCVReg,),
         {
             "name": rf,
-            "decode": lambda self, xlen, init_state: setattr(
+            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "decode": lambda self, init_state: setattr(
                 self, "data", [self.decode_reg(reg) for reg in init_state[self.name]]
             ),
         },
@@ -57,12 +73,12 @@ for csr in SUPPORTED_CSR:
         (RISCVReg,),
         {
             "name": csr,
-            "decode": lambda self, xlen, init_state: setattr(
-                self,
-                "data",
+            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "decode": lambda self, init_state: setattr(
+                self, "data",
                 self.decode_fields(
                     init_state["csr"][self.name],
-                    globals()[f"RV{xlen}_{self.name.upper()}_META"],
+                    globals()[f"RV{self.width}_{self.name.upper()}_META"],
                 ),
             ),
         },
@@ -83,16 +99,21 @@ class RISCVState:
         ] + csr_list
 
         for t in self.target_list:
-            setattr(self, t, globals()[f"RISCVReg_{t}"]())
+            setattr(self, t, globals()[f"RISCVReg_{t}"](self.xlen))
 
     def dump(self):
         logging.info(f"{self}: {self.__dict__}")
 
     def load_state(self, init_state):
-        print(csr)
         for t in self.target_list:
-            getattr(self, t).decode(self.xlen, init_state)
+            getattr(self, t).decode(init_state)
             getattr(self, t).dump()
+    
+    def save_state(self, format):
+        record = []
+        for t in self.target_list:
+            record.extend(getattr(self, t).save(format))
+        return record
 
 
 class RISCVSnapshot:
@@ -140,6 +161,8 @@ class RISCVSnapshot:
         self.state.load_state(init_state)
         self.state.dump()
 
+    def save(self, **kwargs):
+        return self.state.save_state(kwargs["format"])
 
 def encode_bit(dict, name_set, offset_set, len_set):
     val = 0

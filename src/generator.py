@@ -234,6 +234,9 @@ if __name__ == "__main__":
     design = RISCVSnapshot("rv64gc", 8, SUPPORTED_CSR)
     design.dump()
     design.load_snapshot(args.input)
+    output = design.save(format="bin")
+
+    print(output)
 
     # if args.format == "bin":
     #     generate_bin(args.input, args.output)
