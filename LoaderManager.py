@@ -1,5 +1,5 @@
 def section_sort(item):
-    return item[1]
+    return item[2]
 
 class LoaderManager:
     def __init__(self):
@@ -15,14 +15,14 @@ class LoaderManager:
             f.write('ENTRY(_start)\n')
             f.write('SECTIONS\n')
             f.write('{\n')
-            for name,begin in section_order:
-                f.write('\t'+'. = '+hex(begin)+';\n')
-                f.write('\t'+name+' = { *('+name+') }\n')
+            for name,vaddr,paddr in section_order:
+                f.write('\t'+'. = '+hex(vaddr)+';\n')
+                f.write('\t'+name+' : AT ('+hex(paddr)+') { *('+name+') }\n')
             f.write('}\n')
 
 if __name__ == "__main__":
     loader=LoaderManager()
-    loader.append_section_list([(".text",0x10000),(".data",0x20000)])
-    loader.append_section_list([(".tmp",0x0),(".here",0x20)])
+    loader.append_section_list([(".bss",0x10000,0x80001000),(".rodata",0x20000,0x80020000)])
+    loader.append_section_list([(".text",0x0,0x80000000),(".data",0x2000,0x80002000)])
     loader.generate_ld("link.ld")
             

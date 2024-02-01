@@ -18,18 +18,20 @@ class SectionManager:
         self.page_manager=page_manager
 
     def get_new_page(self):
-        if len(self.memory_pool) == 0:
+        if len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0:
             raise "no memory in memory pool"
-        page_addr=self.memory_pool[0]
+        paddr=self.memory_pool[0]
+        vaddr=self.virtual_memory_pool[0]
         self.memory_pool.pop(0)
-        self.page_manager.add_page(page_addr)
-        return page_addr
+        self.virtual_memory_pool.pop(0)
+        self.page_manager.add_page(vaddr,paddr)
+        return paddr,vaddr
     
     def get_section_list(self):
         return self.section
     
-    def add_section(self,name,begin):
-        self.section.append((name,begin))
+    def add_section(self,name,vaddr,paddr):
+        self.section.append((name,vaddr,paddr))
     
     def file_generate(self,filename):
         pass
