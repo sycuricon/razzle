@@ -2,11 +2,18 @@ class SectionManager:
     def __init__(self,config,page_manager):
         self.memory_bound=[]
         self.memory_pool=[]
+        self.virtual_memory_bound=[]
+        self.virtual_memory_pool=[]
         for begin,end in config["bound"][0::2],config["bound"][1::2]:
             begin=int(begin,base=16)
             end=int(end,base=16)
             self.memory_bound.append((begin,end))
             self.memory_pool.extend(list(range(begin,end,0x1000)))
+        for begin,end in config["virtual_bound"][0::2],config["virtual_bound"][1::2]:
+            begin=int(begin,base=16)
+            end=int(end,base=16)
+            self.virtual_memory_bound.append((begin,end))
+            self.virtual_memory_pool.extend(list(range(begin,end,0x1000)))
         self.section=[]
         self.page_manager=page_manager
 
@@ -20,3 +27,9 @@ class SectionManager:
     
     def get_section_list(self):
         return self.section
+    
+    def add_section(self,name,begin):
+        self.section.append((name,begin))
+    
+    def file_generate(self,filename):
+        pass
