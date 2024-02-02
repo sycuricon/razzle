@@ -79,8 +79,11 @@ class SectionManager:
     def _add_page_content(self,vaddr,page):
         self.page_content[vaddr]=page
     
+    def _new_page_empty(self):
+        return len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0
+    
     def _choose_new_page(self,flag):
-        if len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0:
+        if self._new_page_empty():
             raise "no memory in memory pool"
         paddr=self.memory_pool[0]
         vaddr=self.virtual_memory_pool[0]
