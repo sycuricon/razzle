@@ -8,6 +8,8 @@ SUPPORTED_CSR = [
     "stvec",
     "mcounteren",
     "scounteren",
+    "mscratch",
+    "sscratch",
     "satp"
 ]
 
@@ -147,3 +149,10 @@ RV64_SATP_META = [
     ("ASID",    44,     0xffff),
     ("MODE",    60,     0xf),
 ]
+
+RV64_MSCRATCH_META = [
+#   (name,    offset,   mask)
+    ("SCRATCH", 0,      0xffff_ffff_ffff_ffff),
+]
+
+RV64_SSCRATCH_META = RV64_MSCRATCH_META

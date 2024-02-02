@@ -236,5 +236,11 @@
 			ASID:	0x0
 			MODE:	0x0
 		}
+		mscratch: {
+			SCRATCH: 0x0
+		}
+		sscratch: {
+			SCRATCH: 0x0
+		}
     }
 }
