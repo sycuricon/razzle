@@ -4,6 +4,7 @@ from ChannelManger import *
 from PageTableManager import *
 from LoaderManager import *
 from SecretManager import *
+from StackManager import *
 
 class DistributeManager:
     def __init__(self,hjson_filename):
@@ -14,19 +15,23 @@ class DistributeManager:
         self.secret=SecretManager(config["secret"])
         self.channel=ChannelManager(config["channel"])
         self.page_table=PageTableManager(config["page_table"])
+        self.stack=StackManager(config["stack"])
         self.loader=LoaderManager()
     
     def generate_test(self,path):
         secret_path=os.path.join(path,'secret.S')
         channel_path=os.path.join(path,'channel.S')
         page_table_path=os.path.join(path,'page_table.S')
+        stack_path=os.path.join(path,'stack.S')
         ld_path=os.path.join(path,'link.ld')
         self.secret.file_generate(secret_path)
         self.channel.file_generate(channel_path)
+        self.stack.file_generate(stack_path)
 
         self.section_list=[]
         self.section_list.extend(self.secret.get_section_list())
         self.section_list.extend(self.channel.get_section_list())
+        self.section_list.extend(self.stack.get_section_list())
 
         self.page_table.register_sections(self.section_list)
         self.page_table.file_generate(page_table_path)
