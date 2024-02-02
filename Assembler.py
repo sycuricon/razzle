@@ -6,7 +6,7 @@ class Asmer:
         return ['\t'+'.word '+hex(imm)+'\n']
     
     def quad_inst(imm):
-        return ['\t'+'.quad'+hex(imm)+'\n']
+        return ['\t'+'.quad '+hex(imm)+'\n']
     
     def space_inst(imm):
         return ['\t'+'.space '+hex(imm)+'\n']

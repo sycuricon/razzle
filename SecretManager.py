@@ -20,10 +20,10 @@ class SecretManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[self.flag.U|self.flag.R|self.flag.W]=[".secret",SecretSection,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".secret",SecretSection,0]
 
     def _generate_pages(self):
-        flag=self.flag.U|self.flag.R|self.flag.W
+        flag=Flag.U|Flag.R|Flag.W
         vaddr,paddr=self._get_new_page(flag)
         length=min(0x1000,len(self.secret))
         self._add_page_content(vaddr,SecretPage(self.secret,0,length))

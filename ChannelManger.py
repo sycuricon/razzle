@@ -20,10 +20,10 @@ class ChannelManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[self.flag.U|self.flag.R|self.flag.W]=[".trapoline",ChannelSection,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".trapoline",ChannelSection,0]
 
     def _generate_pages(self):
-        flag=self.flag.U|self.flag.R|self.flag.W
+        flag=Flag.U|Flag.R|Flag.W
         while not self._new_page_empty():
             vaddr,paddr=self._get_new_page(flag)
             self._add_page_content(vaddr,ChannelPage(self.image_value))

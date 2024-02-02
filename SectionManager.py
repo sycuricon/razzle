@@ -1,5 +1,15 @@
 from Assembler import Asmer
 
+class Flag:
+    D=1<<7
+    A=1<<6
+    G=1<<5
+    U=1<<4
+    X=1<<3
+    W=1<<2
+    R=1<<1
+    V=1
+
 class Page:
     size=0x1000
 
@@ -45,16 +55,8 @@ class Section:
     def get_section_info(self):
         return (self.name,self.vaddr,self.paddr,self.length,self.flag)
 
-class Flag:
-    def __init__(self):
-        self.U=1<<4
-        self.X=1<<3
-        self.W=1<<2
-        self.R=1<<1
-
 class SectionManager:
     def __init__(self,config):
-        self.flag=Flag()
         self._init_section_type()
 
         self.memory_bound=[]
@@ -98,9 +100,9 @@ class SectionManager:
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[self.flag.U|self.flag.R]=[".rodata",Section,0]
-        self.name_dict[self.flag.U|self.flag.R|self.flag.W]=[".data",Section,0]
-        self.name_dict[self.flag.U|self.flag.R|self.flag.X]=[".text",Section,0]
+        self.name_dict[Flag.U|Flag.R]=[".rodata",Section,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",Section,0]
+        self.name_dict[Flag.U|Flag.R|Flag.X]=[".text",Section,0]
 
     def _get_section_type(self,flag):
         name,section,num=self.name_dict[flag]
