@@ -2,27 +2,27 @@ from SectionManager import *
 from Assembler import Asmer
 
 class PageTablePage(Page):
-    def __init__(self,xLen,pg_level):
-        super().__init__()
+    def __init__(self,vaddr,paddr,flag,xLen,pg_level):
+        super().__init__(vaddr,paddr,flag)
         self.pg_level=pg_level
         self.entry_num=512 if xLen==64 else 1024
         self.index_width=9 if xLen==64 else 10
         self.entry_byte=8 if xLen==64 else 4
         self.content=[0]*self.entry_num
-        self.stage=[0]*self.entry_num
-        self.vaddr=[0]*self.entry_num
+        self.stage_array=[0]*self.entry_num
+        self.vaddr_array=[0]*self.entry_num
     
     def is_valid(self,entry_num):
         return (self.content[entry_num]&Flag.V)!=0
     
     def entry_stage(self,entry_num):
-        return self.stage[entry_num]
+        return self.stage_array[entry_num]
     
     def fill_entry(self,entry_num,paddr,flag,stage,vaddr):
         # print(hex(paddr),hex(vaddr))
         self.content[entry_num]=((paddr>>12)<<10)|flag
-        self.stage[entry_num]=stage
-        self.vaddr[entry_num]=vaddr
+        self.stage_array[entry_num]=stage
+        self.vaddr_array[entry_num]=vaddr
 
     def generate_asm(self):
         write_lines=[]
@@ -33,8 +33,8 @@ class PageTablePage(Page):
                 if empty_entry!=0:
                     write_lines.extend(Asmer.space_inst(self.entry_byte*empty_entry))
                     empty_entry=0
-                if self.stage[i]==self.pg_level-1:
-                    write_lines.extend(Asmer.label_inst('vaddr_'+hex(self.vaddr[i])+'_paddr_'+hex((self.content[i]>>10)<<12)))
+                if self.stage_array[i]==self.pg_level-1:
+                    write_lines.extend(Asmer.label_inst('vaddr_'+hex(self.vaddr_array[i])+'_paddr_'+hex((self.content[i]>>10)<<12)))
                 if self.entry_byte==8:
                     write_lines.extend(Asmer.quad_inst(entry_value))
                 else:
@@ -46,8 +46,8 @@ class PageTablePage(Page):
         return write_lines
 
 class PageTableSection(Section):
-    def __init__(self,name,vaddr,paddr,length,flag,section_label=None,pages=[]):
-        super().__init__(name,vaddr,paddr,length,flag,section_label,pages)
+    def __init__(self,name,length,section_label=None,pages=[]):
+        super().__init__(name,length,section_label,pages)
 
 class PageTableManager(SectionManager):
     def __init__(self,config):
@@ -60,8 +60,8 @@ class PageTableManager(SectionManager):
         flag=Flag.R|Flag.W
         for i in range(self.pg_level):
             vaddr,paddr=self._get_new_page(flag)
-            pgtlb_page=PageTablePage(self.xLen,self.pg_level)
-            self._add_page_content(vaddr,pgtlb_page)
+            pgtlb_page=PageTablePage(vaddr,paddr,flag,self.xLen,self.pg_level)
+            self._add_page_content(pgtlb_page)
             self.page_tables.append(pgtlb_page)
             if i==0:
                 continue

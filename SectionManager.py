@@ -13,7 +13,10 @@ class Flag:
 class Page:
     size=0x1000
 
-    def __init__(self):
+    def __init__(self,vaddr,paddr,flag):
+        self.vaddr=vaddr
+        self.paddr=paddr
+        self.flag=flag
         self.global_label=[]
 
     def generate_asm(self):
@@ -26,12 +29,12 @@ class Page:
         self.global_label.append(label)
 
 class Section:
-    def __init__(self,name,vaddr,paddr,length,flag,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=None,pages=[]):
         self.name=name
-        self.vaddr=vaddr
-        self.paddr=paddr
+        self.vaddr=pages[0].vaddr
+        self.paddr=pages[0].paddr
         self.length=length
-        self.flag=flag
+        self.flag=pages[0].flag
         self.section_label=section_label
         self.pages=pages
     
@@ -73,13 +76,8 @@ class SectionManager:
             end=int(end,base=16)
             self.virtual_memory_bound.append((begin,end))
             self.virtual_memory_pool.extend(list(range(begin,end,Page.size)))
-
         self.use_page=[]
         self.section=[]
-        self.page_content={}
-    
-    def _add_page_content(self,vaddr,page):
-        self.page_content[vaddr]=page
     
     def _new_page_empty(self):
         return len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0
@@ -95,8 +93,10 @@ class SectionManager:
 
     def _get_new_page(self,flag):
         vaddr,paddr=self._choose_new_page(flag)
-        self.use_page.append((vaddr,paddr,flag))
         return vaddr,paddr
+    
+    def _add_page_content(self,page):
+        self.use_page.append(page)
     
     def _init_section_type(self):
         self.name_dict={}
@@ -109,26 +109,27 @@ class SectionManager:
         self.name_dict[flag][2]+=1
         return name if num==0 else name+str(num),section
     
-    def _add_new_section(self,vaddr_base,paddr_base,length_base,flag_base):
-        name,section=self._get_section_type(flag_base)
-        pages=[]
-        for vaddr in range(vaddr_base,vaddr_base+length_base,Page.size):
-            pages.append(self.page_content[vaddr])
-        self.section.append(section(name,vaddr_base,paddr_base,length_base,flag_base,name[1:],pages))
+    def _add_new_section(self,pages,length_base):
+        name,section=self._get_section_type(pages[0].flag)
+        self.section.append(section(name,length_base,name[1:],pages))
     
     def _generate_section_list(self):
         def _sort_key(item):
-            return item[0]
+            return item.vaddr
         self.use_page=sorted(self.use_page,key=_sort_key)
-        (vaddr_base,paddr_base,flag_base)=self.use_page[0]
+        pages=[]
+        pages.append(self.use_page[0])
         length_base=Page.size
-        for vaddr,paddr,flag in self.use_page[1:]:
-            if(vaddr==vaddr_base+length_base,paddr==paddr_base+length_base,flag==flag_base):
+        for page in self.use_page[1:]:
+            if(page.vaddr==pages[0].vaddr+length_base and\
+                page.paddr==pages[0].paddr+length_base and\
+                page.flag==pages[0].flag):
                 length_base+=Page.size
+                pages.append(page)
                 continue
-            self._add_new_section(vaddr_base,paddr_base,length_base,flag_base)
-            vaddr_base,paddr_base,flag_base,length_base=vaddr,paddr,flag,Page.size
-        self._add_new_section(vaddr_base,paddr_base,length_base,flag_base)
+            self._add_new_section(pages,length_base)
+            pages,length_base=[page],Page.size
+        self._add_new_section(pages,length_base)
 
     def get_section_list(self):
         section_info_list=[]

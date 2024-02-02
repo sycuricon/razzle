@@ -2,16 +2,16 @@ from SectionManager import *
 from Assembler import Asmer
 
 class SecretPage(Page):
-    def __init__(self,secret,offset,length):
-        super().__init__()
+    def __init__(self,vaddr,paddr,flag,secret,offset,length):
+        super().__init__(vaddr,paddr,flag)
         self.content=secret[offset:offset+length]
 
     def generate_asm(self):
         return Asmer.string_inst(self.content)
 
 class SecretSection(Section):
-    def __init__(self,name,vaddr,paddr,length,flag,section_label=None,pages=[]):
-        super().__init__(name,vaddr,paddr,length,flag,section_label,pages)
+    def __init__(self,name,length,section_label=None,pages=[]):
+        super().__init__(name,length,section_label,pages)
 
 class SecretManager(SectionManager):
     def __init__(self,config):
@@ -26,7 +26,7 @@ class SecretManager(SectionManager):
         flag=Flag.U|Flag.R|Flag.W
         vaddr,paddr=self._get_new_page(flag)
         length=min(0x1000,len(self.secret))
-        self._add_page_content(vaddr,SecretPage(self.secret,0,length))
+        self._add_page_content(SecretPage(vaddr,paddr,flag,self.secret,0,length))
         
 if __name__ == "__main__":
     import hjson
