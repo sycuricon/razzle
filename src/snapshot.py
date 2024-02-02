@@ -84,11 +84,58 @@ for csr in SUPPORTED_CSR:
         },
     )
 
+def pmp_addr_decode(self, init_state):
+    mode = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["A"]
+    addr = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["ADDR"]
+    match mode:
+        case "OFF" | "TOR" | "NA4":
+            self.data = self.decode_fields({"PMPADDR": addr}, globals()[f"RV{self.width}_PMPADDR_META"])
+        case "NAPOT":
+            addr = self.decode_reg(addr)
+            range = self.decode_reg(init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"])
+            self.data = self.decode_fields({"PMPADDR": hex(addr & ~range | (range - 1))}, globals()[f"RV{self.width}_PMPADDR_META"])
+
+def pmp_cfg_decode(self, init_state):
+    cfg = 0
+    for cfg_idx in range(self.width // 8):
+        idx = self.pmp_cfg_idx * 4 + cfg_idx
+        if f"pmp{idx}" in init_state["pmp"]:
+            A_alias = {"OFF": "0b00", "TOR": "0b01", "NA4": "0b10", "NAPOT": "0b11"}
+            cfg_state = dict(init_state["pmp"][f"pmp{idx}"])
+            cfg_state["A"] = A_alias[cfg_state["A"]]
+            cfg |= self.decode_fields(cfg_state, globals()[f"RV{self.width}_PMPCFG_META"]) << (cfg_idx * 8)
+    self.data = cfg
+
+
+for pmp_idx in range(64):
+    globals()[f"RISCVReg_pmpaddr{pmp_idx}"] = type(
+        f"RISCVReg_pmpaddr{pmp_idx}",
+        (RISCVReg,),
+        {
+            "name": f"pmpaddr{pmp_idx}",
+            "pmp_addr_idx": pmp_idx,
+            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "decode": pmp_addr_decode,
+        },
+    )
+    if pmp_idx % 4 == 0:
+        globals()[f"RISCVReg_pmpcfg{pmp_idx // 4}"] = type(
+            f"RISCVReg_pmpcfg{pmp_idx // 4}",
+            (RISCVReg,),
+            {
+                "name": f"pmpcfg{pmp_idx // 4}",
+                "pmp_cfg_idx": pmp_idx // 4,
+                '__init__': lambda self, width: RISCVReg.__init__(self, width),
+                "decode": pmp_cfg_decode,
+            },
+        )
+
 
 class RISCVState:
-    def __init__(self, xlen, target_list):
+    def __init__(self, xlen, target_list, pmp_num):
         self.xlen = xlen
         self.target_list = target_list
+        self.pmp_num = pmp_num
 
         for t in self.target_list:
             setattr(self, t, globals()[f"RISCVReg_{t}"](self.xlen))
@@ -99,8 +146,7 @@ class RISCVState:
     def load_state(self, init_state):
         for t in self.target_list:
             getattr(self, t).decode(init_state)
-            getattr(self, t).dump()
-    
+
     def save_state(self, target, format):
         return getattr(self, target).save(format)
 
@@ -108,15 +154,29 @@ class RISCVState:
 class RISCVSnapshot:
     def __init__(self, march, pmp_num, selected_csr):
         self.xlen, self.extension = self.parse_march(march)
-        self.pmp_num = pmp_num
-        self.target_list = [
-            t for t in [
+        self.target_list = (
+            [t for t in [
                 "xreg",
                 "freg" if self.extension.issuperset(["f", "d"]) else None,
-            ] if t is not None
-        ] + selected_csr
+            ] if t is not None]
+            + selected_csr 
+            + self.gen_pmp_list(pmp_num)
+        )
 
-        self.state = RISCVState(self.xlen, self.target_list)
+        self.state = RISCVState(self.xlen, self.target_list, self.pmp_num)
+
+    def gen_pmp_list(self, pmp_num):
+        self.pmp_num = pmp_num
+        pmp_addr_list = [f"pmpaddr{idx}" for idx in range(self.pmp_num)]
+        if self.xlen == 32:
+            pmp_cfg_list = [f"pmpcfg{idx}" for idx in range((self.pmp_num + 3) // 4)]
+        elif self.xlen == 64:
+            pmp_cfg_list = [f"pmpcfg{idx * 2}" for idx in range((self.pmp_num + 7) // 8)]
+        else:
+            pmp_cfg_list = []
+
+        return pmp_addr_list + pmp_cfg_list
+
 
     def parse_march(self, march):
         if len(march) < 5:
@@ -153,7 +213,6 @@ class RISCVSnapshot:
     def load_snapshot(self, init_file):
         init_state = hjson.load(open(init_file, "r"))
         self.state.load_state(init_state)
-        self.state.dump()
 
     def save(self, output_file, **kwargs):
         assert kwargs["format"] in ["hex", "bin"], "Unsupported output format"
@@ -182,45 +241,3 @@ class RISCVSnapshot:
                 else:
                     output_buffer = format_state
                 output_file.write("\n".join(output_buffer))
-
-def encode_bit(dict, name_set, offset_set, len_set):
-    val = 0
-    for name, offset, len in zip(name_set, offset_set, len_set):
-        val |= (int(dict[name], base=2) & ((1 << len) - 1)) << offset
-    return val
-
-def encode_priv(dict):
-    return int(dict, base=2)
-
-
-def encode_pmp(dict, pmpaddr_fore):
-    a_map = {"OFF": "00", "TOR": "01", "NA4": "10", "NAPOT": "11"}
-    dict["A"] = a_map[dict["A"]]
-    name = ["R", "W", "X", "A", "L"]
-    offset = [0, 1, 2, 3, 7]
-    len = [1, 1, 1, 2, 1]
-    cfg = encode_bit(dict, name, offset, len)
-    mode = int(dict["A"], base=2)
-    begin = int(dict["begin"], base=16)
-    end = int(dict["end"], base=16)
-    if mode == 0:
-        end >>= 2
-    elif mode == 1:
-        if end < begin or pmpaddr_fore != begin >> 2:
-            raise "this pmp section's begin is not equal to the fore pmpaddr's value"
-        end >>= 2
-    elif mode == 2:
-        if begin >> 2 != end >> 2 or begin & 0b11 != 0 or end & 0b11 != 0b11:
-            raise "NA4's begin and end's format is wrong"
-        end >>= 2
-    else:
-        len = 1 + end - begin
-        if len > 1 << 57 or len & (len - 1) != 0:
-            raise "the length of the section is larger than 1^57 or is not aligned to 2^exp"
-        mask = len - 1
-        if begin & mask != 0:
-            raise "the addr of the section is not aligned to 2^exp"
-        mask >>= 1
-        end = begin | mask
-        end >>= 2
-    return cfg, end

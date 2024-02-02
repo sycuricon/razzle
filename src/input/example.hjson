@@ -243,4 +243,71 @@
 			SCRATCH: 0x0
 		}
     }
+	pmp: {
+		pmp0: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000080000000
+		}
+		pmp1: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		TOR
+			L:		0b0
+			ADDR:	0x0000000080001000
+		},
+		pmp2: {
+			R:		0b1
+			W:		0b1
+			X:		0b1
+			A:		NAPOT
+			L:		0b0
+			ADDR:	0x0000000080001000
+			RANGE:	0x1000
+		}
+		pmp3: {
+			R:		0b1
+			W:		0b1
+			X:		0b1
+			A:		NA4
+			L:		0b0
+			ADDR:	0x0000000080002000
+		}
+		pmp4: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp5: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp6: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp7: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+	}
 }

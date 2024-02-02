@@ -156,3 +156,18 @@ RV64_MSCRATCH_META = [
 ]
 
 RV64_SSCRATCH_META = RV64_MSCRATCH_META
+
+RV64_PMPADDR_META = [
+#   (name,    offset,   mask)
+    ("PMPADDR",    0,   0x00ff_ffff_ffff_fffc),
+]
+
+RV64_PMPCFG_META = [
+#   (name,    offset,   mask)
+    ("R",       0,      0x1),
+    ("W",       1,      0x1),
+    ("X",       2,      0x1),
+    ("A",       3,      0x3),
+    ("L",       7,      0x1),
+]
+
