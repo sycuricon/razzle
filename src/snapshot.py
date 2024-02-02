@@ -156,23 +156,38 @@ class RISCVSnapshot:
         self.state.dump()
 
     def save(self, output_file, **kwargs):
-
-        assert kwargs["format"] in ["hex", "bin"], "Unsupported format"
+        assert kwargs["format"] in ["hex", "bin"], "Unsupported output format"
 
         format_state = []
         for t in self.target_list:
             format_state.extend(self.state.save_state(t, kwargs["format"]))
 
-        # if kwargs["output_width"] != self.xlen:
-            
-            
+        if kwargs["format"] == "bin":
+            with open(output_file, "wb") as output_file:
+                for s in format_state:
+                    output_file.write(s)
+        elif kwargs["format"] == "hex":
+            with open(output_file, "wt") as output_file:
+                output_buffer = []
+                if kwargs["output_width"] > self.xlen:
+                    assert kwargs["output_width"] % self.xlen == 0, "Misaligned output width"
+                    chunk_size = kwargs["output_width"] // self.xlen
+                    for i in range(0, len(format_state), chunk_size):
+                        output_buffer.append("".join(format_state[i:i + chunk_size:-1]))
+                elif kwargs["output_width"] < self.xlen:
+                    assert self.xlen % kwargs["output_width"] == 0, "Misaligned output width"
+                    chunk_size = kwargs["output_width"] / 8 * 2
+                    for s in format_state:
+                        output_buffer.extend([s[i:i + chunk_size] for i in range(0, self.xlen / 8 * 2, chunk_size)].reverse())
+                else:
+                    output_buffer = format_state
+                output_file.write("\n".join(output_buffer))
 
 def encode_bit(dict, name_set, offset_set, len_set):
     val = 0
     for name, offset, len in zip(name_set, offset_set, len_set):
         val |= (int(dict[name], base=2) & ((1 << len) - 1)) << offset
     return val
-
 
 def encode_priv(dict):
     return int(dict, base=2)
