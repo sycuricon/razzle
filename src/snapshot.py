@@ -86,17 +86,9 @@ for csr in SUPPORTED_CSR:
 
 
 class RISCVState:
-    def __init__(self, xlen, has_float, csr_list):
+    def __init__(self, xlen, target_list):
         self.xlen = xlen
-        self.has_float = has_float
-        self.csr_list = csr_list
-
-        self.target_list = [
-            t for t in [
-                "xreg",
-                "freg" if self.has_float else None,
-            ] if t is not None
-        ] + csr_list
+        self.target_list = target_list
 
         for t in self.target_list:
             setattr(self, t, globals()[f"RISCVReg_{t}"](self.xlen))
@@ -109,20 +101,22 @@ class RISCVState:
             getattr(self, t).decode(init_state)
             getattr(self, t).dump()
     
-    def save_state(self, format):
-        record = []
-        for t in self.target_list:
-            record.extend(getattr(self, t).save(format))
-        return record
+    def save_state(self, target, format):
+        return getattr(self, target).save(format)
 
 
 class RISCVSnapshot:
     def __init__(self, march, pmp_num, selected_csr):
         self.xlen, self.extension = self.parse_march(march)
         self.pmp_num = pmp_num
-        self.state = RISCVState(
-            self.xlen, self.extension.issuperset(["f", "d"]), selected_csr
-        )
+        self.target_list = [
+            t for t in [
+                "xreg",
+                "freg" if self.extension.issuperset(["f", "d"]) else None,
+            ] if t is not None
+        ] + selected_csr
+
+        self.state = RISCVState(self.xlen, self.target_list)
 
     def parse_march(self, march):
         if len(march) < 5:
@@ -161,8 +155,17 @@ class RISCVSnapshot:
         self.state.load_state(init_state)
         self.state.dump()
 
-    def save(self, **kwargs):
-        return self.state.save_state(kwargs["format"])
+    def save(self, output_file, **kwargs):
+
+        assert kwargs["format"] in ["hex", "bin"], "Unsupported format"
+
+        format_state = []
+        for t in self.target_list:
+            format_state.extend(self.state.save_state(t, kwargs["format"]))
+
+        # if kwargs["output_width"] != self.xlen:
+            
+            
 
 def encode_bit(dict, name_set, offset_set, len_set):
     val = 0
