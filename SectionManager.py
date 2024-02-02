@@ -1,4 +1,4 @@
-from Assembler import *
+from Utils import *
 
 class Page:
     size=0x1000

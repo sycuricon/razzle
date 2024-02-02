@@ -1,5 +1,5 @@
 from SectionManager import *
-from Assembler import *
+from Utils import *
 
 class SecretPage(Page):
     def __init__(self,vaddr,paddr,flag,secret,offset,length):
