@@ -1,5 +1,4 @@
-def section_sort(item):
-    return item[2]
+
 
 class LoaderManager:
     def __init__(self):
@@ -9,6 +8,8 @@ class LoaderManager:
         self.section.extend(section_list)
 
     def file_generate(self,ld_name):
+        def section_sort(item):
+            return item[2]
         with open(ld_name,"wt") as f:
             section_order=sorted(self.section,key=section_sort)
             f.write('OUTPUT_ARCH( "riscv" )\n')

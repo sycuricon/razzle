@@ -1,5 +1,5 @@
 from SectionManager import *
-from Assembler import Asmer
+from Assembler import *
 
 class PageTablePage(Page):
     def __init__(self,vaddr,paddr,flag,xLen,pg_level):

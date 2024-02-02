@@ -1,5 +1,5 @@
 from SectionManager import *
-from Assembler import Asmer
+from Assembler import *
 
 class StackPage(Page):
     def __init__(self,vaddr,paddr,flag):

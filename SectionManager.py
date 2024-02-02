@@ -1,14 +1,4 @@
-from Assembler import Asmer
-
-class Flag:
-    D=1<<7
-    A=1<<6
-    G=1<<5
-    U=1<<4
-    X=1<<3
-    W=1<<2
-    R=1<<1
-    V=1
+from Assembler import *
 
 class Page:
     size=0x1000
@@ -49,7 +39,7 @@ class Section:
     def generate_asm(self):
         write_lines=[]
         write_lines.extend(self._generate_global())
-        write_lines.extend(Asmer.section_inst(self.name))
+        write_lines.extend(Asmer.section_inst(self.name,self.flag))
         write_lines.extend(Asmer.label_inst(self.section_label))
         for page in self.pages:
             write_lines.extend(page.generate_asm())

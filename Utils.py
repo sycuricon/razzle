@@ -1,3 +1,13 @@
+class Flag:
+    D=1<<7
+    A=1<<6
+    G=1<<5
+    U=1<<4
+    X=1<<3
+    W=1<<2
+    R=1<<1
+    V=1
+
 class Asmer:
     def global_inst(name):
         return ['.global '+name+'\n']
@@ -11,8 +21,15 @@ class Asmer:
     def space_inst(imm):
         return ['\t'+'.space '+hex(imm)+'\n']
 
-    def section_inst(name):
-        return ['.section '+name+'\n']
+    def section_inst(name,flag):
+        flag_str=""
+        if flag&Flag.R:
+            flag_str+="a"
+        if flag&Flag.W:
+            flag_str+="w"
+        if flag&Flag.X:
+            flag_str+="x"
+        return ['.section "'+name+'","'+flag_str+'",@progbits\n']
     
     def string_inst(str):
         return ['\t'+'.string "'+str+'"\n']
