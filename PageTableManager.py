@@ -19,7 +19,7 @@ class PageTablePage(Page):
         return self.stage[entry_num]
     
     def fill_entry(self,entry_num,paddr,flag,stage,vaddr):
-        print(hex(paddr),hex(vaddr))
+        # print(hex(paddr),hex(vaddr))
         self.content[entry_num]=((paddr>>12)<<10)|flag
         self.stage[entry_num]=stage
         self.vaddr[entry_num]=vaddr
@@ -63,11 +63,11 @@ class PageTableManager(SectionManager):
             pgtlb_page=PageTablePage(self.xLen,self.pg_level)
             self._add_page_content(vaddr,pgtlb_page)
             self.page_tables.append(pgtlb_page)
-            self.pgtlb_flag.append(Flag.V)
             if i==0:
                 continue
             else:
                 self.pgtlb_paddr.append(paddr)
+                self.pgtlb_flag.append(Flag.V)
         self.pgtlb_paddr.append(0)
         self.pgtlb_flag.append(0)
         self.index_width=9 if self.xLen==64 else 10
