@@ -226,7 +226,7 @@ if __name__ == "__main__":
     if args.output is None:
         args.output = f"default.{args.format}"
     
-    if args.debug:
+    if args.debug is not None:
         logging.basicConfig(level=logging.DEBUG)
     else:
         logging.basicConfig(level=logging.INFO)
