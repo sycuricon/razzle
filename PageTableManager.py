@@ -46,7 +46,7 @@ class PageTablePage(Page):
         return write_lines
 
 class PageTableSection(Section):
-    def __init__(self,name,length,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=[],pages=[]):
         super().__init__(name,length,section_label,pages)
 
 class PageTableManager(SectionManager):
@@ -74,7 +74,7 @@ class PageTableManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.R|Flag.W]=[".pagetable",PageTableSection,0]
+        self.name_dict[Flag.R|Flag.W]=[".pagetable",PageTableSection,0,[]]
     
     def _register_page(self,vaddr,paddr,flag):
         self.pgtlb_paddr[-1]=paddr
@@ -94,7 +94,7 @@ class PageTableManager(SectionManager):
                 raise "virtual address is conflicted"
 
     def register_sections(self,section_list):
-        for name,vaddr,paddr,length,flag in section_list:
+        for (name,vaddr,paddr,length,flag),append in section_list:
             for offset in range(0,length,Page.size):
                 vaddr_offset=vaddr+offset
                 paddr_offset=paddr+offset

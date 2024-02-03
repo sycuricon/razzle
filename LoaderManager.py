@@ -1,4 +1,4 @@
-
+import os
 
 class LoaderManager:
     def __init__(self):
@@ -7,18 +7,29 @@ class LoaderManager:
     def append_section_list(self,section_list):
         self.section.extend(section_list)
 
-    def file_generate(self,ld_name):
+    def file_generate(self,path,name):
+        ld_name=os.path.join(path,name)
         def section_sort(item):
-            return item[2]
+            return item[0][2]
         with open(ld_name,"wt") as f:
             section_order=sorted(self.section,key=section_sort)
             f.write('OUTPUT_ARCH( "riscv" )\n')
             f.write('ENTRY(_start)\n')
             f.write('SECTIONS\n')
             f.write('{\n')
-            for name,vaddr,paddr,length,flag in section_order:
-                f.write('\t'+'. = '+hex(vaddr)+';\n')
-                f.write('\t'+name+' : AT ('+hex(paddr)+') { *('+name+') }\n')
+            for (name,vaddr,paddr,length,flag),append in section_order:
+                link_addr=hex(vaddr)
+                load_addr=hex(paddr)
+                f.write('\t'+'. = '+link_addr+';\n')
+                f.write('\t'+name+' : AT ('+load_addr+') {\n')
+                f.write('\t\t'+name.replace('.','_')+'_start = .;\n')
+                if append is None:
+                    f.write('\t\t*('+name+'*)\n')
+                else:
+                    f.writelines(append) 
+                f.write('\t\t'+name.replace('.','_')+'_end = .;\n')
+                f.write('\t}\n')
+            f.write('\t_end = .;\n')
             f.write('}\n')
 
 if __name__ == "__main__":
