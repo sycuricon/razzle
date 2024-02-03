@@ -18,6 +18,7 @@ class PayloadManager(FuzzManager):
             '\t\t*(.text*)\n'
         ]
         section_list[1][1]=[
+            '\t\t*(.tohost)\n'
             '\t\t*(.rodata)\n'
             '\t\t*(.data)\n'
             '\t\t__global_pointer$ = . + 0x800;\n'
