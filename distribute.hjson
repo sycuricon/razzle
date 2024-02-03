@@ -56,6 +56,11 @@
             0xFFFFFFFFFFEFF000
             0xFFFFFFFFFFFFF000
         ]
+        folder:
+        [
+            payload_code
+            testcase_code
+        ]
     }
     poc:
     {
@@ -68,6 +73,9 @@
         [
             0x0000000000008000
             0x0000000000027000
+        ]
+        folder:
+        [
         ]
     }
     stack:
