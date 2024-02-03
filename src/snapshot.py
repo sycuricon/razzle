@@ -1,7 +1,8 @@
+import os
 import hjson
 import logging
 from riscv import *
-
+from string import Template
 
 class RISCVReg:
     def __init__(self, width):
@@ -154,13 +155,13 @@ class RISCVState:
 class RISCVSnapshot:
     def __init__(self, march, pmp_num, selected_csr):
         self.xlen, self.extension = self.parse_march(march)
+        self.selected_csr = selected_csr
         self.target_list = (
+            selected_csr + self.gen_pmp_list(pmp_num) +
             [t for t in [
-                "xreg",
                 "freg" if self.extension.issuperset(["f", "d"]) else None,
+                "xreg",
             ] if t is not None]
-            + selected_csr 
-            + self.gen_pmp_list(pmp_num)
         )
 
         self.state = RISCVState(self.xlen, self.target_list, self.pmp_num)
@@ -241,3 +242,49 @@ class RISCVSnapshot:
                 else:
                     output_buffer = format_state
                 output_file.write("\n".join(output_buffer))
+
+    def __gen_load_asm(self, target, idx, base="x31", tmp="x30"):
+        result = []
+        match target:
+            case "xreg":
+                for i in range(0, 31):
+                    result.append(f"pop_xreg(x{i + 1}, {base}, {idx + i})")
+            case "freg":
+                for i in range(0, 32):
+                    result.append(f"pop_freg(f{i}, {base}, {idx + i})")
+            case _:
+                result.append(f"pop_csr({target}, {tmp}, {base}, {idx})")
+
+        return result
+
+
+    def gen_loader(self, asm_file, **kwargs):
+        if all(attr in kwargs for attr in ["with_bin", "with_rom"]):
+            raise ValueError("with_bin and with_rom cannot be used together")
+        
+        load_offset = []
+        offset = 0
+        for t in self.target_list:
+            asm_list = self.__gen_load_asm(t, offset)
+            load_offset.extend(asm_list)
+            offset += len(asm_list)
+        
+        
+        include_bin = ""
+        if "with_bin" in kwargs:
+            load_base_addr = "la x31, reg_info"
+            binary_file = kwargs["with_bin"]
+            include_bin = f"include_bin: {binary_file}"
+        else:
+            rom_addr = kwargs["with_rom"]
+            load_base_addr = f"la x31, {hex(rom_addr)}"
+
+        with open(asm_file, "wt") as asm_file:
+            template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init.tmp", "r").read())
+            done = template.substitute(
+                load_state_setup=load_base_addr,
+                load_state_body="\n".join(load_offset),
+                load_state_extra=include_bin
+            )
+
+            asm_file.write(done)
