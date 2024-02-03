@@ -53,8 +53,8 @@
         [
             0x0000000000027000
             0x00000000000FF000
-            0xFFFFFFFFFFEFF000
-            0xFFFFFFFFFFFFF000
+            0xFFFFFFFE00100000
+            0xFFFFFFFE00200000
         ]
         folder:
         [
