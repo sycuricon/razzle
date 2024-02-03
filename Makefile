@@ -1,6 +1,6 @@
-RISCV_PREFIX ?= riscv64-unknown-linux-gnu-
+RISCV_PREFIX ?= riscv64-unknown-elf-
 RISCV_GCC ?= $(RISCV_PREFIX)gcc
-RISCV_GCC_OPTS ?= -march=rv64gc -mabi=lp64f -mcmodel=medany -nostdlib -nostartfiles -DNOBRANCH 
+RISCV_GCC_OPTS ?= -march=rv64gc -mabi=lp64f -mcmodel=medany -nostdlib -nostartfiles -DNOBRANCH -D__riscv
 RISCV_OBJCOPY ?= $(RISCV_PREFIX)objcopy -O binary  
 RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump -Mno-aliases -D
 RISCV_LD  ?= $(RISCV_PREFIX)ld
@@ -22,4 +22,4 @@ $(TARGET):$(OBJ)
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -c $< -o $@
 
 clean:
-	rm -f $(SRC_PATH)/*.o $(TARGET)
+	rm -f $(SRC_PATH)/*.o $(SRC_PATH)/*.c $(SRC_PATH)/*.S $(TARGET)
