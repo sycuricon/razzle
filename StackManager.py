@@ -9,7 +9,7 @@ class StackPage(Page):
         return Asmer.space_inst(Page.size)
 
 class StackSection(Section):
-    def __init__(self,name,length,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=[],pages=[]):
         super().__init__(name,length,section_label,pages)
     
     def generate_asm(self):
@@ -23,7 +23,7 @@ class StackManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".stack",StackSection,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".stack",StackSection,0,["stack_top"]]
 
     def _generate_pages(self):
         flag=Flag.U|Flag.R|Flag.W

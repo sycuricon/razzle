@@ -10,7 +10,7 @@ class SecretPage(Page):
         return Asmer.string_inst(self.content)
 
 class SecretSection(Section):
-    def __init__(self,name,length,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=[],pages=[]):
         super().__init__(name,length,section_label,pages)
 
 class SecretManager(SectionManager):
@@ -20,7 +20,7 @@ class SecretManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".secret",SecretSection,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".secret",SecretSection,0,["secret"]]
 
     def _generate_pages(self):
         flag=Flag.U|Flag.R|Flag.W

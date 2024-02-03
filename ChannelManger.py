@@ -10,7 +10,7 @@ class ChannelPage(Page):
         return Asmer.fill_inst(Page.size,1,self.image_value)
 
 class ChannelSection(Section):
-    def __init__(self,name,length,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=[],pages=[]):
         super().__init__(name,length,section_label,pages)
 
 class ChannelManager(SectionManager):
@@ -20,7 +20,7 @@ class ChannelManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".trapoline",ChannelSection,0]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".trapoline",ChannelSection,0,["trapoline","array"]]
 
     def _generate_pages(self):
         flag=Flag.U|Flag.R|Flag.W

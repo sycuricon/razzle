@@ -1,4 +1,5 @@
 from Utils import *
+import os
 
 class Page:
     size=0x1000
@@ -19,7 +20,7 @@ class Page:
         self.global_label.append(label)
 
 class Section:
-    def __init__(self,name,length,section_label=None,pages=[]):
+    def __init__(self,name,length,section_label=[],pages=[]):
         self.name=name
         self.vaddr=pages[0].vaddr
         self.paddr=pages[0].paddr
@@ -30,7 +31,8 @@ class Section:
     
     def _generate_global(self):
         write_lines=[]
-        write_lines.extend(Asmer.global_inst(self.section_label))
+        for label in self.section_label:
+            write_lines.extend(Asmer.global_inst(label))
         for page in self.pages:
             for label in page.global_label:
                 write_lines.extend(Asmer.global_inst(label))
@@ -40,7 +42,8 @@ class Section:
         write_lines=[]
         write_lines.extend(self._generate_global())
         write_lines.extend(Asmer.section_inst(self.name,self.flag))
-        write_lines.extend(Asmer.label_inst(self.section_label))
+        for label in self.section_label:
+            write_lines.extend(Asmer.label_inst(label))
         for page in self.pages:
             write_lines.extend(page.generate_asm())
         return write_lines
@@ -90,18 +93,18 @@ class SectionManager:
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.U|Flag.R]=[".rodata",Section,0]
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",Section,0]
-        self.name_dict[Flag.U|Flag.R|Flag.X]=[".text",Section,0]
+        self.name_dict[Flag.U|Flag.R]=[".rodata",Section,0,[]]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",Section,0,[]]
+        self.name_dict[Flag.U|Flag.R|Flag.X]=[".text",Section,0,[]]
 
     def _get_section_type(self,flag):
-        name,section,num=self.name_dict[flag]
+        name,section,num,section_name=self.name_dict[flag]
         self.name_dict[flag][2]+=1
-        return name if num==0 else name+str(num),section
+        return name if num==0 else name+str(num),section,section_name
     
     def _add_new_section(self,pages,length_base):
-        name,section=self._get_section_type(pages[0].flag)
-        self.section.append(section(name,length_base,name[1:],pages))
+        name,section,section_label=self._get_section_type(pages[0].flag)
+        self.section.append(section(name,length_base,section_label,pages))
     
     def _generate_section_list(self):
         def _sort_key(item):
@@ -124,7 +127,7 @@ class SectionManager:
     def get_section_list(self):
         section_info_list=[]
         for section in self.section:
-            section_info_list.append(section.get_section_info())
+            section_info_list.append([section.get_section_info(),None])
         return section_info_list
 
     def _generate_pages(self):
@@ -134,7 +137,8 @@ class SectionManager:
         for section in self.section:
             f.writelines(section.generate_asm())
 
-    def file_generate(self,filename):
+    def file_generate(self,path,name):
+        filename=os.path.join(path,name)
         self._generate_pages()
         self._generate_section_list()
         with open(filename,"wt") as f:
