@@ -49,7 +49,7 @@ _start:
   li  x31,0
 
   # enable FPU, vector, and accelerator if present
-  li t0, MSTATUS_FS | MSTATUS_XS | MSTATUS_VS
+  li t0, MSTATUS_FS | MSTATUS_XS | MSTATUS_VS | MSTATUS_MPP
   csrs mstatus, t0
 
 #ifdef __riscv_flen
@@ -120,7 +120,16 @@ _start:
   sll a2, a0, STKSHIFT
   add tp, tp, a2
 
-  j _init
+  li t0, 0x80000000
+  srli t0, t0, 12
+  li t1, 8
+  slli t1, t1, 60
+  and t0, t0, t1
+  csrw satp,t0
+
+  la t0, _init
+  csrw mepc, t0
+  mret
 
   .align 2
 trap_entry:
