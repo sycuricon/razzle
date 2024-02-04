@@ -216,27 +216,29 @@ class RISCVSnapshot:
         self.state.load_state(init_state)
 
     def save(self, output_file, **kwargs):
-        assert kwargs["format"] in ["hex", "bin"], "Unsupported output format"
+        output_file = kwargs["output_format"]
+        assert output_file in ["hex", "bin"], "Unsupported output format"
 
         format_state = []
         for t in self.target_list:
-            format_state.extend(self.state.save_state(t, kwargs["format"]))
+            format_state.extend(self.state.save_state(t, output_file))
 
-        if kwargs["format"] == "bin":
+        if output_file == "bin":
             with open(output_file, "wb") as output_file:
                 for s in format_state:
                     output_file.write(s)
-        elif kwargs["format"] == "hex":
+        elif output_file == "hex":
             with open(output_file, "wt") as output_file:
                 output_buffer = []
-                if kwargs["output_width"] > self.xlen:
-                    assert kwargs["output_width"] % self.xlen == 0, "Misaligned output width"
-                    chunk_size = kwargs["output_width"] // self.xlen
+                output_width = kwargs["output_width"]
+                if output_width > self.xlen:
+                    assert output_width % self.xlen == 0, "Misaligned output width"
+                    chunk_size = output_width // self.xlen
                     for i in range(0, len(format_state), chunk_size):
                         output_buffer.append("".join(reversed(format_state[i:i + chunk_size])))
-                elif kwargs["output_width"] < self.xlen:
-                    assert self.xlen % kwargs["output_width"] == 0, "Misaligned output width"
-                    chunk_size = kwargs["output_width"] // 8 * 2
+                elif output_width < self.xlen:
+                    assert self.xlen % output_width == 0, "Misaligned output width"
+                    chunk_size = output_width // 8 * 2
                     for s in format_state:
                         output_buffer.extend(reversed([s[i:i + chunk_size] for i in range(0, self.xlen // 8 * 2, chunk_size)]))
                 else:
