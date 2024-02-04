@@ -1,4 +1,5 @@
 import hjson
+import argparse
 import os
 from ChannelManger import *
 from PageTableManager import *
@@ -52,8 +53,14 @@ class DistributeManager:
         self.loader.file_generate(path,ld_name)
 
 if __name__ == "__main__":
-    dist=DistributeManager('distribute.hjson')
-    dist.generate_test(os.path.join(os.getcwd(),'build'))
+    parse = argparse.ArgumentParser()
+    parse.add_argument("-i", "--input",  dest="input",  required=True, help="input hjson")
+    parse.add_argument("-O", "--output", dest="output", required=True, help="output of the fuzz code")
+    args = parse.parse_args()
+    if not os.path.exists(args.output):
+        os.makedirs(args.output)
+    dist=DistributeManager(args.input)
+    dist.generate_test(args.output)
 
 
 
