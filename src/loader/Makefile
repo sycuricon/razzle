@@ -1,38 +1,28 @@
-RISCV_OPT ?= -march=rv64i_zicsr -mabi=lp64 -mcmodel=medany -nostdlib -nostartfiles -DNOBRANCH
-REG_STATE_FILE ?= reginfo.json
-REG_STATE_BIN = $(REG_STATE_FILE).bin
-REG_STATE_HEX = $(REG_STATE_FILE).hex
-REG_STATE_DATA_HEX = $(REG_STATE_FILE).data.hex
-REG_STATE_TEXT_HEX = $(REG_STATE_FILE).text.hex
+ROOT_DIR	?=	$(dir $(abspath $(lastword $(MAKEFILE_LIST))))
+SRC_DIR		:= 	$(ROOT_DIR)/firmware/rvsnap/src/loader
+BUILD_DIR	:=	$(ROOT_DIR)/build/firmware/rvsnap
 
-bin:$(REG_STATE_BIN) dump_initial.S
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc $(RISCV_OPT) -D REG_STATE_BIN=\"$(REG_STATE_BIN)\" \
-		-T link.ld dump_initial.S -o dump_initial.out
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-objdump -D dump_initial.out > dump_initial.asm
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-objcopy -O binary dump_initial.out dump_initial.bin
-	od -v -An -tx4 dump_initial.bin > $(REG_STATE_HEX)
-	rm -rf dump_initial.bin
+CC			=	$(RISCV)/bin/riscv64-unknown-elf-gcc
+OBJCOPY		=	$(RISCV)/bin/riscv64-unknown-elf-objcopy
+OBJDUMP		=	$(RISCV)/bin/riscv64-unknown-elf-objdump
 
-$(REG_STATE_BIN):$(REG_STATE_FILE)
-	python3 reg_init.py $(REG_STATE_FILE) $(REG_STATE_FILE).bin bin
+elf	:= $(BUILD_DIR)/init.elf
+bin	:= $(BUILD_DIR)/init.bin
+img	:= $(BUILD_DIR)/init.img
 
-hex:$(REG_STATE_DATA_HEX) $(REG_STATE_TEXT_HEX)
-	cat $(REG_STATE_TEXT_HEX) > $(REG_STATE_HEX)
-	echo @00000068 >> $(REG_STATE_HEX)
-	cat $(REG_STATE_DATA_HEX) >> $(REG_STATE_HEX) 
+all: $(img)
 
-$(REG_STATE_TEXT_HEX):dump_initial.S
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc $(RISCV_OPT) -D REG_STATE_BIN=\"$(REG_STATE_BIN)\" \
-		-T link.ld dump_initial.S -o dump_initial.out
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-objcopy --only-section .text -O binary dump_initial.out dump_initial.bin
-	od -v -An -tx4 dump_initial.bin > $(REG_STATE_TEXT_HEX)
-	rm -rf dump_initial.bin
+elf: $(elf)
+$(elf): $(BUILD_DIR)/init.S link.ld
+	mkdir -p $(BUILD_DIR)
+	$(CC) -Tlink.ld -I$(SRC_DIR) $< -nostdlib -static -Wl,--no-gc-sections -o $@
 
-$(REG_STATE_DATA_HEX):$(REG_STATE_FILE) reg_init.py
-	python3 reg_init.py $(REG_STATE_FILE) $(REG_STATE_DATA_HEX) hex
+bin: $(bin)
+$(bin): $(elf)
+	mkdir -p $(BUILD_DIR)
+	$(OBJCOPY) -O binary $< $@
 
-dummy:
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-gcc $(RISCV_OPT) -T link.ld dummy.S -o dummy.out
-	$(RISCV)/bin/riscv64-unknown-linux-gnu-objcopy -O binary dummy.out dummy.bin
-	od -v -An -tx4 dummy.bin > dummy.hex
-	# rm -rf dummy.bin
+img: $(img)
+$(img): $(bin)
+	mkdir -p $(BUILD_DIR)
+	dd if=$< of=$@ bs=512 count=1
