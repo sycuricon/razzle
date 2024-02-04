@@ -23,4 +23,4 @@ $(TARGET):$(OBJ)
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -c $< -o $@
 
 clean:
-	rm -f $(SRC_PATH)/*.o $(SRC_PATH)/*.c $(SRC_PATH)/*.S $(TARGET) $(SRC_PATH)/System.map
+	rm -f $(SRC_PATH)/*
