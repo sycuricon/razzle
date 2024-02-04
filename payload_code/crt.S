@@ -170,7 +170,8 @@ trap_entry:
   csrr a0, mcause
   csrr a1, mepc
   mv a2, sp
-  jal handle_trap
+  la t0, handle_trap
+  jalr ra, 0(t0)
 
   LREG x1, 1*REGBYTES(sp)
   LREG x2, 2*REGBYTES(sp)
@@ -215,10 +216,10 @@ disable_fs:
   csrc mstatus, t0
   ret
 
-.section ".tohost","aw",@progbits
-.align 6
-.globl tohost
-tohost: .dword 0
-.align 6
-.globl fromhost
-fromhost: .dword 0
+# .section ".tohost","aw",@progbits
+# .align 6
+# .globl tohost
+# tohost: .dword 0
+# .align 6
+# .globl fromhost
+# fromhost: .dword 0

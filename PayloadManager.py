@@ -14,11 +14,9 @@ class PayloadManager(FuzzManager):
     def get_section_list(self):
         section_list=super().get_section_list()
         section_list[0][1]=[
-            '\t\t*(.text.init)\n'
             '\t\t*(.text*)\n'
         ]
         section_list[1][1]=[
-            '\t\t*(.tohost)\n'
             '\t\t*(.rodata)\n'
             '\t\t*(.data)\n'
             '\t\t__global_pointer$ = . + 0x800;\n'
@@ -30,9 +28,15 @@ class PayloadManager(FuzzManager):
             '\t\t*(.tdata)\n'
             '\t\t*(.tbss)\n'
         ]
+        section_list[2][1]={
+            '\t\t*(.text.init)\n'
+        }
         return section_list
     
     def _generate_pages(self):
+        flag=Flag.U|Flag.X|Flag.R
+        vaddr,paddr=self._get_new_page(flag)
+        self._add_page_content(FuzzPage(paddr,paddr,flag))
         flag=Flag.U|Flag.X|Flag.R
         vaddr,paddr=self._get_new_page(flag)
         self._add_page_content(FuzzPage(vaddr,paddr,flag))

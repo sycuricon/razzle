@@ -95,6 +95,8 @@ class PageTableManager(SectionManager):
 
     def register_sections(self,section_list):
         for (name,vaddr,paddr,length,flag),append in section_list:
+            if vaddr==paddr:
+                continue
             for offset in range(0,length,Page.size):
                 vaddr_offset=vaddr+offset
                 paddr_offset=paddr+offset
