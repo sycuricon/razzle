@@ -54,7 +54,7 @@ class DistributeManager:
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
-    parse.add_argument("-i", "--input",  dest="input",  required=True, help="input hjson")
+    parse.add_argument("-I", "--input",  dest="input",  required=True, help="input hjson")
     parse.add_argument("-O", "--output", dest="output", required=True, help="output of the fuzz code")
     args = parse.parse_args()
     if not os.path.exists(args.output):
