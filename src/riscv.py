@@ -1,4 +1,6 @@
 SUPPORTED_CSR = [
+    "mepc",
+    "sepc",
     "mstatus",
     "misa",
     "mideleg",
@@ -12,6 +14,13 @@ SUPPORTED_CSR = [
     "sscratch",
     "satp"
 ]
+
+RV64_MEPC_META = [
+#   (name,    offset,   mask)
+    ("EPC",     0,      0xffff_ffff_ffff_ffff),
+]
+
+RV64_SEPC_META = RV64_MEPC_META
 
 RV64_MSTATUS_META = [
 #   (name,    offset,   mask)
