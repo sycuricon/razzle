@@ -216,18 +216,18 @@ class RISCVSnapshot:
         self.state.load_state(init_state)
 
     def save(self, output_file, **kwargs):
-        output_file = kwargs["output_format"]
-        assert output_file in ["hex", "bin"], "Unsupported output format"
+        output_format = kwargs["output_format"]
+        assert output_format in ["hex", "bin"], "Unsupported output format"
 
         format_state = []
         for t in self.target_list:
-            format_state.extend(self.state.save_state(t, output_file))
+            format_state.extend(self.state.save_state(t, output_format))
 
-        if output_file == "bin":
+        if output_format == "bin":
             with open(output_file, "wb") as output_file:
                 for s in format_state:
                     output_file.write(s)
-        elif output_file == "hex":
+        elif output_format == "hex":
             with open(output_file, "wt") as output_file:
                 output_buffer = []
                 output_width = kwargs["output_width"]
