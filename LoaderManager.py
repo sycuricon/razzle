@@ -21,7 +21,8 @@ class LoaderManager:
                 link_addr=hex(vaddr)
                 load_addr=hex(paddr)
                 f.write('\t'+'. = '+link_addr+';\n')
-                f.write('\t'+name+' : AT ('+load_addr+') {\n')
+                f.write('\t'+name+' : {\n')
+                # f.write('\t'+name+' : AT ('+load_addr+') {\n')
                 f.write('\t\t'+name.replace('.','_')+'_start = .;\n')
                 if append is None:
                     f.write('\t\t*('+name+'*)\n')

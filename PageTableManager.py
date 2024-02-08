@@ -24,7 +24,7 @@ class PageTablePage(Page):
         self.stage_array[entry_num]=stage
         self.vaddr_array[entry_num]=vaddr
 
-    def generate_asm(self):
+    def generate_asm(self,is_variant):
         write_lines=[]
         empty_entry=0
         for i in range(self.entry_num):

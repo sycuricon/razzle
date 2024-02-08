@@ -5,15 +5,15 @@ class StackPage(Page):
     def __init__(self,vaddr,paddr,flag):
         super().__init__(vaddr,paddr,flag)
 
-    def generate_asm(self):
+    def generate_asm(self,is_variant):
         return Asmer.space_inst(Page.size)
 
 class StackSection(Section):
     def __init__(self,name,length,section_label=[],pages=[]):
         super().__init__(name,length,section_label,pages)
     
-    def generate_asm(self):
-        write_lines=super().generate_asm()
+    def generate_asm(self,is_variant):
+        write_lines=super().generate_asm(is_variant)
         write_lines.extend(Asmer.label_inst('stack_bottom'))
         return write_lines
 

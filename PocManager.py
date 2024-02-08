@@ -16,11 +16,7 @@ class PocManager(FuzzManager):
         vaddr,paddr=self._get_new_page(flag)
         self._add_page_content(FuzzPage(vaddr,paddr,flag))
 
-    def file_generate(self,path,name):
-        self._generate_pages()
-        self._generate_section_list()
-        for folder in self.folder:
-            os.system("cp "+folder+'/* '+path)
+    
         
         
 

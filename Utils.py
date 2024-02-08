@@ -39,4 +39,7 @@ class Asmer:
     
     def fill_inst(repeat,size,value):
         return ['\t'+'.fill '+hex(repeat)+', '+hex(size)+', '+hex(value)+'\n']
+
+    def byte_inst(byte_list):
+        return ['\t.byte '+','.join(list(map(str,byte_list)))]
     

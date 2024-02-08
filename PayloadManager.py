@@ -14,6 +14,7 @@ class PayloadManager(FuzzManager):
     def get_section_list(self):
         section_list=super().get_section_list()
         section_list[0][1]=[
+            '\t\t*(.text.init)\n'
             '\t\t*(.text*)\n'
         ]
         section_list[1][1]=[
@@ -28,9 +29,6 @@ class PayloadManager(FuzzManager):
             '\t\t*(.tdata)\n'
             '\t\t*(.tbss)\n'
         ]
-        section_list[2][1]={
-            '\t\t*(.text.init)\n'
-        }
         return section_list
     
     def _generate_pages(self):
@@ -49,12 +47,6 @@ class PayloadManager(FuzzManager):
         flag=Flag.U|Flag.W|Flag.R
         vaddr,paddr=self._get_new_page(flag)
         self._add_page_content(FuzzPage(vaddr,paddr,flag))
-
-    def file_generate(self,path,name):
-        self._generate_pages()
-        self._generate_section_list()
-        for folder in self.folder:
-            os.system("cp "+folder+'/* '+path)
         
 if __name__ == "__main__":
     import hjson

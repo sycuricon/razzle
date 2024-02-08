@@ -10,7 +10,7 @@ class Page:
         self.flag=flag
         self.global_label=[]
 
-    def generate_asm(self):
+    def generate_asm(self,is_variant):
         return []
 
     def global_label(self):
@@ -38,14 +38,14 @@ class Section:
                 write_lines.extend(Asmer.global_inst(label))
         return write_lines
 
-    def generate_asm(self):
+    def generate_asm(self,is_variant):
         write_lines=[]
         write_lines.extend(self._generate_global())
         write_lines.extend(Asmer.section_inst(self.name,self.flag))
         for label in self.section_label:
             write_lines.extend(Asmer.label_inst(label))
         for page in self.pages:
-            write_lines.extend(page.generate_asm())
+            write_lines.extend(page.generate_asm(is_variant))
         return write_lines
 
     def get_section_info(self):
@@ -86,7 +86,7 @@ class SectionManager:
 
     def _get_new_page(self,flag):
         vaddr,paddr=self._choose_new_page(flag)
-        return vaddr,paddr
+        return paddr,paddr
     
     def _add_page_content(self,page):
         self.use_page.append(page)
@@ -133,13 +133,25 @@ class SectionManager:
     def _generate_pages(self):
         pass
 
-    def _generate_sections(self,f):
+    def _generate_sections(self,f,is_variant):
         for section in self.section:
-            f.writelines(section.generate_asm())
+            f.writelines(section.generate_asm(is_variant))
+    
+    def _free_page(self,idx):
+        page=self.use_page[idx]
+        self.use_page.pop(idx)
+        self.memory_pool.append(page.paddr)
+        self.virtual_memory_pool.append(page.vaddr)
+    
+    def _free_all_page(self):
+        while(len(self.use_page)!=0):
+            self._free_all_page(0)
 
     def file_generate(self,path,name):
         filename=os.path.join(path,name)
         self._generate_pages()
         self._generate_section_list()
         with open(filename,"wt") as f:
-            self._generate_sections(f)
+            self._generate_sections(f,False)
+        return [[filename],[filename]]
+        

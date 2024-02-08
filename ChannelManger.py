@@ -6,7 +6,7 @@ class ChannelPage(Page):
         super().__init__(vaddr,paddr,flag)
         self.image_value=int(image_value,base=16)
 
-    def generate_asm(self):
+    def generate_asm(self,is_variant):
         return Asmer.fill_inst(Page.size,1,self.image_value)
 
 class ChannelSection(Section):
