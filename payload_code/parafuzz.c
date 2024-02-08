@@ -83,9 +83,9 @@ uint64_t access_time(uint8_t* base, int index, int offset) {
   uint64_t time1 = 0, time2;
   uint8_t *addr = base + index*CACHE_BLOCK + offset;
   int junk = 0;
-  time1 = read_csr(mcycle);
+  time1 = read_csr(cycle);
   junk = *(addr);
-  time2 = read_csr(mcycle);
+  time2 = read_csr(cycle);
   INFO_LEAK_END;
 
   // printf(

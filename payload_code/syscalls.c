@@ -6,8 +6,24 @@
 #include <stdio.h>
 #include <limits.h>
 #include <sys/signal.h>
-#include "util.h"
 #include "parafuzz.h"
+
+__attribute__((section (".text.init")))
+void trap_exit(int code) {
+  asm volatile(
+    "csrw 0x800, %[stop]\n"
+    : :
+      [stop] "r" (CMD_POWER_OFF | code)
+  );
+
+  __builtin_unreachable();
+}
+
+__attribute__((section (".text.init")))
+uintptr_t __attribute__((weak)) handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
+{
+  trap_exit(1337);
+}
 
 void abort()
 {
@@ -19,11 +35,6 @@ void printstr(const char* s)
   int i = 0;
   while (s[i])
     putchar(s[i++]);
-}
-
-uintptr_t __attribute__((weak)) handle_trap(uintptr_t cause, uintptr_t epc, uintptr_t regs[32])
-{
-  exit(1337);
 }
 
 int __attribute__((weak)) main(int argc, char** argv)

@@ -49,8 +49,10 @@ _start:
   li  x31,0
 
   # enable FPU, vector, and accelerator if present
-  li t0, MSTATUS_FS | MSTATUS_XS | MSTATUS_VS | MSTATUS_MPP
+  li t0, MSTATUS_FS | MSTATUS_XS | MSTATUS_VS 
   csrs mstatus, t0
+  li t0, MSTATUS_MPP
+  csrc mstatus, t0
 
 #ifdef __riscv_flen
   # initialize FPU if we have one
@@ -120,12 +122,16 @@ _start:
   sll a2, a0, STKSHIFT
   add tp, tp, a2
 
-  li t0, 0x80000000
-  srli t0, t0, 12
-  li t1, 8
-  slli t1, t1, 60
-  and t0, t0, t1
-  csrw satp,t0
+  # li t0, 0x80000000
+  # srli t0, t0, 12
+  # li t1, 8
+  # slli t1, t1, 60
+  # add t0, t0, t1
+  # csrw satp,t0
+
+  li t0, -1
+  csrw mcounteren, t0
+  csrw scounteren, t0
 
   la t0, _init
   csrw mepc, t0
