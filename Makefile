@@ -6,15 +6,23 @@ RISCV_OBJDUMP ?= $(RISCV_PREFIX)objdump -Mno-aliases -D
 RISCV_LD  ?= $(RISCV_PREFIX)ld
 BUILD_PATH  ?= $(CURDIR)/build
 
-SRC_C = $(shell find $(BUILD_PATH) -name "*.c")
-SRC_S = $(shell find $(BUILD_PATH) -name "*.S")
-OBJ   = $(patsubst %.c,%.o,$(SRC_C)) $(patsubst %.S,%.o,$(SRC_S))
+include $(BUILD_PATH)/origin_list.mk
+include $(BUILD_PATH)/variant_list.mk
+ORIGIN_OBJ   = $(patsubst %.c,%.o,$(ORIGIN_SRC_C)) $(patsubst %.S,%.o,$(ORIGIN_SRC_S))
+VARIANT_OBJ   = $(patsubst %.c,%.o,$(VARIANT_SRC_C)) $(patsubst %.S,%.o,$(VARIANT_SRC_S))
 
-TARGET = $(BUILD_PATH)/Testbench
+ORIGIN_TARGET = $(BUILD_PATH)/Testbench
+VARIANT_TARGET = $(BUILD_PATH)/Testbench.variant
 
-$(TARGET):$(OBJ)
+all:$(ORIGIN_TARGET) $(VARIANT_TARGET)
+
+$(ORIGIN_TARGET):$(ORIGIN_OBJ)
 	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
 	nm $@ >  $(BUILD_PATH)/System.map
+
+$(VARIANT_TARGET):$(VARIANT_OBJ)
+	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
+	nm $@ >  $(BUILD_PATH)/System.variant.map
 
 %.o:%.c
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -c $< -o $@
