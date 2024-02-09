@@ -19,10 +19,16 @@ all:$(ORIGIN_TARGET) $(VARIANT_TARGET)
 $(ORIGIN_TARGET):$(ORIGIN_OBJ)
 	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
 	nm $@ >  $(BUILD_PATH)/System.map
+	$(RISCV_OBJCOPY) $@ tmp.bin
+	od -v -An -tx8 tmp.bin > $@.hex
+	rm -f tmp.bin
 
 $(VARIANT_TARGET):$(VARIANT_OBJ)
 	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
 	nm $@ >  $(BUILD_PATH)/System.variant.map
+	$(RISCV_OBJCOPY) $@ tmp.bin
+	od -v -An -tx8 tmp.bin > $@.hex
+	rm -f tmp.bin
 
 %.o:%.c
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -c $< -o $@
