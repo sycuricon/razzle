@@ -120,11 +120,15 @@ _start:
   csrw mcounteren, t0
   csrw scounteren, t0
 
+  li t0, 0x003fffffffffffff
+  csrw pmpaddr0, t0
+  li t0, 0x000000000000001f
+  csrw pmpcfg0, t0
 
   la t0, _init
-  # csrw mepc, t0
-  # mret
-  jr t0
+  csrw mepc, t0
+  mret
+  # jr t0
 
   .align 2
 trap_entry:
