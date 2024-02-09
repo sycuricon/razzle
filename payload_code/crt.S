@@ -105,37 +105,26 @@ _start:
   la gp, __global_pointer$
 .option pop
 
-  la  tp, _end + 63
-  and tp, tp, -64
+  la tp, _stack_start
+  la sp, _stack_end
 
-  # get core id
-  csrr a0, mhartid
-  # for now, assume only 1 core
-  li a1, 1
-1:bgeu a0, a1, 1b
-
-  # give each core 128KB of stack + TLS
-#define STKSHIFT 17
-  add sp, a0, 1
-  sll sp, sp, STKSHIFT
-  add sp, sp, tp
-  sll a2, a0, STKSHIFT
-  add tp, tp, a2
-
-  # li t0, 0x80000000
+  # li t0, 0x80005000
   # srli t0, t0, 12
   # li t1, 8
   # slli t1, t1, 60
   # add t0, t0, t1
   # csrw satp,t0
+  csrw satp,zero
 
   li t0, -1
   csrw mcounteren, t0
   csrw scounteren, t0
 
+
   la t0, _init
-  csrw mepc, t0
-  mret
+  # csrw mepc, t0
+  # mret
+  jr t0
 
   .align 2
 trap_entry:
