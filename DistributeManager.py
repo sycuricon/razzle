@@ -10,7 +10,7 @@ from PocManager import *
 from PayloadManager import *
 
 class DistributeManager:
-    def __init__(self,hjson_filename,output_path):
+    def __init__(self,hjson_filename,output_path,virtual):
         hjson_file=open(hjson_filename)
         config=hjson.load(hjson_file)
         hjson_file.close()
@@ -24,7 +24,7 @@ class DistributeManager:
         self.payload=PayloadManager(config["payload"])
         self.poc=PocManager(config["poc"])
 
-        self.loader=LoaderManager()
+        self.loader=LoaderManager(virtual)
 
         self.file_list=[]
         self.var_file_list=[]
@@ -87,10 +87,12 @@ if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument("-I", "--input",  dest="input",  required=True, help="input hjson")
     parse.add_argument("-O", "--output", dest="output", required=True, help="output of the fuzz code")
+    parse.add_argument("-V", "--virtual", dest="virtual", action="store_true", help="link in virtual address")
+    
     args = parse.parse_args()
     if not os.path.exists(args.output):
         os.makedirs(args.output)
-    dist=DistributeManager(args.input,args.output)
+    dist=DistributeManager(args.input,args.output,args.virtual)
     dist.generate_test()
 
 

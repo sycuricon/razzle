@@ -86,7 +86,7 @@ class SectionManager:
 
     def _get_new_page(self,flag):
         vaddr,paddr=self._choose_new_page(flag)
-        return paddr,paddr
+        return vaddr,paddr
     
     def _add_page_content(self,page):
         self.use_page.append(page)
