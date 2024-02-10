@@ -108,13 +108,15 @@ _start:
   la tp, _stack_start
   la sp, _stack_end
 
-  # li t0, 0x80005000
-  # srli t0, t0, 12
-  # li t1, 8
-  # slli t1, t1, 60
-  # add t0, t0, t1
-  # csrw satp,t0
-  csrw satp,zero
+  //if virtual address mode
+  li t0, 0x80005000
+  srli t0, t0, 12
+  li t1, 8
+  slli t1, t1, 60
+  add t0, t0, t1
+  csrw satp,t0
+  //if physics address mode
+  # csrw satp,zero
 
   li t0, -1
   csrw mcounteren, t0
@@ -125,9 +127,11 @@ _start:
   li t0, 0x000000000000001f
   csrw pmpcfg0, t0
 
+  // if M mode
   la t0, _init
   csrw mepc, t0
   mret
+  // if U mode
   # jr t0
 
   .align 2

@@ -18,7 +18,7 @@ class PayloadManager(FuzzManager):
             '\t\t*(.text.trap)\n'
         ]
         section_list[0][1]=[
-            '\t\t*(.text*)\n'
+            '\t\t*(.text)\n'
         ]
         section_list[1][1]=[
             '\t\t*(.rodata)\n'

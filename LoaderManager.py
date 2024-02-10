@@ -29,7 +29,7 @@ class LoaderManager:
                     f.write('\t'+name+' : {\n')
                 f.write('\t\t'+name.replace('.','_')+'_start = .;\n')
                 if append is None:
-                    f.write('\t\t*('+name+'*)\n')
+                    f.write('\t\t*('+name+')\n')
                 else:
                     f.writelines(append) 
                 f.write('\t\t'+name.replace('.','_')+'_end = .;\n')
