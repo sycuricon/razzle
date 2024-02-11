@@ -74,7 +74,7 @@ class PageTableManager(SectionManager):
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.R|Flag.W]=[".pagetable",PageTableSection,0,[]]
+        self.name_dict[Flag.R|Flag.W]=[".pagetable",PageTableSection,0,['root_page_table']]
     
     def _register_page(self,vaddr,paddr,flag):
         self.pgtlb_paddr[-1]=paddr

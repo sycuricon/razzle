@@ -1,0 +1,74 @@
+import hjson
+import argparse
+import os
+
+class RegInit:
+    def __init__(self,base_init_name,symbol_name,output_name,virtual):
+        self.base_init_name=base_init_name
+        self.symbol_name=symbol_name
+        self.output_name=output_name
+        self.virtual=virtual
+    
+    def _get_symbol_address(self):
+        self.symbol={}
+        with open(self.symbol_name,"rt") as symbol_file:
+            symbol_lines=symbol_file.readlines()
+            for line in symbol_lines:
+                [vaddr,kind,name] = list(line.strip().split(' '))
+                self.symbol[name] = vaddr
+
+    def _num2hex(self,num):
+        return '0x'+num
+
+    def _set_symbol_relate_register(self):
+        # sp
+        self.reg_init_config["xreg"][2]=self._num2hex(self.symbol["stack_bottom"])
+        # tp
+        self.reg_init_config["xreg"][4]=self._num2hex(self.symbol["stack_top"])
+        # gp
+        self.reg_init_config["xreg"][3]=self._num2hex(self.symbol["__global_pointer$"])
+        # mtvec
+        self.reg_init_config["csr"]["mtvec"]["BASE"]=self._num2hex(self.symbol["trap_entry"])
+        self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
+        # stvec
+        self.reg_init_config["csr"]["stvec"]["BASE"]=self._num2hex(self.symbol["trap_entry"])
+        self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
+        # mepc
+        self.reg_init_config["csr"]["mepc"]["EPC"]=self._num2hex(self.symbol["_init"])
+        # sepc
+        self.reg_init_config["csr"]["sepc"]["EPC"]=self._num2hex(self.symbol["_init"])
+        # satp
+        if self.virtual:
+            self.reg_init_config["csr"]["satp"]["PPN"]=self._num2hex(self.symbol["root_page_table"])
+            self.reg_init_config["csr"]["satp"]["ASID"]="0x0"
+            self.reg_init_config["csr"]["satp"]["MODE"]="0x8"
+        else:
+            self.reg_init_config["csr"]["satp"]["PPN"]="0x0000000000000000"
+            self.reg_init_config["csr"]["satp"]["ASID"]="0x0"
+            self.reg_init_config["csr"]["satp"]["MODE"]="0x0"
+        # pmp
+        self.reg_init_config["pmp"]["pmp0"]["R"]="0b1"
+        self.reg_init_config["pmp"]["pmp0"]["W"]="0b1"
+        self.reg_init_config["pmp"]["pmp0"]["X"]="0b1"
+        self.reg_init_config["pmp"]["pmp0"]["L"]="0b1"
+        self.reg_init_config["pmp"]["pmp0"]["A"]="NAPOT"
+        self.reg_init_config["pmp"]["pmp0"]["ADDR"]="0x80000000"
+        self.reg_init_config["pmp"]["pmp0"]["RANGE"]="0x40000"
+
+    def generate(self):
+        with open(self.base_init_name,"rt") as base_init_file:
+            self.reg_init_config=hjson.load(base_init_file)
+        self._get_symbol_address()
+        self._set_symbol_relate_register()  
+        with open(self.output_name,"wt") as output_file:
+            hjson.dump(self.reg_init_config,output_file)
+
+if __name__ == "__main__":
+    parse = argparse.ArgumentParser()
+    parse.add_argument("-I", "--input",  dest="input",  required=True, help="input hjson")
+    parse.add_argument("-S", "--symbol", dest="symbol", required=True, help="symbol of the fuzz code")
+    parse.add_argument("-O", "--output", dest="output", required=True, help="output of the reg initialization")
+    parse.add_argument("-V", "--virtual", dest="virtual", action="store_true", help="link in virtual address")
+    args = parse.parse_args()
+    reg_init = RegInit(args.input,args.symbol,args.output,args.virtual)
+    reg_init.generate()
