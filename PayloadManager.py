@@ -14,7 +14,7 @@ class PayloadManager(FuzzManager):
     def get_section_list(self):
         section_list=super().get_section_list()
         section_list[2][1]=[
-            '\t\t*(.text.init)\n'
+            # '\t\t*(.text.init)\n'
             '\t\t*(.text.trap)\n'
         ]
         section_list[0][1]=[

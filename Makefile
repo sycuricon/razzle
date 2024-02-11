@@ -13,22 +13,26 @@ VARIANT_OBJ   = $(patsubst %.c,%.o,$(VARIANT_SRC_C)) $(patsubst %.S,%.o,$(VARIAN
 
 ORIGIN_TARGET = $(BUILD_PATH)/Testbench
 VARIANT_TARGET = $(BUILD_PATH)/Testbench.variant
+ORIGIN_TARGET_HEX = $(ORIGIN_TARGET).hex
+VARIANT_TARGET_HEX = $(VARIANT_TARGET).hex
 
-all:$(ORIGIN_TARGET) $(VARIANT_TARGET)
+all:$(ORIGIN_TARGET_HEX) $(VARIANT_TARGET_HEX)
+
+$(ORIGIN_TARGET_HEX):$(ORIGIN_TARGET)
+	$(RISCV_OBJCOPY) $< tmp.bin
+	od -v -An -tx8 tmp.bin > $@.hex
+	rm -f tmp.bin
+
+$(VARIANT_TARGET_HEX):$(VARIANT_TARGET)
+	$(RISCV_OBJCOPY) $< tmp.bin
+	od -v -An -tx8 tmp.bin > $@.hex
+	rm -f tmp.bin
 
 $(ORIGIN_TARGET):$(ORIGIN_OBJ)
 	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
-	nm $@ >  $(BUILD_PATH)/System.map
-	$(RISCV_OBJCOPY) $@ tmp.bin
-	od -v -An -tx8 tmp.bin > $@.hex
-	rm -f tmp.bin
 
 $(VARIANT_TARGET):$(VARIANT_OBJ)
 	$(RISCV_LD) -T $(BUILD_PATH)/link.ld $^ -o $@
-	nm $@ >  $(BUILD_PATH)/System.variant.map
-	$(RISCV_OBJCOPY) $@ tmp.bin
-	od -v -An -tx8 tmp.bin > $@.hex
-	rm -f tmp.bin
 
 %.o:%.c
 	$(RISCV_GCC) $(RISCV_GCC_OPTS) -c $< -o $@

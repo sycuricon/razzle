@@ -16,7 +16,7 @@ class LoaderManager:
             section_order=sorted(self.section,key=section_sort)
             print(section_order)
             f.write('OUTPUT_ARCH( "riscv" )\n')
-            f.write('ENTRY(_start)\n')
+            f.write('ENTRY(_init)\n')
             f.write('SECTIONS\n')
             f.write('{\n')
             for (name,vaddr,paddr,length,flag),append in section_order:
