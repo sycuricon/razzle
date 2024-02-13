@@ -20,12 +20,12 @@ all:$(ORIGIN_TARGET_HEX) $(VARIANT_TARGET_HEX)
 
 $(ORIGIN_TARGET_HEX):$(ORIGIN_TARGET)
 	$(RISCV_OBJCOPY) $< tmp.bin
-	od -v -An -tx8 tmp.bin > $@.hex
+	od -v -An -tx8 tmp.bin > $@
 	rm -f tmp.bin
 
 $(VARIANT_TARGET_HEX):$(VARIANT_TARGET)
 	$(RISCV_OBJCOPY) $< tmp.bin
-	od -v -An -tx8 tmp.bin > $@.hex
+	od -v -An -tx8 tmp.bin > $@
 	rm -f tmp.bin
 
 $(ORIGIN_TARGET):$(ORIGIN_OBJ)

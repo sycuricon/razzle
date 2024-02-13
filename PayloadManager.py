@@ -16,6 +16,7 @@ class PayloadManager(FuzzManager):
         section_list[2][1]=[
             # '\t\t*(.text.init)\n'
             '\t\t*(.text.trap)\n'
+            '\t\t*(.data.trap)\n'
         ]
         section_list[0][1]=[
             '\t\t*(.text)\n'

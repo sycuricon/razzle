@@ -22,11 +22,11 @@ class RegInit:
 
     def _set_symbol_relate_register(self):
         # sp
-        self.reg_init_config["xreg"][2]=self._num2hex(self.symbol["stack_bottom"])
+        self.reg_init_config["xreg"][1]=self._num2hex(self.symbol["stack_bottom"])
         # tp
-        self.reg_init_config["xreg"][4]=self._num2hex(self.symbol["stack_top"])
+        self.reg_init_config["xreg"][3]=self._num2hex(self.symbol["stack_top"])
         # gp
-        self.reg_init_config["xreg"][3]=self._num2hex(self.symbol["__global_pointer$"])
+        self.reg_init_config["xreg"][2]=self._num2hex(self.symbol["__global_pointer$"])
         # mtvec
         self.reg_init_config["csr"]["mtvec"]["BASE"]=self._num2hex(self.symbol["trap_entry"])
         self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
@@ -46,6 +46,13 @@ class RegInit:
             self.reg_init_config["csr"]["satp"]["PPN"]="0x0000000000000000"
             self.reg_init_config["csr"]["satp"]["ASID"]="0x0"
             self.reg_init_config["csr"]["satp"]["MODE"]="0x0"
+        #mstatus
+        if self.virtual:
+            self.reg_init_config["csr"]["mstatus"]["MPP"]="0b00"
+        else:
+            self.reg_init_config["csr"]["mstatus"]["MPP"]="0b11"
+        #mscratch
+        self.reg_init_config["csr"]["mscratch"]["SCRATCH"]="0x80003800"
         # pmp
         self.reg_init_config["pmp"]["pmp0"]["R"]="0b1"
         self.reg_init_config["pmp"]["pmp0"]["W"]="0b1"

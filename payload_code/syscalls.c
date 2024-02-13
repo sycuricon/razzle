@@ -8,8 +8,14 @@
 #include <sys/signal.h>
 #include "parafuzz.h"
 
+__attribute__((section (".data.trap")))
+uint64_t ptr_mode = (CMD_SWITCH_STATE | STATE_DUMP_ADDR);
+__attribute__((section (".data.trap")))
+uint64_t stop = CMD_POWER_OFF;
+
 __attribute__((section (".text.trap")))
 void trap_exit(int code) {
+  stop |= code;
   asm volatile(
     "csrw 0x800, %[ptr_mode]\n"
     "csrr t0, mepc\n"
@@ -20,8 +26,8 @@ void trap_exit(int code) {
     "csrw 0x800, t0\n"
     "csrw 0x800, %[stop]\n"
     : :
-      [ptr_mode] "r" ((CMD_SWITCH_STATE | STATE_DUMP_ADDR)),
-      [stop] "r" (CMD_POWER_OFF | code)
+      [ptr_mode] "r" (ptr_mode),
+      [stop] "r" (stop)
   );
 
   __builtin_unreachable();

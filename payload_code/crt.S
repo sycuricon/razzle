@@ -137,6 +137,7 @@
   .align 2
   .section .text.trap
 trap_entry:
+  csrrw sp, mscratch, sp
   addi sp, sp, -272
 
   SREG x1, 1*REGBYTES(sp)
@@ -210,6 +211,7 @@ trap_entry:
   LREG x31, 31*REGBYTES(sp)
 
   addi sp, sp, 272
+  csrrw sp, mscratch, sp
   mret
 
 #   .section ".text"
