@@ -36,7 +36,7 @@ class RegInit:
         # mepc
         self.reg_init_config["csr"]["mepc"]["EPC"]=self._num2hex(self.symbol["_init"])
         # sepc
-        self.reg_init_config["csr"]["sepc"]["EPC"]=self._num2hex(self.symbol["_init"])
+        self.reg_init_config["csr"]["sepc"]["EPC"]=self._num2hex(self.symbol["abort"])
         # satp
         if self.virtual:
             self.reg_init_config["csr"]["satp"]["PPN"]=self._num2hex(self.symbol["root_page_table"])
@@ -54,13 +54,13 @@ class RegInit:
         #mscratch
         self.reg_init_config["csr"]["mscratch"]["SCRATCH"]="0x80003800"
         # pmp
-        self.reg_init_config["pmp"]["pmp0"]["R"]="0b1"
-        self.reg_init_config["pmp"]["pmp0"]["W"]="0b1"
-        self.reg_init_config["pmp"]["pmp0"]["X"]="0b1"
-        self.reg_init_config["pmp"]["pmp0"]["L"]="0b1"
-        self.reg_init_config["pmp"]["pmp0"]["A"]="NAPOT"
-        self.reg_init_config["pmp"]["pmp0"]["ADDR"]="0x80000000"
-        self.reg_init_config["pmp"]["pmp0"]["RANGE"]="0x40000"
+        self.reg_init_config["pmp"]["pmp1"]["R"]="0b1"
+        self.reg_init_config["pmp"]["pmp1"]["W"]="0b1"
+        self.reg_init_config["pmp"]["pmp1"]["X"]="0b1"
+        self.reg_init_config["pmp"]["pmp1"]["L"]="0b0"
+        self.reg_init_config["pmp"]["pmp1"]["A"]="NAPOT"
+        self.reg_init_config["pmp"]["pmp1"]["ADDR"]="0x80000000"
+        self.reg_init_config["pmp"]["pmp1"]["RANGE"]="0x40000"
 
     def generate(self):
         with open(self.base_init_name,"rt") as base_init_file:
