@@ -9,8 +9,9 @@ OBJDUMP		=	$(RISCV)/bin/riscv64-unknown-elf-objdump
 elf	:= $(BUILD_DIR)/init.elf
 bin	:= $(BUILD_DIR)/init.bin
 img	:= $(BUILD_DIR)/init.img
+hex	:= $(BUILD_DIR)/init.hex
 
-all: $(img)
+all: $(hex)
 
 elf: $(elf)
 $(elf): $(BUILD_DIR)/init.S link.ld
@@ -21,6 +22,10 @@ bin: $(bin)
 $(bin): $(elf)
 	mkdir -p $(BUILD_DIR)
 	$(OBJCOPY) -O binary $< $@
+
+hex: $(hex)
+$(hex):$(bin)
+	od -v -An -tx4 $< > $@
 
 img: $(img)
 $(img): $(bin)

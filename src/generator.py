@@ -29,6 +29,10 @@ if __name__ == "__main__":
 
     design = RISCVSnapshot("rv64gc", int(args.pmp), SUPPORTED_CSR)
     design.load_snapshot(args.input)
-    design.save(f"{args.output}/{args.image}", output_format=output_format, output_width=output_width)
+    image_name=f"{args.output}/{args.image}"
+    design.save(image_name, output_format=output_format, output_width=output_width)
 
-    design.gen_loader(f"{args.output}/{args.asm}", with_rom=0x20000)
+    if output_format == "hex":
+        design.gen_loader(f"{args.output}/{args.asm}", with_rom=0x20000)
+    else:
+        design.gen_loader(f"{args.output}/{args.asm}", with_bin=image_name)

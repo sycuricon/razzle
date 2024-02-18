@@ -276,7 +276,7 @@ class RISCVSnapshot:
         if "with_bin" in kwargs:
             load_base_addr = "la x31, reg_info"
             binary_file = kwargs["with_bin"]
-            include_bin = f"include_bin: {binary_file}"
+            include_bin = f".incbin \"{binary_file}\""
         else:
             rom_addr = kwargs["with_rom"]
             load_base_addr = f"la x31, {hex(rom_addr)}"
