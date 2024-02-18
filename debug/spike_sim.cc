@@ -5,10 +5,9 @@ int main(){
     config_t cfg;
     cfg.verbose = true;
     cfg.isa = "rv64gc_zicsr_zicntr";
-    cfg.boot_addr = 0x10000;
+    cfg.boot_addr = 0x20000;
     cfg.elffiles = std::vector<std::string> {
         "/home/zyy/starship-parafuzz/build/firmware/rvsnap/init.elf",
-        "/home/zyy/starship-parafuzz/build/fuzz_code/reg_init.elf",
         "/home/zyy/starship-parafuzz/build/fuzz_code/Testbench"
     };
     cfg.mem_layout = std::vector<mem_cfg_t> {
