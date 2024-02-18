@@ -4,7 +4,7 @@
 int main(){
     config_t cfg;
     cfg.verbose = true;
-    cfg.isa = "rv64gc";
+    cfg.isa = "rv64gc_zicsr_zicntr";
     cfg.boot_addr = 0x10000;
     cfg.elffiles = std::vector<std::string> {
         "/home/zyy/starship-parafuzz/build/firmware/rvsnap/init.elf",
