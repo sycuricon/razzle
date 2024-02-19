@@ -135,7 +135,7 @@
 #   # jr t0
 
   .align 2
-  .section .text.trap
+  .section .text.entry
 trap_entry:
   csrrw sp, mscratch, sp
   addi sp, sp, -272
