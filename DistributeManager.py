@@ -8,11 +8,14 @@ from SecretManager import *
 from StackManager import *
 from PocManager import *
 from PayloadManager import *
+from InitManager import *
 
 class DistributeManager:
-    def __init__(self,hjson_filename,output_path,virtual):
+    def __init__(self,hjson_filename,output_path,virtual,init_dir):
         hjson_file=open(hjson_filename)
         config=hjson.load(hjson_file)
+        if init_dir is not None:
+            config["init"]["folder"]=[init_dir]
         hjson_file.close()
         
         self.output_path=output_path
@@ -23,6 +26,7 @@ class DistributeManager:
         self.stack=StackManager(config["stack"])
         self.payload=PayloadManager(config["payload"])
         self.poc=PocManager(config["poc"])
+        self.init=InitManager(config["init"])
 
         self.loader=LoaderManager(virtual)
 
@@ -60,12 +64,14 @@ class DistributeManager:
         stack_name='stack.S'
         payload_name='payload.S'
         poc_name='poc.S'
+        init_name='init.S'
         ld_name='link.ld'
         self._collect_compile_file(self.secret.file_generate(self.output_path,secret_name))
         self._collect_compile_file(self.channel.file_generate(self.output_path,channel_name))
         self._collect_compile_file(self.stack.file_generate(self.output_path,stack_name))
         self._collect_compile_file(self.payload.file_generate(self.output_path,payload_name))
         self._collect_compile_file(self.poc.file_generate(self.output_path,poc_name))
+        self._collect_compile_file(self.init.file_generate(self.output_path,init_name))
 
         self.section_list=[]
         self.section_list.extend(self.secret.get_section_list())
@@ -73,6 +79,7 @@ class DistributeManager:
         self.section_list.extend(self.stack.get_section_list())
         self.section_list.extend(self.payload.get_section_list())
         self.section_list.extend(self.poc.get_section_list())
+        self.section_list.extend(self.init.get_section_list())
 
         self.page_table.register_sections(self.section_list)
         self._collect_compile_file(self.page_table.file_generate(self.output_path,page_table_name))
@@ -88,11 +95,14 @@ if __name__ == "__main__":
     parse.add_argument("-I", "--input",  dest="input",  required=True, help="input hjson")
     parse.add_argument("-O", "--output", dest="output", required=True, help="output of the fuzz code")
     parse.add_argument("-V", "--virtual", dest="virtual", action="store_true", help="link in virtual address")
-    
+    parse.add_argument("--init", dest="init_dir", required=False, help="dir of code for init")
+
     args = parse.parse_args()
     if not os.path.exists(args.output):
         os.makedirs(args.output)
-    dist=DistributeManager(args.input,args.output,args.virtual)
+    if not os.path.exists(args.init_dir):
+        raise "no initization directory"
+    dist=DistributeManager(args.input,args.output,args.virtual,args.init_dir)
     dist.generate_test()
 
 
