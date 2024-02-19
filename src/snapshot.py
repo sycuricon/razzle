@@ -42,18 +42,26 @@ class RISCVReg:
             ) << offset
         return val
     
-    def __save(self, func):
-        if isinstance(self.data, list):
-            return [func(d) for d in self.data]
+    def __save(self, func, format):
+        if format == "asm":
+            if isinstance(self.data, list):
+                return ["init_"+self.name+str(i)+":\n"+func(d) for i,d in enumerate(self.data)]
+            else:
+                return ["init_"+self.name+":\n"+func(self.data)]
         else:
-            return [func(self.data)]
+            if isinstance(self.data, list):
+                return [func(d) for d in self.data]
+            else:
+                return [func(self.data)]
 
     def save(self, format="hex"):
         match format:
             case "hex":
-                return self.__save(lambda d: hex(d)[2:].zfill(self.width // 4))
+                return self.__save(lambda d: hex(d)[2:].zfill(self.width // 4), format)
             case "bin":
-                return self.__save(lambda d: d.to_bytes(self.width // 8, "little"))
+                return self.__save(lambda d: d.to_bytes(self.width // 8, "little"), format)
+            case "asm":
+                return self.__save(lambda d: ".dword "+hex(d)+"\n", format)
 
 for rf in ["xreg", "freg"]:
     globals()[f"RISCVReg_{rf}"] = type(
@@ -217,7 +225,7 @@ class RISCVSnapshot:
 
     def save(self, output_file, **kwargs):
         output_format = kwargs["output_format"]
-        assert output_format in ["hex", "bin"], "Unsupported output format"
+        assert output_format in ["hex", "bin", "asm"], "Unsupported output format"
 
         format_state = []
         for t in self.target_list:
@@ -244,6 +252,12 @@ class RISCVSnapshot:
                 else:
                     output_buffer = format_state
                 output_file.write("\n".join(output_buffer))
+        elif output_format == "asm":
+            with open(output_file, "wt") as output_file:
+                for s in format_state:
+                    output_file.write(s)
+
+
 
     def __gen_load_asm(self, target, idx, base="x31", tmp="x30"):
         result = []
@@ -261,8 +275,8 @@ class RISCVSnapshot:
 
 
     def gen_loader(self, asm_file, **kwargs):
-        if all(attr in kwargs for attr in ["with_bin", "with_rom"]):
-            raise ValueError("with_bin and with_rom cannot be used together")
+        if all(attr in kwargs for attr in ["with_bin", "with_rom", "with_asm"]):
+            raise ValueError("with_bin, with_rom and with_asm cannot be used together")
         
         load_offset = []
         offset = 0
@@ -271,12 +285,15 @@ class RISCVSnapshot:
             load_offset.extend(asm_list)
             offset += len(asm_list)
         
-        
         include_bin = ""
         if "with_bin" in kwargs:
             load_base_addr = "la x31, reg_info"
             binary_file = kwargs["with_bin"]
             include_bin = f".incbin \"{binary_file}\""
+        elif "with_asm" in kwargs:
+            load_base_addr = "la x31, reg_info"
+            data_asm_file = kwargs["with_asm"]
+            include_bin = f"#include \"{data_asm_file}\""
         else:
             rom_addr = kwargs["with_rom"]
             load_base_addr = f"la x31, {hex(rom_addr)}"

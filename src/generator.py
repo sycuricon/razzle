@@ -34,5 +34,7 @@ if __name__ == "__main__":
 
     if output_format == "hex":
         design.gen_loader(f"{args.output}/{args.asm}", with_rom=0x20000)
+    elif output_format == "asm":
+        design.gen_loader(f"{args.output}/{args.asm}", with_asm=image_name)
     else:
         design.gen_loader(f"{args.output}/{args.asm}", with_bin=image_name)
