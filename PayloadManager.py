@@ -1,20 +1,19 @@
-from FuzzManager import *
+from FileManager import *
 from Utils import *
 
-class PayloadManager(FuzzManager):
+class PayloadManager(FileManager):
     def __init__(self,config):
         super().__init__(config)
-        self.folder=config["folder"]
     
     def _init_section_type(self):
         self.name_dict={}
-        self.name_dict[Flag.U|Flag.X|Flag.R]=[".text",FuzzSection,0,[]]
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",FuzzSection,0,[]]
+        self.name_dict[Flag.U|Flag.X|Flag.R]=[".text",FileSection,0,[]]
+        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",FileSection,0,[]]
     
     def get_section_list(self):
         section_list=super().get_section_list()
         section_list[2][1]=[
-            # '\t\t*(.text.init)\n'
+            '\t\t*(.text.entry)\n'
             '\t\t*(.text.trap)\n'
             '\t\t*(.data.trap)\n'
         ]
@@ -38,19 +37,19 @@ class PayloadManager(FuzzManager):
     def _generate_pages(self):
         flag=Flag.U|Flag.X|Flag.R
         vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FuzzPage(paddr,paddr,flag))
+        self._add_page_content(FilePage(paddr,paddr,flag))
         flag=Flag.U|Flag.X|Flag.R
         vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FuzzPage(vaddr,paddr,flag))
+        self._add_page_content(FilePage(vaddr,paddr,flag))
         flag=Flag.U|Flag.X|Flag.R
         vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FuzzPage(vaddr,paddr,flag))
+        self._add_page_content(FilePage(vaddr,paddr,flag))
         flag=Flag.U|Flag.X|Flag.R
         vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FuzzPage(vaddr,paddr,flag))
+        self._add_page_content(FilePage(vaddr,paddr,flag))
         flag=Flag.U|Flag.W|Flag.R
         vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FuzzPage(vaddr,paddr,flag))
+        self._add_page_content(FilePage(vaddr,paddr,flag))
         
 if __name__ == "__main__":
     import hjson
