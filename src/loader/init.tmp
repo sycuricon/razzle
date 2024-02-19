@@ -1,6 +1,6 @@
 #include "rvsnap.h"
 
-.section .text
+.section .text.init
 .global _start
 _start:
 
@@ -10,7 +10,7 @@ $load_state_body
 
 mret
 
-.section .data
+.section .data.init
 reg_info:
 
 $load_state_extra

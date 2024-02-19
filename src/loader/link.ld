@@ -4,7 +4,7 @@ ENTRY(_start)
 SECTIONS
 {
   . = 0x20000;
-  .text : {*(.text)}
+  .text : {*(.text.init)}
   . = ALIGN(0x10);
-  .data : {*(.data)}
+  .data : {*(.data.init)}
 }
