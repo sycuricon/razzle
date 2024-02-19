@@ -38,3 +38,5 @@ if __name__ == "__main__":
         design.gen_loader(f"{args.output}/{args.asm}", with_asm=image_name)
     else:
         design.gen_loader(f"{args.output}/{args.asm}", with_bin=image_name)
+    
+    os.system(f"cp ./src/loader/rvsnap.h {args.output}/")

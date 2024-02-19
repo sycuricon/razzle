@@ -24,23 +24,29 @@ class RISCVReg:
         return self.decode_raw(reg_str, 2)
 
     def decode_reg(self, reg_str):
-        if len(reg_str) <= 2:
-            return self.decode_dec(reg_str)
-
-        if reg_str[1] == "x":
-            return self.decode_hex(reg_str)
-        elif reg_str[1] == "b":
-            return self.decode_bin(reg_str)
-        else:
-            return self.decode_dec(reg_str)
+        try:
+            if len(reg_str) <= 2:
+                return self.decode_dec(reg_str)
+            if reg_str[1] == "x":
+                return self.decode_hex(reg_str)
+            elif reg_str[1] == "b":
+                return self.decode_bin(reg_str)
+            else:
+                return self.decode_dec(reg_str)
+        except ValueError:
+            return reg_str
 
     def decode_fields(self, val_dict, meta_list):
-        val = 0
-        for name, offset, mask in meta_list:
-            val |= (
-                (self.decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))
-            ) << offset
-        return val
+        try:
+            val = 0
+            for name, offset, mask in meta_list:
+                val |= (
+                    (self.decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))
+                ) << offset
+            return val
+        except TypeError:
+            name, offset, mask = meta_list[0]
+            return val_dict[name]
     
     def __save(self, func):
         if isinstance(self.data, list):
@@ -55,7 +61,8 @@ class RISCVReg:
             case "bin":
                 return self.__save(lambda d, i: d.to_bytes(self.width // 8, "little"))
             case "asm":
-                return self.__save(lambda d, i: f"init_{self.init_name[i]}:\n .dword {hex(d)}\n")
+                return self.__save(lambda d, i: f"init_{self.init_name[i]}:\n " + \
+                                   (f".dword {hex(d) if isinstance(d, int) else d}\n"))
 
 for rf, (begin, end) in zip(["xreg", "freg"],[(1, 32), (0, 32)]):
     globals()[f"RISCVReg_{rf}"] = type(
