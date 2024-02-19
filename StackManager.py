@@ -13,6 +13,7 @@ class StackSection(Section):
         super().__init__(name,length,section_label,pages)
     
     def generate_asm(self,is_variant):
+        self.global_label.append('stack_bottom')
         write_lines=super().generate_asm(is_variant)
         write_lines.extend(Asmer.label_inst('stack_bottom'))
         return write_lines

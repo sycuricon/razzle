@@ -1,5 +1,6 @@
 from Utils import *
 import os
+import copy
 
 class Page:
     size=0x1000
@@ -27,11 +28,12 @@ class Section:
         self.length=length
         self.flag=pages[0].flag
         self.section_label=section_label
+        self.global_label=copy.copy(section_label)
         self.pages=pages
     
     def _generate_global(self):
         write_lines=[]
-        for label in self.section_label:
+        for label in self.global_label:
             write_lines.extend(Asmer.global_inst(label))
         for page in self.pages:
             for label in page.global_label:
