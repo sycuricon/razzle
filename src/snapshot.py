@@ -42,33 +42,28 @@ class RISCVReg:
             ) << offset
         return val
     
-    def __save(self, func, format):
-        if format == "asm":
-            if isinstance(self.data, list):
-                return ["init_"+self.name+str(i)+":\n"+func(d) for i,d in enumerate(self.data)]
-            else:
-                return ["init_"+self.name+":\n"+func(self.data)]
+    def __save(self, func):
+        if isinstance(self.data, list):
+            return [func(d, i) for i, d in enumerate(self.data)]
         else:
-            if isinstance(self.data, list):
-                return [func(d) for d in self.data]
-            else:
-                return [func(self.data)]
+            return [func(self.data, 0)]
 
     def save(self, format="hex"):
         match format:
             case "hex":
-                return self.__save(lambda d: hex(d)[2:].zfill(self.width // 4), format)
+                return self.__save(lambda d, i: hex(d)[2:].zfill(self.width // 4))
             case "bin":
-                return self.__save(lambda d: d.to_bytes(self.width // 8, "little"), format)
+                return self.__save(lambda d, i: d.to_bytes(self.width // 8, "little"))
             case "asm":
-                return self.__save(lambda d: ".dword "+hex(d)+"\n", format)
+                return self.__save(lambda d, i: f"init_{self.init_name[i]}:\n .dword {hex(d)}\n")
 
-for rf in ["xreg", "freg"]:
+for rf, (begin, end) in zip(["xreg", "freg"],[(1, 32), (0, 32)]):
     globals()[f"RISCVReg_{rf}"] = type(
         f"RISCVReg_{rf}",
         (RISCVReg,),
         {
             "name": rf,
+            "init_name": [f"{rf}{i}" for i in range(begin,end)],
             '__init__': lambda self, width: RISCVReg.__init__(self, width),
             "decode": lambda self, init_state: setattr(
                 self, "data", [self.decode_reg(reg) for reg in init_state[self.name]]
@@ -82,6 +77,7 @@ for csr in SUPPORTED_CSR:
         (RISCVReg,),
         {
             "name": csr,
+            "init_name": [csr],
             '__init__': lambda self, width: RISCVReg.__init__(self, width),
             "decode": lambda self, init_state: setattr(
                 self, "data",
@@ -122,6 +118,7 @@ for pmp_idx in range(64):
         (RISCVReg,),
         {
             "name": f"pmpaddr{pmp_idx}",
+            "init_name": [f"pmpaddr{pmp_idx}"],
             "pmp_addr_idx": pmp_idx,
             '__init__': lambda self, width: RISCVReg.__init__(self, width),
             "decode": pmp_addr_decode,
@@ -133,6 +130,7 @@ for pmp_idx in range(64):
             (RISCVReg,),
             {
                 "name": f"pmpcfg{pmp_idx // 4}",
+                "init_name": [f"pmpcfg{pmp_idx // 4}"],
                 "pmp_cfg_idx": pmp_idx // 4,
                 '__init__': lambda self, width: RISCVReg.__init__(self, width),
                 "decode": pmp_cfg_decode,
