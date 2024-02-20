@@ -16,6 +16,7 @@ class FileManager(SectionManager):
     def __init__(self,config):
         super().__init__(config)
         self.folder=config["folder"]
+        self.file=config["file"]
 
     def file_generate(self,path,name):
         self._generate_pages()
@@ -26,6 +27,9 @@ class FileManager(SectionManager):
             os.system("cp "+folder+'/* '+path)
             files=list(filter(lambda filename:filename.endswith(('.S','.c')),os.listdir(folder)))
             filename.extend(files)
+        for file in self.file:
+            os.system("cp "+file+'/* '+path)
+            filename.append(os.path.basename(file))
         for i in range(len(filename)):
             filename[i]=os.path.join(path,filename[i])
         return [filename,filename]

@@ -10,6 +10,7 @@
             0x0000000080001000
         ]
         folder:[]
+        file:[]
     }
     page_table:
     {
@@ -71,7 +72,10 @@
         folder:
         [
             payload_code
-            testcase_code
+        ]
+        file:
+        [
+            testcase_code/main.c
         ]
     }
     poc:
@@ -86,9 +90,8 @@
             0x0000000000009000
             0x0000000000028000
         ]
-        folder:
-        [
-        ]
+        folder:[]
+        file:[]
     }
     stack:
     {
