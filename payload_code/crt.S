@@ -134,10 +134,9 @@
 #   // if U mode
 #   # jr t0
 
-.global trap_entry
-
   .align 2
   .section .text.entry
+  .global trap_entry
 trap_entry:
   csrrw sp, mscratch, sp
   addi sp, sp, -272
@@ -216,13 +215,13 @@ trap_entry:
   csrrw sp, mscratch, sp
   mret
 
-#   .section ".text"
-#   .align 2
-#   .globl disable_fs
-# disable_fs:
-#   li t0, MSTATUS_FS
-#   csrc mstatus, t0
-#   ret
+  .section ".text"
+  .align 2
+  .globl disable_fs
+disable_fs:
+  li t0, MSTATUS_FS
+  csrc mstatus, t0
+  ret
 
 # .section ".tohost","aw",@progbits
 # .align 6
