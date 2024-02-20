@@ -45,7 +45,6 @@ class RISCVReg:
                 ) << offset
             return val
         except TypeError:
-            name, offset, mask = meta_list[0]
             return val_dict[name]
     
     def __save(self, func):
