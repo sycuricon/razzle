@@ -134,6 +134,8 @@
 #   // if U mode
 #   # jr t0
 
+.global trap_entry
+
   .align 2
   .section .text.entry
 trap_entry:

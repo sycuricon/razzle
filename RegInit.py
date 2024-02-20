@@ -27,10 +27,10 @@ class RegInit:
         # gp
         self.reg_init_config["xreg"][2]="__global_pointer$"
         # mtvec
-        self.reg_init_config["csr"]["mtvec"]["BASE"]="0x80009000"
+        self.reg_init_config["csr"]["mtvec"]["BASE"]="trap_entry"
         self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
         # stvec
-        self.reg_init_config["csr"]["stvec"]["BASE"]="0x80009000"
+        self.reg_init_config["csr"]["stvec"]["BASE"]="abort"
         self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
         # mepc
         self.reg_init_config["csr"]["mepc"]["EPC"]="_init"
