@@ -122,7 +122,7 @@ victim 首先用 fdiv.s 序列做延迟，然后执行`dummy3 = array[trapoline[
 实际上是不是这样有待确认。
 
 ## 支持情况
-* M 模式物理地址、U 模式虚拟地址都可以运行
+* M 模式物理地址可以运行（因为 pmp 设置需要是 M 模式）
 * 可以触发瞬态窗口将 probe_line 进入 cache
 * 可以测信道泄露数据根据 cache 访问时间得到 secret 值
 
