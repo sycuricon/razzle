@@ -75,7 +75,7 @@
         ]
         file:
         [
-            testcase_code/main.c
+            testcase_code/spectre-v3.c
         ]
     }
     poc:
