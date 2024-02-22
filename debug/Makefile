@@ -9,4 +9,7 @@ all:
 		-I $(SPIKE_INCLUDE)/cosim -I $(SPIKE_INCLUDE)/fdt -I $(SPIKE_INCLUDE)/fesvr -I $(SPIKE_INCLUDE)/riscv -I $(SPIKE_INCLUDE)/softfloat \
 		-L $(SPIKE_LIB) -lcosim -lfdt -lriscv -lfesvr -ldisasm -lsoftfloat
 	./spike_sim
+
+clean:
+	rm log* spike_sim
 	
