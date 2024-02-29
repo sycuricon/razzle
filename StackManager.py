@@ -1,42 +1,35 @@
 from SectionManager import *
 from Utils import *
 
-class StackPage(Page):
-    def __init__(self,vaddr,paddr,flag):
-        super().__init__(vaddr,paddr,flag)
-
-    def generate_asm(self,is_variant):
-        return Asmer.space_inst(Page.size)
-
 class StackSection(Section):
-    def __init__(self,name,length,section_label=[],pages=[]):
-        super().__init__(name,length,section_label,pages)
+    def __init__(self,name,length):
+        super().__init__(name,Flag.U|Flag.W|Flag.R)
+        self.length=length
+        self.global_label=['stack_bottom','stack_top']
     
-    def generate_asm(self,is_variant):
-        self.global_label.append('stack_bottom')
-        write_lines=super().generate_asm(is_variant)
-        write_lines.extend(Asmer.label_inst('stack_bottom'))
-        return write_lines
+    def _generate_body(self,is_variant):
+        write_line=[]
+        write_line.extend(Asmer.label_inst('stack_top'))
+        write_line.extend(Asmer.space_inst(self.length))
+        write_line.extend(Asmer.label_inst('stack_bottom'))
+        return write_line
 
 class StackManager(SectionManager):
     def __init__(self,config):
         super().__init__(config)
     
-    def _init_section_type(self):
-        self.name_dict={}
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".stack",StackSection,0,["stack_top"]]
+    def _generate_sections(self):
+        self.section['stack']=StackSection('stack',self.memory_bound[0][1]-self.memory_bound[0][0])
 
-    def _generate_pages(self):
-        flag=Flag.U|Flag.R|Flag.W
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(StackPage(vaddr,paddr,flag))
+    def _distribute_address(self):
+        self.section['stack'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)
         
 if __name__ == "__main__":
     import hjson
-    file=open("distribute.hjson","rt")
+    file=open("mem_init.hjson","rt")
     config=hjson.load(file)
     manager=StackManager(config['stack'])
-    manager.file_generate('stack.S')
+    manager.file_generate('.','stack.S')
     print(manager.get_section_list())
 
         

@@ -1,159 +1,91 @@
 from Utils import *
 import os
-import copy
-
-class Page:
-    size=0x1000
-
-    def __init__(self,vaddr,paddr,flag):
-        self.vaddr=vaddr
-        self.paddr=paddr
-        self.flag=flag
-        self.global_label=[]
-
-    def generate_asm(self,is_variant):
-        return []
-
-    def global_label(self):
-        return self.global_label
-    
-    def add_global_label(self,label):
-        self.global_label.append(label)
 
 class Section:
-    def __init__(self,name,length,section_label=[],pages=[]):
+    def __init__(self,name,flag):
         self.name=name
-        self.vaddr=pages[0].vaddr
-        self.paddr=pages[0].paddr
-        self.length=length
-        self.flag=pages[0].flag
-        self.section_label=section_label
-        self.global_label=copy.copy(section_label)
-        self.pages=pages
+        self.flag=flag
+        self.length=None
+        self.vaddr=None
+        self.paddr=None
+        self.link=None
+
+    def get_length(self):
+        return self.length
+    
+    def get_bound(self,vaddr,paddr,length):
+        assert(self.vaddr is None or vaddr is None)
+        assert(self.paddr is None or paddr is None)
+        assert(self.length is None or length is None)
+
+        if self.vaddr is None:
+            self.vaddr=vaddr
+        if self.paddr is None:
+            self.paddr=paddr
+        if self.length is None:
+            self.length=length
     
     def _generate_global(self):
         write_lines=[]
         for label in self.global_label:
             write_lines.extend(Asmer.global_inst(label))
-        for page in self.pages:
-            for label in page.global_label:
-                write_lines.extend(Asmer.global_inst(label))
         return write_lines
+    
+    def _generate_header(self):
+        return Asmer.section_inst(self.name,self.flag)
+    
+    def _generate_body(self,is_variant):
+        return []
 
     def generate_asm(self,is_variant):
         write_lines=[]
         write_lines.extend(self._generate_global())
-        write_lines.extend(Asmer.section_inst(self.name,self.flag))
-        for label in self.section_label:
-            write_lines.extend(Asmer.label_inst(label))
-        for page in self.pages:
-            write_lines.extend(page.generate_asm(is_variant))
+        write_lines.extend(self._generate_header())
+        write_lines.extend(self._generate_body(is_variant))
         return write_lines
 
     def get_section_info(self):
-        return (self.name,self.vaddr,self.paddr,self.length,self.flag)
+        info={'name':self.name,'vaddr':self.vaddr,'paddr':self.paddr,'length':self.length,'flag':self.flag,'link':self.link}
+        return info
 
 class SectionManager:
     def __init__(self,config):
-        self._init_section_type()
-
         self.memory_bound=[]
-        self.memory_pool=[]
         self.virtual_memory_bound=[]
-        self.virtual_memory_pool=[]
         for begin,end in zip(config["bound"][0::2],config["bound"][1::2]):
             begin=int(begin,base=16)
             end=int(end,base=16)
             self.memory_bound.append((begin,end))
-            self.memory_pool.extend(list(range(begin,end,Page.size)))
         for begin,end in zip(config["virtual_bound"][0::2],config["virtual_bound"][1::2]):
             begin=int(begin,base=16)
             end=int(end,base=16)
             self.virtual_memory_bound.append((begin,end))
-            self.virtual_memory_pool.extend(list(range(begin,end,Page.size)))
-        self.use_page=[]
-        self.section=[]
-    
-    def _new_page_empty(self):
-        return len(self.memory_pool) == 0 or len(self.virtual_memory_pool) == 0
-    
-    def _choose_new_page(self,flag):
-        if self._new_page_empty():
-            raise "no memory in memory pool"
-        paddr=self.memory_pool[0]
-        vaddr=self.virtual_memory_pool[0]
-        self.memory_pool.pop(0)
-        self.virtual_memory_pool.pop(0)
-        return vaddr,paddr
-
-    def _get_new_page(self,flag):
-        vaddr,paddr=self._choose_new_page(flag)
-        return vaddr,paddr
-    
-    def _add_page_content(self,page):
-        self.use_page.append(page)
-    
-    def _init_section_type(self):
-        self.name_dict={}
-        self.name_dict[Flag.U|Flag.R]=[".rodata",Section,0,[]]
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",Section,0,[]]
-        self.name_dict[Flag.U|Flag.R|Flag.X]=[".text",Section,0,[]]
-
-    def _get_section_type(self,flag):
-        name,section,num,section_name=self.name_dict[flag]
-        self.name_dict[flag][2]+=1
-        return name if num==0 else name+str(num),section,section_name
-    
-    def _add_new_section(self,pages,length_base):
-        name,section,section_label=self._get_section_type(pages[0].flag)
-        self.section.append(section(name,length_base,section_label,pages))
-    
-    def _generate_section_list(self):
-        def _sort_key(item):
-            return item.vaddr
-        self.use_page=sorted(self.use_page,key=_sort_key)
-        pages=[]
-        pages.append(self.use_page[0])
-        length_base=Page.size
-        for page in self.use_page[1:]:
-            if(page.vaddr==pages[0].vaddr+length_base and\
-                page.paddr==pages[0].paddr+length_base and\
-                page.flag==pages[0].flag):
-                length_base+=Page.size
-                pages.append(page)
-                continue
-            self._add_new_section(pages,length_base)
-            pages,length_base=[page],Page.size
-        self._add_new_section(pages,length_base)
+        self.section={}
 
     def get_section_list(self):
         section_info_list=[]
-        for section in self.section:
-            section_info_list.append([section.get_section_info(),None])
+        for section in self.section.values():
+            section_info_list.append(section.get_section_info())
         return section_info_list
 
-    def _generate_pages(self):
+    def _write_sections(self,f,is_variant):
+        for section in self.section.values():
+            f.writelines(section.generate_asm(is_variant))
+        
+    def _generate_sections(self):
         pass
 
-    def _generate_sections(self,f,is_variant):
-        for section in self.section:
-            f.writelines(section.generate_asm(is_variant))
-    
-    def _free_page(self,idx):
-        page=self.use_page[idx]
-        self.use_page.pop(idx)
-        self.memory_pool.append(page.paddr)
-        self.virtual_memory_pool.append(page.vaddr)
-    
-    def _free_all_page(self):
-        while(len(self.use_page)!=0):
-            self._free_all_page(0)
+    def _distribute_address(self):
+        pass
+
+    def _write_file(self,path,name):
+        filename=os.path.join(path,name)
+        with open(filename,"wt") as f:
+            self._write_sections(f,False)
+        return [[filename],[filename]]
 
     def file_generate(self,path,name):
-        filename=os.path.join(path,name)
-        self._generate_pages()
-        self._generate_section_list()
-        with open(filename,"wt") as f:
-            self._generate_sections(f,False)
-        return [[filename],[filename]]
+        self._generate_sections()
+        self._distribute_address()
+        return self._write_file(path,name)
         
