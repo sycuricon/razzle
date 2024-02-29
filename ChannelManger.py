@@ -1,40 +1,38 @@
 from SectionManager import *
 from Utils import *
 
-class ChannelPage(Page):
-    def __init__(self,vaddr,paddr,flag,image_value):
-        super().__init__(vaddr,paddr,flag)
-        self.image_value=int(image_value,base=16)
-
-    def generate_asm(self,is_variant):
-        return Asmer.fill_inst(Page.size,1,self.image_value)
-
 class ChannelSection(Section):
-    def __init__(self,name,length,section_label=[],pages=[]):
-        super().__init__(name,length,section_label,pages)
+    def __init__(self,name,length,image_value
+    ):
+        super().__init__(name,Flag.U|Flag.W|Flag.R)
+        self.length=length
+        self.global_label=['trapoline','array']
+        self.image_value=image_value
+    
+    def _generate_body(self,is_variant):
+        write_line=[]
+        write_line.extend(Asmer.label_inst('array'))
+        write_line.extend(Asmer.label_inst('trapoline'))
+        write_line.extend(Asmer.fill_inst(self.length,1,self.image_value))
+        return write_line
 
 class ChannelManager(SectionManager):
     def __init__(self,config):
         super().__init__(config)
-        self.image_value=config["image_value"]
+        self.image_value=int(config["image_value"],base=16)
     
-    def _init_section_type(self):
-        self.name_dict={}
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".trapoline",ChannelSection,0,["trapoline","array"]]
+    def _generate_sections(self):
+        self.section['channel']=ChannelSection('channel',self.memory_bound[0][1]-self.memory_bound[0][0],self.image_value)
 
-    def _generate_pages(self):
-        flag=Flag.U|Flag.R|Flag.W
-        while not self._new_page_empty():
-            vaddr,paddr=self._get_new_page(flag)
-            self._add_page_content(ChannelPage(vaddr,paddr,flag,self.image_value))
+    def _distribute_address(self):
+        self.section['channel'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)
         
 if __name__ == "__main__":
     import hjson
-    file=open("distribute.hjson","rt")
+    file=open("mem_init.hjson","rt")
     config=hjson.load(file)
     manager=ChannelManager(config['channel'])
-    manager.file_generate('channel.S')
+    manager.file_generate('.','channel.S')
     print(manager.get_section_list())
-
         
             
