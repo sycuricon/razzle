@@ -14,7 +14,7 @@ class InitManager(FileManager):
         self.section['init']=FileSection('.init',Flag.U|Flag.X|Flag.R,init_link)
 
     def _distribute_address(self):
-        self.section['init'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)
+        self.section['init'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000,must_m=True)
 
     
         

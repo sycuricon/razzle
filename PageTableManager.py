@@ -91,6 +91,8 @@ class PageTableManager(SectionManager):
 
     def register_sections(self,section_list):
         for info in section_list:
+            if info['must_m']:
+                continue
             vaddr=info['vaddr']
             paddr=info['paddr']
             flag=info['flag']

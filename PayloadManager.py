@@ -33,7 +33,7 @@ class PayloadManager(FileManager):
         self.section['.data']=FileSection('.data',Flag.U|Flag.R|Flag.W,data_link)
 
     def _distribute_address(self):
-        self.section['.entry'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)
+        self.section['.entry'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000,must_m=True)
         self.section['.text'].get_bound(self.virtual_memory_bound[0][0]+0x1000,self.memory_bound[0][0]+0x1000,0x3000)
         self.section['.data'].get_bound(self.virtual_memory_bound[0][0]+0x4000,self.memory_bound[0][0]+0x4000,0x1000)
         

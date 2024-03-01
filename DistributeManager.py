@@ -19,6 +19,7 @@ class DistributeManager:
         hjson_file.close()
         
         self.output_path=output_path
+        self.virtual=virtual
 
         self.secret=SecretManager(config["secret"])
         self.channel=ChannelManager(config["channel"])
@@ -81,8 +82,9 @@ class DistributeManager:
         self.section_list.extend(self.poc.get_section_list())
         self.section_list.extend(self.init.get_section_list())
 
-        self.page_table.register_sections(self.section_list)
-        self._collect_compile_file(self.page_table.file_generate(self.output_path,page_table_name))
+        if self.virtual:
+            self.page_table.register_sections(self.section_list)
+            self._collect_compile_file(self.page_table.file_generate(self.output_path,page_table_name))
         self.section_list.extend(self.page_table.get_section_list())
         
         self.loader.append_section_list(self.section_list)

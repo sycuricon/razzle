@@ -13,7 +13,7 @@ class Section:
     def get_length(self):
         return self.length
     
-    def get_bound(self,vaddr,paddr,length):
+    def get_bound(self,vaddr,paddr,length,must_m=False):
         assert(self.vaddr is None or vaddr is None)
         assert(self.paddr is None or paddr is None)
         assert(self.length is None or length is None)
@@ -24,6 +24,7 @@ class Section:
             self.paddr=paddr
         if self.length is None:
             self.length=length
+        self.must_m=must_m
     
     def _generate_global(self):
         write_lines=[]
@@ -45,7 +46,8 @@ class Section:
         return write_lines
 
     def get_section_info(self):
-        info={'name':self.name,'vaddr':self.vaddr,'paddr':self.paddr,'length':self.length,'flag':self.flag,'link':self.link}
+        info={'name':self.name,'vaddr':self.vaddr,'paddr':self.paddr,\
+              'length':self.length,'flag':self.flag,'must_m':self.must_m,'link':self.link}
         return info
 
 class SectionManager:
