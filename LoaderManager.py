@@ -11,14 +11,19 @@ class LoaderManager:
     def file_generate(self,path,name):
         ld_name=os.path.join(path,name)
         def section_sort(item):
-            return item[0][1] if self.virtual else item[0][2]
+            return item['vaddr'] if self.virtual else item['paddr']
         with open(ld_name,"wt") as f:
             section_order=sorted(self.section,key=section_sort)
             f.write('OUTPUT_ARCH( "riscv" )\n')
             f.write('ENTRY(_start)\n')
             f.write('SECTIONS\n')
             f.write('{\n')
-            for (name,vaddr,paddr,length,flag),append in section_order:
+            for info in section_order:
+                name=info['name']
+                vaddr=info['vaddr']
+                paddr=info['paddr']
+                append=info['link']
+
                 link_addr=hex(vaddr if self.virtual else paddr)
                 load_addr=hex(paddr)
                 f.write('\t'+'. = '+link_addr+';\n')

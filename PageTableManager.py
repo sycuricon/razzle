@@ -1,9 +1,8 @@
 from SectionManager import *
 from Utils import *
 
-class PageTablePage(Page):
-    def __init__(self,vaddr,paddr,flag,xLen,pg_level):
-        super().__init__(vaddr,paddr,flag)
+class PageTablePage:
+    def __init__(self,xLen,pg_level):
         self.pg_level=pg_level
         self.entry_num=512 if xLen==64 else 1024
         self.index_width=9 if xLen==64 else 10
@@ -19,7 +18,6 @@ class PageTablePage(Page):
         return self.stage_array[entry_num]
     
     def fill_entry(self,entry_num,paddr,flag,stage,vaddr):
-        # print(hex(paddr),hex(vaddr))
         self.content[entry_num]=((paddr>>12)<<10)|flag
         self.stage_array[entry_num]=stage
         self.vaddr_array[entry_num]=vaddr
@@ -46,8 +44,19 @@ class PageTablePage(Page):
         return write_lines
 
 class PageTableSection(Section):
-    def __init__(self,name,length,section_label=[],pages=[]):
-        super().__init__(name,length,section_label,pages)
+    def __init__(self,name,pg_level,page_table):
+        super().__init__(name,Flag.U|Flag.W|Flag.R)
+        self.length=pg_level*Page.size
+        self.global_label=['root_page_table']
+        self.pg_level=pg_level
+        self.page_table=page_table
+    
+    def _generate_body(self,is_variant):
+        write_line=[]
+        write_line.extend(Asmer.label_inst('root_page_table'))
+        for page in self.page_table:
+            write_line.extend(page.generate_asm(is_variant))
+        return write_line
 
 class PageTableManager(SectionManager):
     def __init__(self,config):
@@ -55,26 +64,13 @@ class PageTableManager(SectionManager):
         self.xLen=config["xLen"]
         self.pg_level=config["pg_level"]
         self.page_tables=[]
-        self.pgtlb_paddr=[]
         self.pgtlb_flag=[]
-        flag=Flag.R|Flag.W
-        for i in range(self.pg_level):
-            vaddr,paddr=self._get_new_page(flag)
-            pgtlb_page=PageTablePage(vaddr,paddr,flag,self.xLen,self.pg_level)
-            self._add_page_content(pgtlb_page)
-            self.page_tables.append(pgtlb_page)
-            if i==0:
-                continue
-            else:
-                self.pgtlb_paddr.append(paddr)
-                self.pgtlb_flag.append(Flag.V)
-        self.pgtlb_paddr.append(0)
-        self.pgtlb_flag.append(0)
+        assert(self.memory_bound[0][1]-self.memory_bound[0][0] >= self.pg_level*Page.size)
+        paddrs=list(range(self.memory_bound[0][0],self.memory_bound[0][0]+self.pg_level*Page.size,Page.size))
+        self.page_tables=[PageTablePage(self.xLen,self.pg_level) for i in range(self.pg_level)]
+        self.pgtlb_paddr=paddrs[1:]+[0]
+        self.pgtlb_flag=[Flag.V]*(self.pg_level-1)+[0]
         self.index_width=9 if self.xLen==64 else 10
-    
-    def _init_section_type(self):
-        self.name_dict={}
-        self.name_dict[Flag.R|Flag.W]=[".pagetable",PageTableSection,0,['root_page_table']]
     
     def _register_page(self,vaddr,paddr,flag):
         self.pgtlb_paddr[-1]=paddr
@@ -94,13 +90,22 @@ class PageTableManager(SectionManager):
                 raise "virtual address is conflicted"
 
     def register_sections(self,section_list):
-        for (name,vaddr,paddr,length,flag),append in section_list:
+        for info in section_list:
+            vaddr=info['vaddr']
+            paddr=info['paddr']
+            flag=info['flag']
+            length=info['length']
             if vaddr==paddr:
                 continue
             for offset in range(0,length,Page.size):
                 vaddr_offset=vaddr+offset
                 paddr_offset=paddr+offset
                 self._register_page(vaddr_offset,paddr_offset,flag)
+    
+    def _generate_sections(self):
+        self.section['pagetable']=PageTableSection('.pagetable',self.pg_level,self.page_tables)
 
+    def _distribute_address(self):
+        self.section['pagetable'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)
         
             
