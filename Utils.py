@@ -1,3 +1,6 @@
+class Page:
+    size=0x1000
+
 class Flag:
     D=1<<7
     A=1<<6

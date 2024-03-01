@@ -25,7 +25,7 @@ class SecretManager(SectionManager):
         self.secret_variant=config["secret_value_variant"]
     
     def _generate_sections(self):
-        self.section['secret']=SecretSection('secret',self.memory_bound[0][1]-self.memory_bound[0][0],\
+        self.section['secret']=SecretSection('.secret',self.memory_bound[0][1]-self.memory_bound[0][0],\
                                              self.secret,self.secret_variant)
 
     def _distribute_address(self):

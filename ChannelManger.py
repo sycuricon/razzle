@@ -22,7 +22,7 @@ class ChannelManager(SectionManager):
         self.image_value=int(config["image_value"],base=16)
     
     def _generate_sections(self):
-        self.section['channel']=ChannelSection('channel',self.memory_bound[0][1]-self.memory_bound[0][0],self.image_value)
+        self.section['channel']=ChannelSection('.channel',self.memory_bound[0][1]-self.memory_bound[0][0],self.image_value)
 
     def _distribute_address(self):
         self.section['channel'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)

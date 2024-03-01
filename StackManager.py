@@ -19,7 +19,7 @@ class StackManager(SectionManager):
         super().__init__(config)
     
     def _generate_sections(self):
-        self.section['stack']=StackSection('stack',self.memory_bound[0][1]-self.memory_bound[0][0])
+        self.section['stack']=StackSection('.stack',self.memory_bound[0][1]-self.memory_bound[0][0])
 
     def _distribute_address(self):
         self.section['stack'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)
