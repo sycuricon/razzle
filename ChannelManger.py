@@ -2,8 +2,7 @@ from SectionManager import *
 from Utils import *
 
 class ChannelSection(Section):
-    def __init__(self,name,length,image_value
-    ):
+    def __init__(self,name,length,image_value):
         super().__init__(name,Flag.U|Flag.W|Flag.R)
         self.length=length
         self.global_label=['trapoline','array']
