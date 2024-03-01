@@ -4,23 +4,21 @@ from Utils import *
 class PayloadManager(FileManager):
     def __init__(self,config):
         super().__init__(config)
-    
-    def _init_section_type(self):
-        self.name_dict={}
-        self.name_dict[Flag.U|Flag.X|Flag.R]=[".text",FileSection,0,[]]
-        self.name_dict[Flag.U|Flag.R|Flag.W]=[".data",FileSection,0,[]]
-    
-    def get_section_list(self):
-        section_list=super().get_section_list()
-        section_list[2][1]=[
+
+    def _generate_sections(self):
+        trap_link=[
             '\t\t*(.text.entry)\n'
             '\t\t*(.text.trap)\n'
             '\t\t*(.data.trap)\n'
         ]
-        section_list[0][1]=[
+        self.section['.entry']=FileSection('.entry',Flag.U|Flag.X|Flag.R,trap_link)
+
+        text_link=[
             '\t\t*(.text)\n'
         ]
-        section_list[1][1]=[
+        self.section['.text']=FileSection('.text',Flag.U|Flag.X|Flag.R,text_link)
+
+        data_link=[
             '\t\t*(.rodata)\n'
             '\t\t*(.data)\n'
             '\t\t__global_pointer$ = . + 0x800;\n'
@@ -32,24 +30,12 @@ class PayloadManager(FileManager):
             '\t\t*(.tdata)\n'
             '\t\t*(.tbss)\n'
         ]
-        return section_list
-    
-    def _generate_pages(self):
-        flag=Flag.U|Flag.X|Flag.R
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FilePage(paddr,paddr,flag))
-        flag=Flag.U|Flag.X|Flag.R
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FilePage(vaddr,paddr,flag))
-        flag=Flag.U|Flag.X|Flag.R
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FilePage(vaddr,paddr,flag))
-        flag=Flag.U|Flag.X|Flag.R
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FilePage(vaddr,paddr,flag))
-        flag=Flag.U|Flag.W|Flag.R
-        vaddr,paddr=self._get_new_page(flag)
-        self._add_page_content(FilePage(vaddr,paddr,flag))
+        self.section['.data']=FileSection('.data',Flag.U|Flag.R|Flag.W,data_link)
+
+    def _distribute_address(self):
+        self.section['.entry'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)
+        self.section['.text'].get_bound(self.virtual_memory_bound[0][0]+0x1000,self.memory_bound[0][0]+0x1000,0x3000)
+        self.section['.data'].get_bound(self.virtual_memory_bound[0][0]+0x4000,self.memory_bound[0][0]+0x4000,0x1000)
         
 if __name__ == "__main__":
     import hjson
