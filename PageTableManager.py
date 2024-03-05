@@ -1,5 +1,5 @@
 from SectionManager import *
-from Utils import *
+from SectionUtils import *
 
 class PageTablePage:
     def __init__(self,xLen,pg_level):

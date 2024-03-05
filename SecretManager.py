@@ -1,5 +1,5 @@
 from SectionManager import *
-from Utils import *
+from SectionUtils import *
 
 class SecretSection(Section):
     def __init__(self,name,length,secret,secret_variant):

@@ -1,5 +1,5 @@
 from FileManager import *
-from Utils import *
+from SectionUtils import *
 
 class PayloadManager(FileManager):
     def __init__(self,config):

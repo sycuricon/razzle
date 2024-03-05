@@ -1,5 +1,5 @@
 from SectionManager import *
-from Utils import *
+from SectionUtils import *
 
 class StackSection(Section):
     def __init__(self,name,length):

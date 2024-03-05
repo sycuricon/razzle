@@ -1,5 +1,5 @@
 from SectionManager import *
-from Utils import *
+from SectionUtils import *
 
 class ChannelSection(Section):
     def __init__(self,name,length,image_value):

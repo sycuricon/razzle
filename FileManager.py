@@ -1,5 +1,5 @@
 from SectionManager import *
-from Utils import *
+from SectionUtils import *
 
 class FileSection(Section):
     def __init__(self,name,flag,link):
