@@ -211,6 +211,13 @@ class InstructionBase:
                     '{' + variable_name_remap[variable] + '}', var)
         return asm
 
+class RawInstruction(InstructionBase):
+    def __init__(self, raw_inst):
+        self.raw_inst = raw_inst
+
+    def to_asm(self):
+        return self.raw_inst
+
 # for i in range(100):
 #    instr = Instruction()
 #    try:
