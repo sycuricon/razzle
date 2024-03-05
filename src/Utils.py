@@ -51,7 +51,7 @@ def gen_imm(type, length):
 # instructions
 
 
-with open('src/instruction.json', 'r') as f:
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),'instruction.json'), 'r') as f:
     all_instructions = json.load(f)
 
 # variables
