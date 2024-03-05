@@ -147,6 +147,7 @@ class InitSecretBlock(TransBlock):
         super().__init__(name, extension, default)
 
     def gen_default(self):
+        self.inst_list=self._load_raw_asm("env/trans/init_secret.text.S")
         self.data_list=self._load_raw_asm("env/trans/init_secret.data.S")
 
 class PredictBlock(TransBlock):
@@ -162,11 +163,10 @@ class PredictBlock(TransBlock):
         exit(0)
     
     def gen_default(self):
-        delay_link_inst = Instruction(f'add t0, {self.result_reg}, a0')
-        self.inst_list.append(delay_link_inst)
-
         match(self.predict_kind):
             case 'call':
+                delay_link_inst = Instruction(f'add t0, {self.result_reg}, a0')
+                self.inst_list.append(delay_link_inst)
                 call_inst = Instruction()
                 call_inst.set_name_constraint(['JALR'])
                 call_inst.set_category_constraint(['JUMP'])
@@ -179,12 +179,14 @@ class PredictBlock(TransBlock):
                 self.imm = call_inst['IMM']
                 self.inst_list.append(call_inst)
             case 'return':
+                delay_link_inst = Instruction(f'add a0, {self.result_reg}, a0')
+                self.inst_list.append(delay_link_inst)
                 ret_inst = Instruction()
                 ret_inst.set_name_constraint(['JALR'])
                 ret_inst.set_category_constraint(['JUMP'])
                 ret_inst.set_extension_constraint(['RV_I'])
                 def c_ret(rd, rs1):
-                    return rd == 'ZERO' and rs1 == 'T0'
+                    return rd == 'ZERO' and rs1 == 'RA'
                 ret_inst.add_constraint(c_ret,['RD','RS1'],True)
                 ret_inst.solve()
 
