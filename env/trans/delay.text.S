@@ -1,3 +1,4 @@
+    INFO_DELAY_START
     la t0, delay_dummy1
     ld t0, 0(t0)
     la t1, delay_dummy2
@@ -10,3 +11,4 @@
     fdiv.s	fa5, fa5, fa4
     fdiv.s	fa5, fa5, fa4
     fcvt.lu.s   t0, fa5, rtz
+    INFO_DELAY_END
