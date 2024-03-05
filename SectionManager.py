@@ -1,4 +1,4 @@
-from Utils import *
+from SectionUtils import *
 import os
 
 class Section:
@@ -9,6 +9,7 @@ class Section:
         self.vaddr=None
         self.paddr=None
         self.link=None
+        self.global_label=[]
 
     def get_length(self):
         return self.length
@@ -25,6 +26,9 @@ class Section:
         if self.length is None:
             self.length=length
         self.must_m=must_m
+    
+    def add_global_label(self, global_list):
+        self.global_label.extend(global_list)
     
     def _generate_global(self):
         write_lines=[]
@@ -80,9 +84,13 @@ class SectionManager:
     def _distribute_address(self):
         pass
 
+    def _write_headers(self,f,is_variant):
+        pass
+
     def _write_file(self,path,name):
         filename=os.path.join(path,name)
         with open(filename,"wt") as f:
+            self._write_headers(f,False)
             self._write_sections(f,False)
         return [[filename],[filename]]
 

@@ -3,10 +3,11 @@ import argparse
 import os
 
 class RegInit:
-    def __init__(self,base_init_name,output_name,virtual):
+    def __init__(self,base_init_name,output_name,do_fuzz,virtual):
         self.base_init_name=base_init_name
         self.output_name=output_name
         self.virtual=virtual
+        self.do_fuzz=do_fuzz
     
     def _get_symbol_address(self):
         self.symbol={}
@@ -25,13 +26,15 @@ class RegInit:
         # tp
         self.reg_init_config["xreg"][3]="stack_top"
         # gp
-        self.reg_init_config["xreg"][2]="__global_pointer$"
+        if not self.do_fuzz:
+            self.reg_init_config["xreg"][2]="__global_pointer$"
         # mtvec
         self.reg_init_config["csr"]["mtvec"]["BASE"]="trap_entry"
         self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
         # stvec
-        self.reg_init_config["csr"]["stvec"]["BASE"]="abort"
-        self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
+        if not self.do_fuzz:
+            self.reg_init_config["csr"]["stvec"]["BASE"]="abort"
+            self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
         # mepc
         self.reg_init_config["csr"]["mepc"]["EPC"]="_init"
         # sepc
@@ -73,6 +76,7 @@ if __name__ == "__main__":
     parse.add_argument("-I", "--input",  dest="input",  required=True, help="input hjson")
     parse.add_argument("-O", "--output", dest="output", required=True, help="output of the reg initialization")
     parse.add_argument("-V", "--virtual", dest="virtual", action="store_true", help="link in virtual address")
+    parse.add_argument("--fuzz", dest="do_fuzz", action="store_true", help="payload generate by fuzz")
     args = parse.parse_args()
-    reg_init = RegInit(args.input,args.output,args.virtual)
+    reg_init = RegInit(args.input,args.output,args.do_fuzz,args.virtual)
     reg_init.generate()
