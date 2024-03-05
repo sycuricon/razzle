@@ -90,7 +90,7 @@ class FunctionEndBlock(TransBlock):
         load_reg=list(self.load_reg)
         load_reg.sort()
         for i,reg in enumerate(load_reg):
-            self.inst_list.append(RawInstruction(f'sd {reg}, {i*8}(sp)'))
+            self.inst_list.append(RawInstruction(f'ld {reg}, {i*8}(sp)'))
         self.inst_list.append(RawInstruction(f'addi sp, sp, {len(load_reg)*8}'))
         self.inst_list.append(RawInstruction('ret'))
 
@@ -162,7 +162,7 @@ class PredictBlock(TransBlock):
         exit(0)
     
     def gen_default(self):
-        delay_link_inst = Instruction(f'add t0, {self.result_reg}, a1')
+        delay_link_inst = Instruction(f'add t0, {self.result_reg}, a0')
         self.inst_list.append(delay_link_inst)
 
         match(self.predict_kind):

@@ -1,5 +1,6 @@
 //a0 time
 //a1 guess
+    ld a1, secret_target
 dump_channel:
     ld t0, ptr_mode
     csrw 0x800, t0
