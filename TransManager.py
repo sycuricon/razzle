@@ -12,6 +12,7 @@ class FuzzSection(Section):
 
     def add_inst_list(self,list):
         self.inst_list.extend(list)
+        self.inst_list.append('\n')
 
     def _generate_body(self,is_variant):
         return self.inst_list
