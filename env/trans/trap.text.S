@@ -125,8 +125,8 @@ trap_access_time:
   slli t0, t0, 6
   li t1, 0x80005000
   add t0, t0, t1
-  csrr t1, time
-  ld t0, 0(t0)
-  csrr t0, time
+  csrr t1, cycle
+  lb t0, 0(t0)
+  csrr t0, cycle
   sub a0, t0, t1
   ret

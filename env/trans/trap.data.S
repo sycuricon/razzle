@@ -1,3 +1,4 @@
+.align 3
 trap_num_mode: 
     .dword CMD_SWITCH_STATE|STATE_DUMP_NUM
 trap_char_mode: 

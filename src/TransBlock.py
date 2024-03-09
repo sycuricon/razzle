@@ -102,6 +102,14 @@ class ExitBlock(TransBlock):
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/exit.text.S")
         self.data_list=self._load_raw_asm("env/trans/exit.data.S")
+
+class PocFuncBlock(TransBlock):
+    def __init__(self, name, extension, default):
+        assert(default == True)
+        super().__init__(name, extension, default)
+
+    def gen_default(self):
+        self.inst_list=self._load_raw_asm("env/trans/poc_func.text.S")
     
 class DelayBlock(TransBlock):
     def __init__(self, name, extension, default):
@@ -179,19 +187,22 @@ class PredictBlock(TransBlock):
                 self.imm = call_inst['IMM']
                 self.inst_list.append(call_inst)
             case 'return':
-                delay_link_inst = Instruction(f'add a0, {self.result_reg}, a0')
+                delay_link_inst = Instruction(f'add ra, {self.result_reg}, a0')
                 self.inst_list.append(delay_link_inst)
                 ret_inst = Instruction()
                 ret_inst.set_name_constraint(['JALR'])
                 ret_inst.set_category_constraint(['JUMP'])
                 ret_inst.set_extension_constraint(['RV_I'])
+                ret_inst.set_imm_constraint(range(0,1))
                 def c_ret(rd, rs1):
                     return rd == 'ZERO' and rs1 == 'RA'
                 ret_inst.add_constraint(c_ret,['RD','RS1'],True)
                 ret_inst.solve()
 
                 self.imm = ret_inst['IMM']
-                self.inst_list.append(ret_inst) 
+                self.inst_list.append(ret_inst)
+            case 'branch':
+                self.data_list.append(RawInstruction('predict_imm:'))
             case _:
                 print("Error: predict_kind not implemented!")
                 exit(0)
