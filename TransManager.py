@@ -22,6 +22,8 @@ class TransManager(SectionManager):
         super().__init__(config)
         self.transblock={}
         self.extension=['RV_I','RV64_I','RV_ZICSR','RV_F','RV_D','RV64_F','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
+        self.train_loop=config['train_loop']
+        self.victim_loop=config['victim_loop']
     
     def _generate_sections(self):
         trap_block=TrapBlock('trap',self.extension,True)
@@ -45,9 +47,12 @@ class TransManager(SectionManager):
         delay_block.gen_default()
 
         func_begin_block=FunctionBeginBlock('func_begin',self.extension,True)
-        func_end_block=FunctionEndBlock('func_end',self.extension,True)
         self.transblock['func_begin']=func_begin_block
+        func_begin_block.gen_default()
+
+        func_end_block=FunctionEndBlock('func_end',self.extension,True)
         self.transblock['func_end']=func_end_block
+        func_end_block.gen_default()
 
         predict_kind = 'call'
         
@@ -59,17 +64,8 @@ class TransManager(SectionManager):
         self.transblock['victim']=victim_block
         victim_block.gen_default()
 
-        func_begin_block.register_store(delay_block.need_store())
-        func_begin_block.register_store(predict_block.need_store())
-        func_begin_block.register_store(victim_block.need_store())
-        func_end_block.register_load(delay_block.need_store())
-        func_end_block.register_load(predict_block.need_store())
-        func_end_block.register_load(victim_block.need_store())
-        func_begin_block.gen_default()
-        func_end_block.gen_default()
-
         imm_param={'predict':predict_block.imm,'delay':delay_block.result_imm}
-        train_block=TrainBlock('train',self.extension,True,predict_kind,\
+        train_block=TrainBlock('train',self.extension,True,self.train_loop,self.victim_loop,predict_kind,\
                                func_end_block.name,victim_block.name,imm_param)
         self.transblock['train']=train_block
         train_block.gen_default()
