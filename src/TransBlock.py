@@ -64,35 +64,18 @@ class FunctionBeginBlock(TransBlock):
     def __init__(self, name, extension, default):
         assert(default == True)
         super().__init__(name, extension, default)
-        self.store_reg={'ra','fp'}
-    
-    def register_store(self,reg_name):
-        self.store_reg |= reg_name
 
     def gen_default(self):
-        store_reg=list(self.store_reg)
-        store_reg.sort()
-        self.inst_list.append(RawInstruction(f'addi sp, sp, {-len(store_reg)*8}'))
-        for i,reg in enumerate(store_reg):
-            self.inst_list.append(RawInstruction(f'sd {reg}, {i*8}(sp)'))
-        self.inst_list.append(RawInstruction(f'addi fp, sp, {len(store_reg)*8}'))
+        self.inst_list=self._load_raw_asm("env/trans/func_begin.text.S")
+        self.data_list=self._load_raw_asm("env/trans/func_begin.data.S")
 
 class FunctionEndBlock(TransBlock):
     def __init__(self, name, extension, default):
         assert(default == True)
         super().__init__(name, extension, default)
-        self.load_reg={'ra','fp'}
-    
-    def register_load(self,reg_name):
-        self.load_reg |= reg_name
 
     def gen_default(self):
-        load_reg=list(self.load_reg)
-        load_reg.sort()
-        for i,reg in enumerate(load_reg):
-            self.inst_list.append(RawInstruction(f'ld {reg}, {i*8}(sp)'))
-        self.inst_list.append(RawInstruction(f'addi sp, sp, {len(load_reg)*8}'))
-        self.inst_list.append(RawInstruction('ret'))
+        self.inst_list=self._load_raw_asm("env/trans/func_end.text.S")
 
 class ExitBlock(TransBlock):
     def __init__(self, name, extension, default):
@@ -208,12 +191,15 @@ class PredictBlock(TransBlock):
                 exit(0)
 
 class TrainBlock(TransBlock):
-    def __init__(self, name, extension, default, predict_kind, correct_block, false_block, imm_param):
+    def __init__(self, name, extension, default, train_loop, victim_loop,\
+                predict_kind, correct_block, false_block, imm_param):
         super().__init__(name, extension, default)
         self.predict_kind = predict_kind
         self.correct_block = correct_block
         self.false_block = false_block
         self.imm_param = imm_param
+        self.train_loop = train_loop
+        self.victim_loop = victim_loop
         
     def gen_instr(self):
         print("Error: gen_instr not implemented!")
@@ -222,17 +208,41 @@ class TrainBlock(TransBlock):
     def gen_default(self):
         match(self.predict_kind):
             case 'call' | 'return':
-                false_predict_param = f"{self.false_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
+                false_target_param = "func_begin_train"
+                false_predict_param = f"{self.false_block} - {self.imm_param['predict']}"
                 false_offset_param = 0
+                true_target_param = "func_begin_victim"
                 true_predict_param = f"{self.correct_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
-                true_offset_param = 0
-                self.data_list.append(RawInstruction('param_table:'))
-                for i in range(4):
+                true_offset_param = "secret + LEAK_TARGET - trapoline"
+                self.data_list.append(RawInstruction('train_param_table:'))
+                for i in range(self.train_loop):
+                    self.data_list.append(RawInstruction(f'train_target_param_{i}:'))
+                    self.data_list.append(RawInstruction(f'.dword {false_target_param}'))
+                    self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
                     self.data_list.append(RawInstruction(f'.dword {false_predict_param}'))
+                    self.data_list.append(RawInstruction(f'train_offset_param_{i}:'))
                     self.data_list.append(RawInstruction(f'.dword {false_offset_param}'))
-                self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
-                self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
-                self.inst_list=self._load_raw_asm("env/trans/train.text.S")
+
+                    self.inst_list.append(RawInstruction('la t0, train_param_table'))
+                    self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
+                    self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
+                    self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+                    self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+
+                self.data_list.append(RawInstruction('victim_param_table:'))
+                for i in range(self.victim_loop):
+                    self.data_list.append(RawInstruction(f'victim_target_param_{i}:'))
+                    self.data_list.append(RawInstruction(f'.dword {true_target_param}'))
+                    self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
+                    self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
+                    self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
+                    self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
+
+                    self.inst_list.append(RawInstruction('la t0, victim_param_table'))
+                    self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
+                    self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
+                    self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+                    self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
             case _:
                 print("Error: predict_kind not implemented!")
                 exit(0)
