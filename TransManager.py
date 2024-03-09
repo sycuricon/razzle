@@ -74,14 +74,23 @@ class TransManager(SectionManager):
         self.transblock['train']=train_block
         train_block.gen_default()
 
+        poc_func_block=PocFuncBlock('poc_func',self.extension,True)
+        self.transblock['poc_func']=poc_func_block
+        poc_func_block.gen_default()
+
         text_section=self.section['.text']=FuzzSection('.text',Flag.U|Flag.X|Flag.R)
         data_section=self.section['.data']=FuzzSection('.data',Flag.U|Flag.W|Flag.R)
         trap_section=self.section['.trap']=FuzzSection('.trap',Flag.X|Flag.R|Flag.W)
+        poc_section=self.section['.poc']=FuzzSection('.poc',Flag.U|Flag.X|Flag.R)
 
         inst_list, data_list = trap_block.gen_asm()
         trap_section.add_inst_list(inst_list)
         trap_section.add_inst_list(data_list)
         trap_section.add_global_label([trap_block.name, "trap_handle"])
+
+        inst_list, data_list = poc_func_block.gen_asm()
+        poc_section.add_inst_list(inst_list)
+        poc_section.add_inst_list(data_list)
 
         block_list=[_init_block, train_block, poc_block, exit_block, \
                     func_begin_block, delay_block, predict_block, victim_block, func_end_block]
@@ -96,6 +105,7 @@ class TransManager(SectionManager):
         self.section['.trap'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)
         self.section['.text'].get_bound(self.virtual_memory_bound[0][0]+0x1000,self.memory_bound[0][0]+0x1000,0x1000)
         self.section['.data'].get_bound(self.virtual_memory_bound[0][0]+0x2000,self.memory_bound[0][0]+0x2000,0x1000)
+        self.section['.poc'].get_bound(self.virtual_memory_bound[1][0],self.memory_bound[1][0],0x1000)
     
     def _write_headers(self,f,is_variant):
         header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'razzle_transient', 'env', 'trans')

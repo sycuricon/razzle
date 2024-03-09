@@ -74,7 +74,7 @@
         ]
         file:
         [
-            testcase_code/spectre-v3.c
+            testcase_code/spectre-v1.c
         ]
     }
     fuzz:
@@ -83,11 +83,15 @@
         [
             0x80009000
             0x80020000
+            0x80020000
+            0x8003F000
         ]
         virtual_bound:
         [
             0x0000000000009000
             0x0000000000020000
+            0x0000000000020000
+            0x000000000003F000
         ]
     }
     poc:

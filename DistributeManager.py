@@ -22,14 +22,18 @@ class DistributeManager:
         self.output_path=output_path
         self.virtual=virtual
 
-        self.secret=SecretManager(config["secret"])
-        self.channel=ChannelManager(config["channel"])
-        self.page_table=PageTableManager(config["page_table"])
-        self.stack=StackManager(config["stack"])
-        self.payload=TransManager(config["fuzz"]) if do_fuzz else PayloadManager(config["payload"])
-        self.poc=PocManager(config["poc"])
-        self.init=InitManager(config["init"])
+        self.code={}
+        self.code['secret']=SecretManager(config["secret"])
+        self.code['channel']=ChannelManager(config["channel"])
+        self.code['stack']=StackManager(config["stack"])
+        if do_fuzz:
+            self.code['payload']=TransManager(config["fuzz"])
+        else:
+            self.code['payload']=PayloadManager(config["payload"])
+            self.code['poc']=PocManager(config["poc"])
+        self.code['init']=InitManager(config["init"])
 
+        self.page_table=PageTableManager(config["page_table"])
         self.loader=LoaderManager(virtual)
 
         self.file_list=[]
@@ -60,33 +64,18 @@ class DistributeManager:
         self._generate_compile_file(variant_files,'VARIANT_SRC',self.var_file_list)
     
     def generate_test(self):
-        secret_name='secret.S'
-        channel_name='channel.S'
         page_table_name='page_table.S'
-        stack_name='stack.S'
-        payload_name='payload.S'
-        poc_name='poc.S'
-        init_name='init.S'
         ld_name='link.ld'
-        self._collect_compile_file(self.secret.file_generate(self.output_path,secret_name))
-        self._collect_compile_file(self.channel.file_generate(self.output_path,channel_name))
-        self._collect_compile_file(self.stack.file_generate(self.output_path,stack_name))
-        self._collect_compile_file(self.payload.file_generate(self.output_path,payload_name))
-        self._collect_compile_file(self.poc.file_generate(self.output_path,poc_name))
-        self._collect_compile_file(self.init.file_generate(self.output_path,init_name))
 
         self.section_list=[]
-        self.section_list.extend(self.secret.get_section_list())
-        self.section_list.extend(self.channel.get_section_list())
-        self.section_list.extend(self.stack.get_section_list())
-        self.section_list.extend(self.payload.get_section_list())
-        self.section_list.extend(self.poc.get_section_list())
-        self.section_list.extend(self.init.get_section_list())
+        for key,value in self.code.items():
+            self._collect_compile_file(value.file_generate(self.output_path,f'{key}.S'))
+            self.section_list.extend(value.get_section_list())
 
         if self.virtual:
             self.page_table.register_sections(self.section_list)
             self._collect_compile_file(self.page_table.file_generate(self.output_path,page_table_name))
-        self.section_list.extend(self.page_table.get_section_list())
+            self.section_list.extend(self.page_table.get_section_list())
         
         self.loader.append_section_list(self.section_list)
         self.loader.file_generate(self.output_path,ld_name)
