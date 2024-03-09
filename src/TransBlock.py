@@ -61,13 +61,15 @@ class TrapBlock(TransBlock):
         self.data_list=self._load_raw_asm("env/trans/trap.data.S")
 
 class FunctionBeginBlock(TransBlock):
-    def __init__(self, name, extension, default):
+    def __init__(self, name, extension, default, result_reg):
         assert(default == True)
         super().__init__(name, extension, default)
+        self.result_reg=result_reg
 
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/func_begin.text.S")
         self.data_list=self._load_raw_asm("env/trans/func_begin.data.S")
+        self.inst_list[3].raw_inst = self.inst_list[3].raw_inst.replace('t0',self.result_reg.lower())
 
 class FunctionEndBlock(TransBlock):
     def __init__(self, name, extension, default):
@@ -210,9 +212,10 @@ class TrainBlock(TransBlock):
             case 'call' | 'return':
                 false_target_param = "func_begin_train"
                 false_predict_param = f"{self.false_block} - {self.imm_param['predict']}"
+                true_predict_param = f"{self.correct_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
                 false_offset_param = 0
                 true_target_param = "func_begin_victim"
-                true_predict_param = f"{self.correct_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
+                
                 true_offset_param = "secret + LEAK_TARGET - trapoline"
                 self.data_list.append(RawInstruction('train_param_table:'))
                 for i in range(self.train_loop):
