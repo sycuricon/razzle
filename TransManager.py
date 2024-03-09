@@ -46,7 +46,7 @@ class TransManager(SectionManager):
         self.transblock['delay']=delay_block
         delay_block.gen_default()
 
-        func_begin_block=FunctionBeginBlock('func_begin',self.extension,True)
+        func_begin_block=FunctionBeginBlock('func_begin',self.extension,True,delay_block.result_reg)
         self.transblock['func_begin']=func_begin_block
         func_begin_block.gen_default()
 
