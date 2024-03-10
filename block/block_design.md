@@ -82,4 +82,16 @@
 ## 控制变量
 对于 delay、predict、victim 都有已有的样例，可以考虑每次之随机生成三个模块中的其中一个，其他的用固定样例，然后只针对这个 block 进行 fuzz
 
+## other
+没有启用 bim，默认 not taken
+branch_taken 情况下，默认 not taken，不训练就可以触发成功
+启用bim，默认 taken
+branch_taken 情况下，初始化为 10，train 1 次可以成功触发 1 次，train 2 次可以成功触发 2 次
+
+没有启用 bim，默认 not taken
+branch_not_taken 情况下，默认 not taken，train 3 次可以成功触发 1 次，train 4 次可以成功触发 2 次
+启用 bim，默认 taken
+branch_not_taken 情况下，初始化为 10，默认 taken，不 train 就可以触发 1 次，train 1 次以上可以触发 2 次
+
+
 
