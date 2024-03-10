@@ -54,9 +54,9 @@ class TransManager(SectionManager):
         self.transblock['func_end']=func_end_block
         func_end_block.gen_default()
 
-        predict_kind = 'call'
+        predict_kind = 'branch_taken'
         
-        predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),predict_kind,func_end_block.name)
+        predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),delay_block.result_imm,predict_kind,func_end_block.name)
         self.transblock['predict']=predict_block
         predict_block.gen_default()
 
@@ -64,7 +64,7 @@ class TransManager(SectionManager):
         self.transblock['victim']=victim_block
         victim_block.gen_default()
 
-        imm_param={'predict':predict_block.imm,'delay':delay_block.result_imm}
+        imm_param={'predict':predict_block.imm,'delay':delay_block.result_imm,'branch_kind':predict_block.branch_kind}
         train_block=TrainBlock('train',self.extension,True,self.train_loop,self.victim_loop,predict_kind,\
                                func_end_block.name,victim_block.name,imm_param)
         self.transblock['train']=train_block
