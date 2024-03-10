@@ -7,4 +7,3 @@
     add t0, t0, t1
     lb t0, 0(t0)
     INFO_TEXE_END
-    j func_end
