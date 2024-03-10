@@ -89,9 +89,13 @@ class TransManager(SectionManager):
         poc_section.add_inst_list(data_list)
 
         block_list=[_init_block, train_block, poc_block, exit_block, \
-                    func_begin_block, delay_block, predict_block, victim_block, func_end_block]
+                    func_begin_block, delay_block, predict_block]
+        if predict_block == 'branch_not_taken':
+            block_list.extend([func_end_block, victim_block])
+        else:
+            block_list.extend([victim_block, func_end_block])
+
         for block in block_list:
-            print(block.name)
             inst_list, data_list = block.gen_asm()
             text_section.add_inst_list(inst_list)
             data_section.add_inst_list(data_list)
