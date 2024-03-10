@@ -144,9 +144,10 @@ class InitSecretBlock(TransBlock):
         self.data_list=self._load_raw_asm("env/trans/init_secret.data.S")
 
 class PredictBlock(TransBlock):
-    def __init__(self, name, extension, default, result_reg, predict_kind, correct_block):
+    def __init__(self, name, extension, default, result_reg, result_imm, predict_kind, correct_block):
         super().__init__(name, extension, default)
         self.result_reg = result_reg
+        self.result_imm = result_imm
         self.predict_kind = predict_kind
         self.correct_block = correct_block
         self.imm = 0
@@ -186,8 +187,23 @@ class PredictBlock(TransBlock):
 
                 self.imm = ret_inst['IMM']
                 self.inst_list.append(ret_inst)
-            case 'branch':
-                self.data_list.append(RawInstruction('predict_imm:'))
+            case 'branch_taken'|'branch_not_taken':
+                ret_inst = Instruction()
+                ret_inst.set_category_constraint(['BRANCH'])
+                ret_inst.set_extension_constraint(['RV_I'])
+                if self.predict_kind=='branch_taken':
+                    ret_inst.set_label_constraint(['func_end'])
+                else:
+                    ret_inst.set_label_constraint(['victim'])
+                def c_param(NAME,RS1,RS2):
+                    return ((NAME in ['BLT','BGE'] and self.imm != -2 ** (64 - 1) and self.imm != 2 ** (64 - 1) - 1) \
+                        or (NAME in ['BLTU','BGEU'] and self.imm != 0 and self.imm != 2 ** 64 - 1)\
+                        or (NAME in ['BEQ','BNE'])) and RS1=='A0' and RS2==self.result_reg
+                ret_inst.add_constraint(c_param,['NAME','RS1','RS2'])
+                ret_inst.solve()
+            
+                self.branch_kind=ret_inst['NAME']
+                self.inst_list.append(ret_inst)
             case _:
                 print("Error: predict_kind not implemented!")
                 exit(0)
@@ -210,45 +226,75 @@ class TrainBlock(TransBlock):
     def gen_default(self):
         match(self.predict_kind):
             case 'call' | 'return':
-                false_target_param = "func_begin_train"
                 false_predict_param = f"{self.false_block} - {self.imm_param['predict']}"
                 true_predict_param = f"{self.correct_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
-                false_offset_param = 0
-                true_target_param = "func_begin_victim"
-                
-                true_offset_param = "secret + LEAK_TARGET - trapoline"
-                self.data_list.append(RawInstruction('train_param_table:'))
-                for i in range(self.train_loop):
-                    self.data_list.append(RawInstruction(f'train_target_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {false_target_param}'))
-                    self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {false_predict_param}'))
-                    self.data_list.append(RawInstruction(f'train_offset_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {false_offset_param}'))
+            case 'branch_taken'|'branch_not_taken':
+                match(self.imm_param['branch_kind']):
+                    case 'BEQ':
+                        false_predict_param = self.imm_param['predict'] + 1 if self.imm_param['predict'] == 0 else self.imm_param['predict'] - 1
+                        true_predict_param = self.imm_param['predict']
+                    case 'BNE':
+                        false_predict_param = self.imm_param['predict']
+                        true_predict_param = self.imm_param['predict'] + 1 if self.imm_param['predict'] == 0 else self.imm_param['predict'] - 1
+                    case 'BLT':
+                        assert(self.imm_param['predict']!=-2 ** (64 - 1) and self.imm_param['predict']!=2 ** (64 - 1) - 1)
+                        false_predict_param = random.randint(self.imm_param['predict'], 2 ** (64 - 1))
+                        true_predict_param = random.randint(-2 ** (64 - 1), self.imm_param['predict'])
+                    case 'BGE':
+                        assert(self.imm_param['predict']!=-2 ** (64 - 1) and self.imm_param['predict']!=2 ** (64 - 1) - 1)
+                        false_predict_param = random.randint(-2 ** (64 - 1), self.imm_param['predict'])
+                        true_predict_param = random.randint(self.imm_param['predict'], 2 ** (64 - 1))
+                    case 'BLTU':
+                        assert(self.imm_param['predict']!=0 and self.imm_param['predict']!=2**64-1)
+                        false_predict_param = random.randint(self.imm_param['predict'], 2 ** 64)
+                        true_predict_param = random.randint(0, self.imm_param['predict'])
+                    case 'BGEU':
+                        assert(self.imm_param['predict']!=0 and self.imm_param['predict']!=2**64-1)
+                        false_predict_param = random.randint(0, self.imm_param['predict'])
+                        true_predict_param = random.randint(self.imm_param['predict'], 2 ** 64)
+                    case _:
+                        print(f"Error: branch_kind {self.imm_param['branch_kind']} not implemented!")
+                        exit(0)
 
-                    self.inst_list.append(RawInstruction('la t0, train_param_table'))
-                    self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
-                    self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
-                    self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
-                    self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
-
-                self.data_list.append(RawInstruction('victim_param_table:'))
-                for i in range(self.victim_loop):
-                    self.data_list.append(RawInstruction(f'victim_target_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {true_target_param}'))
-                    self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
-                    self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
-                    self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
-
-                    self.inst_list.append(RawInstruction('la t0, victim_param_table'))
-                    self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
-                    self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
-                    self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
-                    self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+                if self.predict_kind == 'branch_not_taken':
+                    false_predict_param, true_predict_param = true_predict_param, false_predict_param
             case _:
                 print("Error: predict_kind not implemented!")
                 exit(0)
+
+        false_target_param = "func_begin_train"
+        false_offset_param = 0
+        true_target_param = "func_begin_victim"
+        true_offset_param = "secret + LEAK_TARGET - trapoline"
+        self.data_list.append(RawInstruction('train_param_table:'))
+        for i in range(self.train_loop):
+            self.data_list.append(RawInstruction(f'train_target_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {false_target_param}'))
+            self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {false_predict_param}'))
+            self.data_list.append(RawInstruction(f'train_offset_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {false_offset_param}'))
+
+            self.inst_list.append(RawInstruction('la t0, train_param_table'))
+            self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+
+        self.data_list.append(RawInstruction('victim_param_table:'))
+        for i in range(self.victim_loop):
+            self.data_list.append(RawInstruction(f'victim_target_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {true_target_param}'))
+            self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
+            self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
+
+            self.inst_list.append(RawInstruction('la t0, victim_param_table'))
+            self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
         
     
 
