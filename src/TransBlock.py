@@ -279,7 +279,10 @@ class TrainBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction('INFO_VCTM_START'))
             self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+            self.inst_list.append(RawInstruction('INFO_VCTM_END'))
+
 
         self.data_list.append(RawInstruction('victim_param_table:'))
         for i in range(self.victim_loop):
@@ -294,7 +297,9 @@ class TrainBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction('INFO_VCTM_START'))
             self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+            self.inst_list.append(RawInstruction('INFO_VCTM_END'))
         
     
 
