@@ -64,17 +64,6 @@ class TrapBlock(TransBlock):
         self.inst_list=self._load_raw_asm("env/trans/trap.text.S")
         self.data_list=self._load_raw_asm("env/trans/trap.data.S")
 
-class FunctionBeginBlock(TransBlock):
-    def __init__(self, name, extension, default, result_reg):
-        assert(default == True)
-        super().__init__(name, extension, default)
-        self.result_reg=result_reg
-
-    def gen_default(self):
-        self.inst_list=self._load_raw_asm("env/trans/func_begin.text.S")
-        self.data_list=self._load_raw_asm("env/trans/func_begin.data.S")
-        self.inst_list[3].raw_inst = self.inst_list[3].raw_inst.replace('t0',self.result_reg.lower())
-
 class FunctionEndBlock(TransBlock):
     def __init__(self, name, extension, default):
         assert(default == True)
@@ -82,6 +71,7 @@ class FunctionEndBlock(TransBlock):
 
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/func_end.text.S")
+        self.data_list=self._load_raw_asm("env/trans/func_end.data.S")
 
 class ExitBlock(TransBlock):
     def __init__(self, name, extension, default):
@@ -259,43 +249,46 @@ class TrainBlock(TransBlock):
             case _:
                 raise "Error: predict_kind not implemented!"
 
-        false_target_param = "func_begin_train"
         false_offset_param = 0
-        true_target_param = "func_begin_victim"
         true_offset_param = "secret + LEAK_TARGET - trapoline"
         self.data_list.append(RawInstruction('train_param_table:'))
         for i in range(self.train_loop):
-            self.data_list.append(RawInstruction(f'train_target_param_{i}:'))
-            self.data_list.append(RawInstruction(f'.dword {false_target_param}'))
             self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
             self.data_list.append(RawInstruction(f'.dword {false_predict_param}'))
             self.data_list.append(RawInstruction(f'train_offset_param_{i}:'))
             self.data_list.append(RawInstruction(f'.dword {false_offset_param}'))
+            self.data_list.append(RawInstruction(f'train_delay_value_{i}:'))
+            self.data_list.append(RawInstruction(f".dword {self.imm_param['delay']}"))
 
+            self.inst_list.append(RawInstruction(f'la t0, train_{i}_end'))
+            self.inst_list.append(RawInstruction('la t1, store_ra'))
+            self.inst_list.append(RawInstruction('sd t0, 0(t1)'))
             self.inst_list.append(RawInstruction('la t0, train_param_table'))
-            self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
-            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
-            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+8}(t0)'))
+            self.inst_list.append(RawInstruction(f"ld {self.imm_param['delay_reg'].lower()}, {i*8*3+16}(t0)"))
             self.inst_list.append(RawInstruction('INFO_VCTM_START'))
-            self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+            self.inst_list.append(RawInstruction(f'j predict'))
+            self.inst_list.append(RawInstruction(f'train_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_VCTM_END'))
 
 
         self.data_list.append(RawInstruction('victim_param_table:'))
         for i in range(self.victim_loop):
-            self.data_list.append(RawInstruction(f'victim_target_param_{i}:'))
-            self.data_list.append(RawInstruction(f'.dword {true_target_param}'))
             self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
             self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
             self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
             self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
 
+            self.inst_list.append(RawInstruction(f'la t0, victim_{i}_end'))
+            self.inst_list.append(RawInstruction('la t1, store_ra'))
+            self.inst_list.append(RawInstruction('sd t0, 0(t1)'))
             self.inst_list.append(RawInstruction('la t0, victim_param_table'))
-            self.inst_list.append(RawInstruction(f'ld t1, {i*8*3}(t0)'))
-            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3+8}(t0)'))
-            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+16}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a0, {i*8*3}(t0)'))
+            self.inst_list.append(RawInstruction(f'ld a1, {i*8*3+8}(t0)'))
             self.inst_list.append(RawInstruction('INFO_VCTM_START'))
-            self.inst_list.append(RawInstruction(f'jalr ra, 0(t1)'))
+            self.inst_list.append(RawInstruction(f'j delay'))
+            self.inst_list.append(RawInstruction(f'victim_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_VCTM_END'))
         
     
