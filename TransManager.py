@@ -28,51 +28,51 @@ class TransManager(SectionManager):
     def _generate_sections(self):
         trap_block=TrapBlock('trap',self.extension,True)
         self.transblock['trap']=trap_block
-        trap_block.gen_default()
+        trap_block.gen_instr()
 
         _init_block=InitSecretBlock('_init',self.extension,True)
         self.transblock['_init']=_init_block
-        _init_block.gen_default()
+        _init_block.gen_instr()
 
         poc_block=PocBlock('poc',self.extension,True)
         self.transblock['poc']=poc_block
-        poc_block.gen_default()
+        poc_block.gen_instr()
 
         exit_block=ExitBlock('exit',self.extension,True)
         self.transblock['exit']=exit_block
-        exit_block.gen_default()
+        exit_block.gen_instr()
 
         delay_block=DelayBlock('delay',self.extension,True)
         self.transblock['delay']=delay_block
-        delay_block.gen_default()
+        delay_block.gen_instr()
 
         func_begin_block=FunctionBeginBlock('func_begin',self.extension,True,delay_block.result_reg)
         self.transblock['func_begin']=func_begin_block
-        func_begin_block.gen_default()
+        func_begin_block.gen_instr()
 
         func_end_block=FunctionEndBlock('func_end',self.extension,True)
         self.transblock['func_end']=func_end_block
-        func_end_block.gen_default()
+        func_end_block.gen_instr()
 
         predict_kind = 'branch_not_taken'
         
         predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),delay_block.result_imm,predict_kind,func_end_block.name)
         self.transblock['predict']=predict_block
-        predict_block.gen_default()
+        predict_block.gen_instr()
 
         victim_block=VictimBlock('victim',self.extension,True,func_end_block.name)
         self.transblock['victim']=victim_block
-        victim_block.gen_default()
+        victim_block.gen_instr()
 
         imm_param={'predict':predict_block.imm,'delay':delay_block.result_imm,'branch_kind':predict_block.branch_kind}
         train_block=TrainBlock('train',self.extension,True,self.train_loop,self.victim_loop,predict_kind,\
                                func_end_block.name,victim_block.name,imm_param)
         self.transblock['train']=train_block
-        train_block.gen_default()
+        train_block.gen_instr()
 
         poc_func_block=PocFuncBlock('poc_func',self.extension,True)
         self.transblock['poc_func']=poc_func_block
-        poc_func_block.gen_default()
+        poc_func_block.gen_instr()
 
         text_section=self.section['.text']=FuzzSection('.text',Flag.U|Flag.X|Flag.R)
         data_section=self.section['.data']=FuzzSection('.data',Flag.U|Flag.W|Flag.R)
