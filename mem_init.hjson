@@ -9,6 +9,12 @@
             0x0000000080000000
             0x0000000080001000
         ]
+        pmp:4
+        image:reg_init.h
+        format:asm
+        asm:init.S
+        init_input:dummy_state.hjson
+        init_output:reg_init.hjson
         folder:[]
         file:[]
     }
@@ -94,7 +100,7 @@
             0x000000000003F000
         ]
         train_loop:3
-        victim_loop:1
+        victim_loop:3
     }
     poc:
     {

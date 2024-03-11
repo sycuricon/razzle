@@ -12,11 +12,9 @@ from InitManager import *
 from TransManager import *
 
 class DistributeManager:
-    def __init__(self,hjson_filename,output_path,virtual,do_fuzz,init_dir):
+    def __init__(self,hjson_filename,output_path,virtual,do_fuzz):
         hjson_file=open(hjson_filename)
         config=hjson.load(hjson_file)
-        if init_dir is not None:
-            config["init"]["folder"]=[init_dir]
         hjson_file.close()
         
         self.output_path=output_path
@@ -31,7 +29,7 @@ class DistributeManager:
         else:
             self.code['payload']=PayloadManager(config["payload"])
             self.code['poc']=PocManager(config["poc"])
-        self.code['init']=InitManager(config["init"])
+        self.code['init']=InitManager(config["init"],do_fuzz,virtual,output_path)
 
         self.page_table=PageTableManager(config["page_table"])
         self.loader=LoaderManager(virtual)
@@ -88,14 +86,11 @@ if __name__ == "__main__":
     parse.add_argument("-O", "--output", dest="output", required=True, help="output of the fuzz code")
     parse.add_argument("-V", "--virtual", dest="virtual", action="store_true", help="link in virtual address")
     parse.add_argument("--fuzz", dest="do_fuzz", action="store_true", help="payload generate by fuzz")
-    parse.add_argument("--init", dest="init_dir", required=False, help="dir of code for init")
 
     args = parse.parse_args()
     if not os.path.exists(args.output):
         os.makedirs(args.output)
-    if not os.path.exists(args.init_dir):
-        raise "no initization directory"
-    dist=DistributeManager(args.input,args.output,args.virtual,args.do_fuzz,args.init_dir)
+    dist=DistributeManager(args.input,args.output,args.virtual,args.do_fuzz)
     dist.generate_test()
 
 

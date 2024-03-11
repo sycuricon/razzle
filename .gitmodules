@@ -1,0 +1,3 @@
+[submodule "rvsnap"]
+	path = rvsnap
+	url = https://github.com/sycuricon/rvsnap.git
