@@ -30,12 +30,16 @@ class TransBlock:
             return rd_list
     
     def gen_instr(self):
-        print("Error: gen_instr not implemented!")
-        exit(0)
+        if self.default:
+            self.gen_default()
+        else:
+            self.gen_random()
+    
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
     
     def gen_default(self):
-        print("Error: gen_default not implemented!")
-        exit(0)
+        raise "Error: gen_default not implemented!"
 
     def gen_asm(self):
         inst_asm_list = []
@@ -100,9 +104,8 @@ class DelayBlock(TransBlock):
     def __init__(self, name, extension, default):
         super().__init__(name, extension, default)
 
-    def gen_instr(self):
-        print("Error: gen_instr not implemented!")
-        exit(0)
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
     
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/delay.text.S")
@@ -126,9 +129,8 @@ class VictimBlock(TransBlock):
         super().__init__(name, extension, default)
         self.predict_block=predict_block
 
-    def gen_instr(self):
-        print("Error: gen_instr not implemented!")
-        exit(0)
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
     
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/victim.text.S")
@@ -152,9 +154,8 @@ class PredictBlock(TransBlock):
         self.correct_block = correct_block
         self.imm = 0
 
-    def gen_instr(self):
-        print("Error: gen_instr not implemented!")
-        exit(0)
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
     
     def gen_default(self):
         match(self.predict_kind):
@@ -205,8 +206,7 @@ class PredictBlock(TransBlock):
                 self.branch_kind=ret_inst['NAME']
                 self.inst_list.append(ret_inst)
             case _:
-                print("Error: predict_kind not implemented!")
-                exit(0)
+                raise "Error: predict_kind not implemented!"
 
 class TrainBlock(TransBlock):
     def __init__(self, name, extension, default, train_loop, victim_loop,\
@@ -219,9 +219,8 @@ class TrainBlock(TransBlock):
         self.train_loop = train_loop
         self.victim_loop = victim_loop
         
-    def gen_instr(self):
-        print("Error: gen_instr not implemented!")
-        exit(0)
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
     
     def gen_default(self):
         match(self.predict_kind):
@@ -253,14 +252,12 @@ class TrainBlock(TransBlock):
                         false_predict_param = random.randint(0, self.imm_param['predict'])
                         true_predict_param = random.randint(self.imm_param['predict'], 2 ** 64)
                     case _:
-                        print(f"Error: branch_kind {self.imm_param['branch_kind']} not implemented!")
-                        exit(0)
+                        raise f"Error: branch_kind {self.imm_param['branch_kind']} not implemented!"
 
                 if self.predict_kind == 'branch_not_taken':
                     false_predict_param, true_predict_param = true_predict_param, false_predict_param
             case _:
-                print("Error: predict_kind not implemented!")
-                exit(0)
+                raise "Error: predict_kind not implemented!"
 
         false_target_param = "func_begin_train"
         false_offset_param = 0
