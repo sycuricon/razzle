@@ -46,17 +46,14 @@ class TransManager(SectionManager):
         self.transblock['delay']=delay_block
         delay_block.gen_instr()
 
-        func_begin_block=FunctionBeginBlock('func_begin',self.extension,True,delay_block.result_reg)
-        self.transblock['func_begin']=func_begin_block
-        func_begin_block.gen_instr()
-
         func_end_block=FunctionEndBlock('func_end',self.extension,True)
         self.transblock['func_end']=func_end_block
         func_end_block.gen_instr()
 
         predict_kind = 'branch_not_taken'
         
-        predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),delay_block.result_imm,predict_kind,func_end_block.name)
+        predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),\
+                                   delay_block.result_imm,predict_kind,func_end_block.name)
         self.transblock['predict']=predict_block
         predict_block.gen_instr()
 
@@ -64,7 +61,10 @@ class TransManager(SectionManager):
         self.transblock['victim']=victim_block
         victim_block.gen_instr()
 
-        imm_param={'predict':predict_block.imm,'delay':delay_block.result_imm,'branch_kind':predict_block.branch_kind}
+        imm_param={'predict':predict_block.imm,\
+                   'delay':delay_block.result_imm,\
+                   'delay_reg':delay_block.result_reg,\
+                   'branch_kind':predict_block.branch_kind}
         train_block=TrainBlock('train',self.extension,True,self.train_loop,self.victim_loop,predict_kind,\
                                func_end_block.name,victim_block.name,imm_param)
         self.transblock['train']=train_block
@@ -88,8 +88,7 @@ class TransManager(SectionManager):
         poc_section.add_inst_list(inst_list)
         poc_section.add_inst_list(data_list)
 
-        block_list=[_init_block, train_block, poc_block, exit_block, \
-                    func_begin_block, delay_block, predict_block]
+        block_list=[_init_block, train_block, poc_block, exit_block, delay_block, predict_block]
         if predict_kind == 'branch_not_taken':
             block_list.extend([func_end_block, victim_block])
         else:
