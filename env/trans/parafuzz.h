@@ -29,6 +29,10 @@
 #define ENUM_INFO_TEXE_END          5
 #define ENUM_INFO_LEAK_START        6
 #define ENUM_INFO_LEAK_END          7
+#define ENUM_INFO_INIT_START        8
+#define ENUM_INFO_INIT_END          9
+#define ENUM_INFO_BIM_START         10
+#define ENUM_INFO_BIM_END           11
 
 #define INFO_VCTM_START     slti zero, zero, ENUM_INFO_VCTM_START
 #define INFO_VCTM_END       fence; slti zero, zero, ENUM_INFO_VCTM_END
@@ -38,6 +42,10 @@
 #define INFO_TEXE_END       slti zero, zero, ENUM_INFO_TEXE_END
 #define INFO_LEAK_START     slti zero, zero, ENUM_INFO_LEAK_START
 #define INFO_LEAK_END       slti zero, zero, ENUM_INFO_LEAK_END
+#define INFO_INIT_START     slti zero, zero, ENUM_INFO_INIT_START
+#define INFO_INIT_END       slti zero, zero, ENUM_INFO_INIT_END
+#define INFO_BIM_START      slti zero, zero, ENUM_INFO_BIM_START
+#define INFO_BIM_END        slti zero, zero, ENUM_INFO_BIM_END
 #define INFO_CONTROL_LEAK   csrr t0, cycle;\
                             li t1, CMD_SWITCH_STATE | STATE_DEFAULT;\
                             csrw 0x800, t1;\
