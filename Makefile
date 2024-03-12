@@ -42,3 +42,6 @@ $(VARIANT_TARGET):$(VARIANT_OBJ)
 
 clean:
 	rm -f $(BUILD_PATH)/*
+
+sim:
+	make -C debug TESTCASE=$(BUILD_PATH)/Testbench
