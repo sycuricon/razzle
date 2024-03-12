@@ -48,7 +48,7 @@ int main(int argc, const char* argv[]){
         "S8", "S9", "S10", "S11", "T3", "T4", "T5", "T6"
     };
     for(int i=0;i<sizeof(reg_name)/sizeof(const char*);i++){
-        fprintf(dump_file, "%s %016x\n",reg_name[i], core->get_state()->XPR[i]);
+        fprintf(dump_file, "%s %016llx\n",reg_name[i], core->get_state()->XPR[i]);
     }
 
     const char* freg_name[]={
@@ -58,7 +58,7 @@ int main(int argc, const char* argv[]){
         "FS8", "FS9", "FS10", "FS11", "FT8", "FT9", "FT10", "FT11"
     };
     for(int i=0;i<sizeof(freg_name)/sizeof(const char*);i++){
-        fprintf(dump_file, "%s %016x\n",freg_name[i], core->get_state()->FPR[i]);
+        fprintf(dump_file, "%s %016llx\n",freg_name[i], core->get_state()->FPR[i]);
     }
 
 
