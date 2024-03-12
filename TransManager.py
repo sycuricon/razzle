@@ -21,7 +21,8 @@ class TransManager(SectionManager):
     def __init__(self,config):
         super().__init__(config)
         self.transblock={}
-        self.extension=['RV_I','RV64_I','RV_ZICSR','RV_F','RV_D','RV64_F','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
+        self.extension=['RV_I','RV64_I','RV_ZICSR','RV_F','RV64_F',\
+                        'RV_D','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
         self.train_loop=config['train_loop']
         self.victim_loop=config['victim_loop']
     
@@ -42,7 +43,7 @@ class TransManager(SectionManager):
         self.transblock['exit']=exit_block
         exit_block.gen_instr()
 
-        delay_block=DelayBlock('delay',self.extension,True)
+        delay_block=DelayBlock('delay',self.extension,False)
         self.transblock['delay']=delay_block
         delay_block.gen_instr()
 
