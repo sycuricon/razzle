@@ -80,8 +80,8 @@ class DistributeManager:
 
         self._generate_compile_files()
 
-        os.system(f'make BUILD_PATH={self.output_path}')
-        os.system(f'make sim BUILD_PATH={self.output_path}')
+        # os.system(f'make BUILD_PATH={self.output_path}')
+        # os.system(f'make sim BUILD_PATH={self.output_path}')
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()

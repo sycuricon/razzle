@@ -2,8 +2,7 @@ from SectionManager import *
 from SectionUtils import *
 import sys
 import os
-sys.path.append(os.path.join(os.getcwd(),'razzle_transient/src'))
-from razzle_transient.src.TransBlock import *
+from TransBlock import *
 
 class FuzzSection(Section):
     def __init__(self,name,flag):
@@ -108,7 +107,7 @@ class TransManager(SectionManager):
         self.section['.poc'].get_bound(self.virtual_memory_bound[1][0],self.memory_bound[1][0],0x1000)
     
     def _write_headers(self,f,is_variant):
-        header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'razzle_transient', 'env', 'trans')
+        header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trans')
         filenames = os.listdir(header_dir)
         output_dirname = os.path.dirname(f.name)
         for file in filenames:
