@@ -31,6 +31,22 @@ class InstructionBase:
                         self._solution[variable] = vars[i]
             self._solution['NAME'] = name
 
+    def __setitem__(self, item, value):
+        if self._solution is None:
+            raise Exception('Please call solve() first')
+        set_sucess = False
+        for variable in all_instructions[self._solution['NAME']]['variables']:
+            if variable_name_remap[variable] == item:
+                if value in variable_range[variable]:
+                    self._solution[variable] = value
+                    set_sucess = True
+                else:
+                    raise Exception(f'no value {value} in {variable}')
+        if set_sucess:
+            return
+        else:
+            raise Exception(f'{item} is not a variable of this instruction')
+
     def __getitem__(self, item):
         if self._solution is None:
             raise Exception('Please call solve() first')
@@ -201,7 +217,7 @@ class InstructionBase:
         name = self._solution['NAME']
         asm = all_instructions[name]['format']
         for variable in all_instructions[name]['variables']:
-            if variable is not 'NAME':
+            if variable != 'NAME':
                 var = self._solution[variable]
                 if variable == 'IMM':
                     var = hex(int(var))

@@ -1,5 +1,6 @@
 from Instruction import *
 from MagicDevice import *
+from Block import *
 
 class TransBlock:
     def __init__(self, name, extension, default):
@@ -94,9 +95,126 @@ class DelayBlock(TransBlock):
     def __init__(self, name, extension, default):
         super().__init__(name, extension, default)
 
-    def gen_random(self):
-        raise "Error: gen_random not implemented!"
+    def _gen_dep_list(self):
+        self.GPR_list = [reg for reg in reg_range if reg not in ['A0','A1','ZERO']]
+        self.FLOAT_list = float_range
+        dep_list = []
+        for i in range(random.randint(6,8)):
+            if random.random() < 0.2:
+                dep_list.append(random.choice(self.GPR_list))
+            else:
+                dep_list.append(random.choice(self.FLOAT_list))
+        dep_list.append(random.choice(self.GPR_list))
+        return dep_list
     
+    def _gen_inst_list(self, dep_list):
+        for i, src in enumerate(dep_list[0:-1]):
+            dest = dep_list[i+1]
+            if src in self.GPR_list and dest in self.FLOAT_list:
+                self.inst_list.append(Instruction(f'fcvt.s.lu   {dest.lower()}, {src.lower()}'))
+            elif src in self.FLOAT_list and dest in self.GPR_list:
+                self.inst_list.append(Instruction(f'fcvt.lu.s   {dest.lower()}, {src.lower()}'))
+            elif src in self.FLOAT_list and dest in self.FLOAT_list:
+                while True:
+                    instr = Instruction()
+                    instr.set_extension_constraint([extension for extension in [\
+                        'RV_D', 'RV64_D',\
+                        'RV_F', 'RV64_F',\
+                        'RV32_C_F', 'RV_C_D'\
+                    ] if extension in self.extension])
+                    instr.set_category_constraint(['FLOAT'])
+
+                    def c_dest(name, frd):
+                        return use_frd(name) and use_frs1(name) and frd == dest
+                    instr.add_constraint(c_dest, ['NAME','FRD'])
+                    instr.solve()
+
+                    freg_list = [freg for freg in ['FRS1','FRS2','FRS3'] if instr.has(freg)]
+                    for freg in freg_list:
+                        if freg == src:
+                            break
+                    else:
+                        instr[random.choice(freg_list)] = src
+
+                    if instr.has('FRD'):
+                        self.inst_list.append(instr)
+                        break
+
+            elif src in self.GPR_list and dest in self.GPR_list:
+                while True:
+                    instr = Instruction()
+                    instr.set_extension_constraint(self.extension)
+                    instr.set_category_constraint(['ARITHMETIC'])
+
+                    def c_dest(name, rd):
+                        return use_rs1(name) and rd == dest
+                    instr.add_constraint(c_dest,['NAME', 'RD'])
+                    instr.solve()
+
+                    if instr.has('RS1') and instr['RS1'] != src:
+                        if instr.has('RS2'):
+                            if random.random() < 0.5:
+                                instr['RS1'] = src
+                            else:
+                                instr['RS2'] = src
+                        else:
+                            instr['RS1'] = src
+
+                    if instr.has('RS1') and instr['RS1'] not in self.GPR_list:
+                        instr['RS1'] = random.choice(self.GPR_list)
+                    if instr.has('RS2') and instr['RS2'] not in self.GPR_list:
+                        instr['RS2'] = random.choice(self.GPR_list)
+
+                    if instr.has('RD'):
+                        self.inst_list.append(instr)
+                        break
+    
+    def _gen_init_inst(self, dep_list):
+        float_init_list = set()
+        float_inited_list = set()
+        GPR_init_list = set()
+        GPR_inited_list = set()
+        for dest_reg,inst in zip(dep_list, self.inst_list):
+            print(inst)
+
+            if inst.has('FRS1'):
+                if inst['FRS1'] not in float_inited_list:
+                    float_init_list.add(inst['FRS1'])
+            if inst.has('FRS2'):
+                if inst['FRS2'] not in float_inited_list:
+                    float_init_list.add(inst['FRS2'])
+            if inst.has('FRS3'):
+                if inst['FRS3'] not in float_inited_list:
+                    float_init_list.add(inst['FRS3'])
+            if inst.has('RS1'):
+                if inst['RS1'] not in GPR_inited_list:
+                    GPR_init_list.add(inst['RS1'])
+            if inst.has('RS2'):
+                if inst['RS2'] not in GPR_inited_list:
+                    GPR_init_list.add(inst['RS2'])
+
+            if dest_reg[0] == 'F':
+                float_inited_list.add(dest_reg)
+            else:
+                GPR_inited_list.add(dest_reg)
+        
+        tmp_inst_list = []
+        for freg in float_init_list:
+            tmp_inst_list.append(RawInstruction(f'li t0, {random.randint(0, 2**64)}'))
+            tmp_inst_list.append(RawInstruction(f'fcvt.s.lu   {freg.lower()}, t0'))
+        for reg in GPR_init_list:
+            tmp_inst_list.append(RawInstruction(f'li {reg.lower()}, {random.randint(0, 2**64)}'))
+        for i in range(16):
+            tmp_inst_list.append(RawInstruction('nop'))
+        self.inst_list = tmp_inst_list + self.inst_list
+
+    def gen_random(self):
+        dep_list = self._gen_dep_list()
+        self._gen_inst_list(dep_list)
+        self._gen_init_inst(dep_list)
+        self.result_imm = 0
+        self.result_reg = dep_list[-1]
+
     def gen_default(self):
         self.inst_list=self._load_raw_asm("env/trans/delay.text.S")
         self.data_list=self._load_raw_asm("env/trans/delay.data.S")
@@ -148,9 +266,10 @@ class PredictBlock(TransBlock):
         raise "Error: gen_random not implemented!"
     
     def gen_default(self):
+        self.inst_list.append(RawInstruction(f'xor {self.result_reg.lower()}, {self.result_reg.lower()}, {self.result_reg.lower()}'))
         match(self.predict_kind):
             case 'call':
-                delay_link_inst = Instruction(f'add t0, {self.result_reg}, a0')
+                delay_link_inst = Instruction(f'add t0, {self.result_reg.lower()}, a0')
                 self.inst_list.append(delay_link_inst)
                 call_inst = Instruction()
                 call_inst.set_name_constraint(['JALR'])
@@ -208,11 +327,8 @@ class TrainBlock(TransBlock):
         self.imm_param = imm_param
         self.train_loop = train_loop
         self.victim_loop = victim_loop
-        
-    def gen_random(self):
-        raise "Error: gen_random not implemented!"
     
-    def gen_default(self):
+    def _gen_predict_param(self):
         match(self.predict_kind):
             case 'call' | 'return':
                 false_predict_param = f"{self.false_block} - {self.imm_param['predict']}"
@@ -248,9 +364,9 @@ class TrainBlock(TransBlock):
                     false_predict_param, true_predict_param = true_predict_param, false_predict_param
             case _:
                 raise "Error: predict_kind not implemented!"
-
-        false_offset_param = 0
-        true_offset_param = "secret + LEAK_TARGET - trapoline"
+        return true_predict_param, false_predict_param
+    
+    def _gen_data_list(self, true_predict_param, true_offset_param, false_predict_param, false_offset_param):
         self.data_list.append(RawInstruction('train_param_table:'))
         for i in range(self.train_loop):
             self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
@@ -259,8 +375,16 @@ class TrainBlock(TransBlock):
             self.data_list.append(RawInstruction(f'.dword {false_offset_param}'))
             self.data_list.append(RawInstruction(f'train_delay_value_{i}:'))
             self.data_list.append(RawInstruction(f".dword {self.imm_param['delay']}"))
-            table_width = 3
+        self.data_list.append(RawInstruction('victim_param_table:'))
+        for i in range(self.victim_loop):
+            self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
+            self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
+            self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
 
+    def _gen_inst_list(self):
+        for i in range(self.train_loop):
+            table_width = 3
             self.inst_list.append(RawInstruction(f'la t0, train_{i}_end'))
             self.inst_list.append(RawInstruction('la t1, store_ra'))
             self.inst_list.append(RawInstruction('sd t0, 0(t1)'))
@@ -272,16 +396,9 @@ class TrainBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'j predict'))
             self.inst_list.append(RawInstruction(f'train_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_VCTM_END'))
-
-
-        self.data_list.append(RawInstruction('victim_param_table:'))
+        
         for i in range(self.victim_loop):
-            self.data_list.append(RawInstruction(f'victim_predict_param_{i}:'))
-            self.data_list.append(RawInstruction(f'.dword {true_predict_param}'))
-            self.data_list.append(RawInstruction(f'victim_offset_param_{i}:'))
-            self.data_list.append(RawInstruction(f'.dword {true_offset_param}'))
             table_width = 2
-
             self.inst_list.append(RawInstruction(f'la t0, victim_{i}_end'))
             self.inst_list.append(RawInstruction('la t1, store_ra'))
             self.inst_list.append(RawInstruction('sd t0, 0(t1)'))
@@ -292,6 +409,16 @@ class TrainBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'j delay'))
             self.inst_list.append(RawInstruction(f'victim_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_VCTM_END'))
+
+    def gen_random(self):
+        raise "Error: gen_random not implemented!"
+    
+    def gen_default(self):
+        true_predict_param, false_predict_param = self._gen_predict_param()
+        false_offset_param = 0
+        true_offset_param = "secret + LEAK_TARGET - trapoline"
+        self._gen_data_list(true_predict_param, true_offset_param, false_predict_param, false_offset_param)
+        self._gen_inst_list()
         
     
 

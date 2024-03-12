@@ -1,9 +1,23 @@
 from MagicDevice import *
 import Config
 
+def use_rs1(name):
+    return 'RS1' in all_instructions[name]['variables']
 
 def use_rs2(name):
     return 'RS2' in all_instructions[name]['variables']
+
+def use_frd(name):
+    return 'FRD' in all_instructions[name]['variables']
+
+def use_frs1(name):
+    return 'FRS1' in all_instructions[name]['variables']
+
+def use_frs2(name):
+    return 'FRS2' in all_instructions[name]['variables']
+
+def use_frs3(name):
+    return 'FRS3' in all_instructions[name]['variables']
 
 
 def rand_instr(instr_name=None, instr_extension=None, instr_category=None, imm_range=None):
