@@ -97,18 +97,20 @@ class PocFuncBlock(TransBlock):
         self.inst_list=self._load_raw_asm("trans/poc_func.text.S")
     
 class DelayBlock(TransBlock):
-    def __init__(self, name, extension, default):
+    def __init__(self, name, extension, default, fuzz_param):
         super().__init__(name, extension, default)
+        self.float_rate = fuzz_param['float_rate']
+        self.delay_len = fuzz_param['delay_len']
 
     def _gen_dep_list(self):
         self.GPR_list = [reg for reg in reg_range if reg not in ['A0','A1','ZERO','T0','T1']]
         self.FLOAT_list = float_range
         dep_list = []
-        for i in range(random.randint(8,10)):
-            if random.random() < 0.2:
-                dep_list.append(random.choice(self.GPR_list))
-            else:
+        for i in range(random.randint(self.delay_len-1, self.delay_len+1)):
+            if random.random() < self.float_rate:
                 dep_list.append(random.choice(self.FLOAT_list))
+            else:
+                dep_list.append(random.choice(self.GPR_list))
         dep_list.append(random.choice(self.GPR_list))
         return dep_list
     

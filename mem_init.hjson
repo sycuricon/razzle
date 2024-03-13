@@ -101,6 +101,16 @@
         ]
         train_loop:3
         victim_loop:3
+        delay_default:False
+        victim_default:True
+        fuzz_param:
+        {
+            delay_param:
+            {
+                float_rate:0.8
+                delay_len:9
+            }
+        }
     }
     poc:
     {

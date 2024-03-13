@@ -24,6 +24,9 @@ class TransManager(SectionManager):
                         'RV_D','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
         self.train_loop=config['train_loop']
         self.victim_loop=config['victim_loop']
+        self.delay_default=eval(config['delay_default'])
+        self.victim_default=eval(config['victim_default'])
+        self.fuzz_param=config['fuzz_param']
     
     def _generate_sections(self):
         trap_block=TrapBlock('trap',self.extension,True)
@@ -42,7 +45,7 @@ class TransManager(SectionManager):
         self.transblock['exit']=exit_block
         exit_block.gen_instr()
 
-        delay_block=DelayBlock('delay',self.extension,False)
+        delay_block=DelayBlock('delay',self.extension,self.delay_default,self.fuzz_param['delay_param'])
         self.transblock['delay']=delay_block
         delay_block.gen_instr()
 
@@ -57,7 +60,7 @@ class TransManager(SectionManager):
         self.transblock['predict']=predict_block
         predict_block.gen_instr()
 
-        victim_block=VictimBlock('victim',self.extension,True,func_end_block.name)
+        victim_block=VictimBlock('victim',self.extension,self.victim_default,func_end_block.name)
         self.transblock['victim']=victim_block
         victim_block.gen_instr()
 
