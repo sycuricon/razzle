@@ -45,4 +45,18 @@ class Asmer:
 
     def byte_inst(byte_list):
         return ['\t.byte '+','.join(list(map(str,byte_list)))]
+
+def Unsigned2Signed(unsigned):
+    assert(0 <= unsigned and unsigned < 2**64)
+    if unsigned < 2**63:
+        return unsigned
+    else:
+        return unsigned - 2**64
+
+def Signed2Unsigned(signed):
+    assert(-2**63 <= signed and signed < 2**63)
+    if signed>0:
+        return signed
+    else:
+        return signed + 2**64
     

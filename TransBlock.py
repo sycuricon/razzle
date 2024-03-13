@@ -1,6 +1,7 @@
 import sys
 import os
 import random
+from SectionUtils import *
 sys.path.append(os.path.join(os.getcwd(),'razzle_transient/src'))
 from razzle_transient.src.Instruction import *
 from razzle_transient.src.MagicDevice import *
@@ -100,7 +101,7 @@ class DelayBlock(TransBlock):
         super().__init__(name, extension, default)
 
     def _gen_dep_list(self):
-        self.GPR_list = [reg for reg in reg_range if reg not in ['A0','A1','ZERO']]
+        self.GPR_list = [reg for reg in reg_range if reg not in ['A0','A1','ZERO','T0','T1']]
         self.FLOAT_list = float_range
         dep_list = []
         for i in range(random.randint(8,10)):
@@ -179,7 +180,7 @@ class DelayBlock(TransBlock):
         GPR_init_list = set()
         GPR_inited_list = set()
         for dest_reg,inst in zip(dep_list, self.inst_list):
-            print(inst)
+            # print(inst)
 
             if inst.has('FRS1'):
                 if inst['FRS1'] not in float_inited_list:
@@ -203,12 +204,17 @@ class DelayBlock(TransBlock):
                 GPR_inited_list.add(dest_reg)
         
         tmp_inst_list = []
-        for freg in float_init_list:
-            tmp_inst_list.append(RawInstruction(f'li t0, {random.randint(0, 2**64)}'))
+        tmp_inst_list.append(RawInstruction(f'la t1, delay_data'))
+        for i,freg in enumerate(float_init_list):
+            self.data_list.append(RawInstruction(f'.dword {random.randint(0, 2**64)}'))
+            tmp_inst_list.append(RawInstruction(f'ld t0, {i*8}(t1)'))
             tmp_inst_list.append(RawInstruction(f'fcvt.s.lu   {freg.lower()}, t0'))
-        for reg in GPR_init_list:
-            tmp_inst_list.append(RawInstruction(f'li {reg.lower()}, {random.randint(0, 2**64)}'))
-        for i in range(16):
+        for i,reg in enumerate(GPR_init_list):
+            self.data_list.append(RawInstruction(f'.dword {random.randint(0, 2**64)}'))
+            tmp_inst_list.append(RawInstruction(f'ld {reg.lower()}, {(i+len(float_init_list))*8}(t1)'))
+        
+        nop_line = 8 + 8 - (len(tmp_inst_list)) % 8
+        for i in range(nop_line):
             tmp_inst_list.append(RawInstruction('nop'))
         self.inst_list = tmp_inst_list + self.inst_list
 
@@ -216,9 +222,9 @@ class DelayBlock(TransBlock):
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
         self._gen_init_inst(dep_list)
-        inst_simlutor(self.inst_list, self.data_list, [])
-        self.result_imm = 0
+        dump_reg = inst_simlutor(self.inst_list, self.data_list)
         self.result_reg = dep_list[-1]
+        self.result_imm = dump_reg[self.result_reg]
 
     def gen_default(self):
         self.inst_list=self._load_raw_asm("trans/delay.text.S")
@@ -271,7 +277,7 @@ class PredictBlock(TransBlock):
         raise "Error: gen_random not implemented!"
     
     def gen_default(self):
-        self.inst_list.append(RawInstruction(f'xor {self.result_reg.lower()}, {self.result_reg.lower()}, {self.result_reg.lower()}'))
+        # self.inst_list.append(RawInstruction(f'xor {self.result_reg.lower()}, {self.result_reg.lower()}, {self.result_reg.lower()}'))
         match(self.predict_kind):
             case 'call':
                 delay_link_inst = Instruction(f'add t0, {self.result_reg.lower()}, a0')
@@ -311,8 +317,8 @@ class PredictBlock(TransBlock):
                 else:
                     ret_inst.set_label_constraint(['victim'])
                 def c_param(NAME,RS1,RS2):
-                    return ((NAME in ['BLT','BGE'] and self.imm != -2 ** (64 - 1) and self.imm != 2 ** (64 - 1) - 1) \
-                        or (NAME in ['BLTU','BGEU'] and self.imm != 0 and self.imm != 2 ** 64 - 1)\
+                    return ((NAME in ['BLT','BGE'] and Unsigned2Signed(self.result_imm) != -2 ** (64 - 1) and Unsigned2Signed(self.result_imm) != 2 ** (64 - 1) - 1) \
+                        or (NAME in ['BLTU','BGEU'] and self.result_imm != 0 and self.result_imm != 2 ** 64 - 1)\
                         or (NAME in ['BEQ','BNE'])) and RS1=='A0' and RS2==self.result_reg
                 ret_inst.add_constraint(c_param,['NAME','RS1','RS2'])
                 ret_inst.solve()
@@ -339,29 +345,32 @@ class TrainBlock(TransBlock):
                 false_predict_param = f"{self.false_block} - {self.imm_param['predict']}"
                 true_predict_param = f"{self.correct_block} - {self.imm_param['delay']} - {self.imm_param['predict']}"
             case 'branch_taken'|'branch_not_taken':
+                delay_imm = self.imm_param['delay']
                 match(self.imm_param['branch_kind']):
                     case 'BEQ':
-                        false_predict_param = self.imm_param['predict'] + 1 if self.imm_param['predict'] == 0 else self.imm_param['predict'] - 1
-                        true_predict_param = self.imm_param['predict']
+                        false_predict_param = delay_imm + 1 if delay_imm == 0 else delay_imm - 1
+                        true_predict_param = delay_imm
                     case 'BNE':
-                        false_predict_param = self.imm_param['predict']
-                        true_predict_param = self.imm_param['predict'] + 1 if self.imm_param['predict'] == 0 else self.imm_param['predict'] - 1
+                        false_predict_param = delay_imm
+                        true_predict_param = delay_imm + 1 if delay_imm == 0 else delay_imm - 1
                     case 'BLT':
-                        assert(self.imm_param['predict']!=-2 ** (64 - 1) and self.imm_param['predict']!=2 ** (64 - 1) - 1)
-                        false_predict_param = random.randint(self.imm_param['predict'], 2 ** (64 - 1))
-                        true_predict_param = random.randint(-2 ** (64 - 1), self.imm_param['predict'])
+                        delay_imm = Unsigned2Signed(delay_imm)
+                        assert(delay_imm!=-2 ** (64 - 1) and delay_imm!=2 ** (64 - 1) - 1)
+                        false_predict_param = random.randint(delay_imm, 2 ** (64 - 1))
+                        true_predict_param = random.randint(-2 ** (64 - 1), delay_imm)
                     case 'BGE':
-                        assert(self.imm_param['predict']!=-2 ** (64 - 1) and self.imm_param['predict']!=2 ** (64 - 1) - 1)
-                        false_predict_param = random.randint(-2 ** (64 - 1), self.imm_param['predict'])
-                        true_predict_param = random.randint(self.imm_param['predict'], 2 ** (64 - 1))
+                        delay_imm = Unsigned2Signed(delay_imm)
+                        assert(delay_imm!=-2 ** (64 - 1) and delay_imm!=2 ** (64 - 1) - 1)
+                        false_predict_param = random.randint(-2 ** (64 - 1), delay_imm)
+                        true_predict_param = random.randint(delay_imm, 2 ** (64 - 1))
                     case 'BLTU':
-                        assert(self.imm_param['predict']!=0 and self.imm_param['predict']!=2**64-1)
-                        false_predict_param = random.randint(self.imm_param['predict'], 2 ** 64)
-                        true_predict_param = random.randint(0, self.imm_param['predict'])
+                        assert(delay_imm!=0 and delay_imm!=2**64-1)
+                        false_predict_param = random.randint(delay_imm, 2 ** 64)
+                        true_predict_param = random.randint(0, delay_imm)
                     case 'BGEU':
-                        assert(self.imm_param['predict']!=0 and self.imm_param['predict']!=2**64-1)
-                        false_predict_param = random.randint(0, self.imm_param['predict'])
-                        true_predict_param = random.randint(self.imm_param['predict'], 2 ** 64)
+                        assert(delay_imm!=0 and delay_imm!=2**64-1)
+                        false_predict_param = random.randint(0, delay_imm)
+                        true_predict_param = random.randint(delay_imm, 2 ** 64)
                     case _:
                         raise f"Error: branch_kind {self.imm_param['branch_kind']} not implemented!"
 
@@ -397,10 +406,10 @@ class TrainBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'ld a0, {i*8*table_width}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a1, {i*8*table_width+8}(t0)'))
             self.inst_list.append(RawInstruction(f"ld {self.imm_param['delay_reg'].lower()}, {i*8*table_width+16}(t0)"))
-            self.inst_list.append(RawInstruction('INFO_VCTM_START'))
+            self.inst_list.append(RawInstruction('INFO_TRAIN_START'))
             self.inst_list.append(RawInstruction(f'j predict'))
             self.inst_list.append(RawInstruction(f'train_{i}_end:'))
-            self.inst_list.append(RawInstruction('INFO_VCTM_END'))
+            self.inst_list.append(RawInstruction('INFO_TRAIN_END'))
         
         for i in range(self.victim_loop):
             table_width = 2
@@ -425,7 +434,7 @@ class TrainBlock(TransBlock):
         self._gen_data_list(true_predict_param, true_offset_param, false_predict_param, false_offset_param)
         self._gen_inst_list()
         
-def inst_simlutor(inst_list, data_list, reg_list):
+def inst_simlutor(inst_list, data_list):
     file_name = 'inst_sim/Testcase.S'
     with open(file_name, 'wt') as file:
         file.write('.section .text\n')
@@ -439,6 +448,16 @@ def inst_simlutor(inst_list, data_list, reg_list):
             file.write(data.to_asm())
             file.write('\n')
     os.system('make -C inst_sim sim')
+    with open("inst_sim/dump","rt") as file:
+        reg_lines = file.readlines()
+        dump_reg = {}
+        for reg_line in reg_lines:
+            key,value = reg_line.strip().split()
+            dump_reg[key]=int(value,base=16)
+        # print(dump_reg)
+    return dump_reg
+
+
 
     
     
