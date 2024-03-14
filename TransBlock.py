@@ -115,6 +115,7 @@ class DelayBlock(TransBlock):
         return dep_list
     
     def _gen_inst_list(self, dep_list):
+
         for i, src in enumerate(dep_list[0:-1]):
             dest = dep_list[i+1]
             if src in self.GPR_list and dest in self.FLOAT_list:
@@ -150,7 +151,9 @@ class DelayBlock(TransBlock):
             elif src in self.GPR_list and dest in self.GPR_list:
                 while True:
                     instr = Instruction()
-                    instr.set_extension_constraint(self.extension)
+                    instr.set_extension_constraint([extension for extension in [\
+                        'RV_M', 'RV64_M'
+                    ] if extension in self.extension])
                     instr.set_category_constraint(['ARITHMETIC'])
 
                     def c_dest(name, rd):
@@ -175,6 +178,7 @@ class DelayBlock(TransBlock):
                     if instr.has('RD'):
                         self.inst_list.append(instr)
                         break
+        
     
     def _gen_init_inst(self, dep_list):
         float_init_list = set()
@@ -206,7 +210,8 @@ class DelayBlock(TransBlock):
                 GPR_inited_list.add(dest_reg)
         
         tmp_inst_list = []
-        tmp_inst_list.append(RawInstruction(f'la t1, delay_data'))
+        tmp_inst_list.append(RawInstruction(f'la t1, delay_data_table'))
+        self.data_list.append(RawInstruction('delay_data_table:'))
         for i,freg in enumerate(float_init_list):
             self.data_list.append(RawInstruction(f'.dword {random.randint(0, 2**64)}'))
             tmp_inst_list.append(RawInstruction(f'ld t0, {i*8}(t1)'))
@@ -218,7 +223,10 @@ class DelayBlock(TransBlock):
         nop_line = 8 + 8 - (len(tmp_inst_list)) % 8
         for i in range(nop_line):
             tmp_inst_list.append(RawInstruction('nop'))
+
+        tmp_inst_list.append(RawInstruction('INFO_DELAY_START'))
         self.inst_list = tmp_inst_list + self.inst_list
+        self.inst_list.append(RawInstruction('INFO_DELAY_END'))
 
     def gen_random(self):
         dep_list = self._gen_dep_list()
@@ -439,6 +447,10 @@ class TrainBlock(TransBlock):
 def inst_simlutor(inst_list, data_list):
     file_name = 'inst_sim/Testcase.S'
     with open(file_name, 'wt') as file:
+        file.write('#include"../trans/boom_conf.h"\n')
+        file.write('#include"../trans/encoding.h"\n')
+        file.write('#include"../trans/parafuzz.h"\n')
+        file.write('#include"../trans/util.h"\n')
         file.write('.section .text\n')
         file.write(f'li t0, 0x8000000a00007800\n')
         file.write('csrw mstatus, t0\n')

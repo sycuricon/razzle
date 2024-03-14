@@ -107,8 +107,8 @@
         {
             delay_param:
             {
-                float_rate:0.8
-                delay_len:9
+                float_rate:0.5
+                delay_len:4
             }
         }
     }
