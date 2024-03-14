@@ -1,12 +1,17 @@
 #include "rvsnap.h"
+#include "parafuzz.h"
 
 .section .text.init
 .global _start
 _start:
 
+INFO_INIT_START
+
 $load_state_setup
 
 $load_state_body
+
+INFO_INIT_END
 
 mret
 

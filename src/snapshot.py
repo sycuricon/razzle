@@ -165,7 +165,8 @@ class RISCVState:
 
 
 class RISCVSnapshot:
-    def __init__(self, march, pmp_num, selected_csr):
+    def __init__(self, march, pmp_num, selected_csr, fuzz = False):
+        self.fuzz = fuzz
         self.xlen, self.extension = self.parse_march(march)
         self.selected_csr = selected_csr
         self.target_list = (
@@ -303,7 +304,10 @@ class RISCVSnapshot:
             load_base_addr = f"la x31, {hex(rom_addr)}"
 
         with open(asm_file, "wt") as asm_file:
-            template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init.tmp", "r").read())
+            if self.fuzz:
+                template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init_fuzz.tmp", "r").read())
+            else:
+                template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init.tmp", "r").read())
             done = template.substitute(
                 load_state_setup=load_base_addr,
                 load_state_body="\n".join(load_offset),
