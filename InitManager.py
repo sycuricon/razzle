@@ -15,7 +15,7 @@ class InitManager(SectionManager):
         self.init_output=config['init_output']
 
         pmp = config['pmp']
-        self.design=RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR)
+        self.design=RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, do_fuzz)
         self.output_format=config['format']
         self.asm=config['asm']
         self.image=config['image']
