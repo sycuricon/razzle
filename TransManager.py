@@ -22,86 +22,47 @@ class TransManager(SectionManager):
         self.transblock={}
         self.extension=['RV_I','RV64_I','RV_ZICSR','RV_F','RV64_F',\
                         'RV_D','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
-        self.train_loop=config['train_loop']
-        self.victim_loop=config['victim_loop']
-        self.delay_default=eval(config['delay_default'])
-        self.victim_default=eval(config['victim_default'])
-        self.fuzz_param=config['fuzz_param']
+        self.block_param=config['block_param']
     
     def _generate_sections(self):
-        trap_block=TrapBlock('trap',self.extension,True)
-        self.transblock['trap']=trap_block
-        trap_block.gen_instr()
+        block_index = [('_init',InitBlock),('trap',TrapBlock),('exit',ExitBlock),('return',ReturnBlock),\
+            ('delay',DelayBlock),('predict',PredictBlock),('run_time',RunTimeBlock),\
+            ('encode',EncodeBlock),('decode_call',DecodeCallBlock),('decode',DecodeBlock)]
 
-        _init_block=InitSecretBlock('_init',self.extension,True)
-        self.transblock['_init']=_init_block
-        _init_block.gen_instr()
+        self.graph = {}
+        for index, block_construct in block_index:
+            block = block_construct(self.extension, self.block_param[index+'_param'])
+            self.graph[index] = block
 
-        poc_block=PocBlock('poc',self.extension,True)
-        self.transblock['poc']=poc_block
-        poc_block.gen_instr()
-
-        exit_block=ExitBlock('exit',self.extension,True)
-        self.transblock['exit']=exit_block
-        exit_block.gen_instr()
-
-        delay_block=DelayBlock('delay',self.extension,self.delay_default,self.fuzz_param['delay_param'])
-        self.transblock['delay']=delay_block
-        delay_block.gen_instr()
-
-        func_end_block=FunctionEndBlock('func_end',self.extension,True)
-        self.transblock['func_end']=func_end_block
-        func_end_block.gen_instr()
-
-        predict_kind = 'branch_not_taken'
-        
-        predict_block=PredictBlock('predict',self.extension,True,delay_block.get_result_reg(),\
-                                   delay_block.result_imm,predict_kind,func_end_block.name)
-        self.transblock['predict']=predict_block
-        predict_block.gen_instr()
-
-        victim_block=VictimBlock('victim',self.extension,self.victim_default,func_end_block.name)
-        self.transblock['victim']=victim_block
-        victim_block.gen_instr()
-
-        imm_param={'predict':predict_block.imm,\
-                   'delay':delay_block.result_imm,\
-                   'delay_reg':delay_block.result_reg,\
-                   'branch_kind':predict_block.branch_kind}
-        train_block=TrainBlock('train',self.extension,True,self.train_loop,self.victim_loop,predict_kind,\
-                               func_end_block.name,victim_block.name,imm_param)
-        self.transblock['train']=train_block
-        train_block.gen_instr()
-
-        poc_func_block=PocFuncBlock('poc_func',self.extension,True)
-        self.transblock['poc_func']=poc_func_block
-        poc_func_block.gen_instr()
+        for index, block_construct in block_index:
+            self.graph[index].gen_instr(self.graph)
 
         text_section=self.section['.text']=FuzzSection('.text',Flag.U|Flag.X|Flag.R)
         data_section=self.section['.data']=FuzzSection('.data',Flag.U|Flag.W|Flag.R)
         trap_section=self.section['.trap']=FuzzSection('.trap',Flag.X|Flag.R|Flag.W)
         poc_section=self.section['.poc']=FuzzSection('.poc',Flag.U|Flag.X|Flag.R)
 
-        inst_list, data_list = trap_block.gen_asm()
+        inst_list, data_list = self.graph['trap'].gen_asm()
         trap_section.add_inst_list(inst_list)
         trap_section.add_inst_list(data_list)
-        trap_section.add_global_label([trap_block.name, "trap_handle"])
+        trap_section.add_global_label([self.graph['trap'].entry, "trap_handle"])
 
-        inst_list, data_list = poc_func_block.gen_asm()
+        inst_list, data_list = self.graph['decode'].gen_asm()
         poc_section.add_inst_list(inst_list)
         poc_section.add_inst_list(data_list)
 
-        block_list=[_init_block, train_block, poc_block, exit_block, delay_block, predict_block]
-        if predict_kind == 'branch_not_taken':
-            block_list.extend([func_end_block, victim_block])
+        block_list = ['_init', 'run_time', 'decode_call', 'exit', 'delay', 'predict']
+        if self.graph['predict'].predict_kind == 'branch_not_taken':
+            block_list.extend(['return', 'encode'])
         else:
-            block_list.extend([victim_block, func_end_block])
+            block_list.extend(['encode', 'return'])
 
-        for block in block_list:
+        for block_index in block_list:
+            block = self.graph[block_index]
             inst_list, data_list = block.gen_asm()
             text_section.add_inst_list(inst_list)
             data_section.add_inst_list(data_list)
-        text_section.add_global_label([_init_block.name])
+        text_section.add_global_label([self.graph['_init'].entry])
 
     def _distribute_address(self):
         self.section['.trap'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)

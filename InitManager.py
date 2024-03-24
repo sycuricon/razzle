@@ -35,10 +35,13 @@ class InitManager(SectionManager):
         if not self.do_fuzz:
             self.reg_init_config["csr"]["stvec"]["BASE"]="abort"
             self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
-        # mepc
-        self.reg_init_config["csr"]["mepc"]["EPC"]="_init"
-        # sepc
-        self.reg_init_config["csr"]["sepc"]["EPC"]="_init"
+        # mepc/sepc
+        if self.do_fuzz:
+            self.reg_init_config["csr"]["mepc"]["EPC"]="_init_block_entry"
+            self.reg_init_config["csr"]["sepc"]["EPC"]="_init_block_entry"
+        else:
+            self.reg_init_config["csr"]["mepc"]["EPC"]="_init"
+            self.reg_init_config["csr"]["sepc"]["EPC"]="_init"
         # satp
         if self.virtual:
             self.reg_init_config["csr"]["satp"]["PPN"]="0x80001000"

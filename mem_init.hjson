@@ -99,16 +99,64 @@
             0x0000000000020000
             0x000000000003F000
         ]
-        train_loop:3
-        victim_loop:3
-        delay_default:False
-        victim_default:True
-        fuzz_param:
+        block_param:
         {
+            _init_param:
+            {
+                name:_init_block
+                strategy:default
+            }
+            trap_param:
+            {
+                name:trap_block
+                strategy:default
+            }
+            exit_param:
+            {
+                name:exit_block
+                strategy:default
+            }
+            return_param:
+            {
+                name:return_block
+                strategy:default
+            }
+
+            run_time_param:
+            {
+                name:run_time_block
+                strategy:default
+                train_loop:3
+                victim_loop:3
+            }
             delay_param:
             {
+                name:delay_block
+                strategy:random
                 float_rate:0.5
                 delay_len:4
+            }
+            predict_param:
+            {
+                name:predict_block
+                strategy:default
+                predict_kind:branch_not_taken
+            }
+
+            encode_param:
+            {
+                name:encode_block
+                strategy:default
+            }
+            decode_call_param:
+            {
+                name:decode_call_block
+                strategy:default
+            }
+            decode_param:
+            {
+                name:decode_block
+                strategy:default
             }
         }
     }

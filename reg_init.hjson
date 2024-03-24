@@ -72,11 +72,11 @@
   {
     mepc:
     {
-      EPC: _init
+      EPC: _init_block_entry
     }
     sepc:
     {
-      EPC: _init
+      EPC: _init_block_entry
     }
     mstatus:
     {
