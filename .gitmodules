@@ -1,6 +1,0 @@
-[submodule "rvsnap"]
-	path = rvsnap
-	url = https://github.com/sycuricon/rvsnap.git
-[submodule "razzle_transient"]
-	path = razzle_transient
-	url = https://github.com/sycuricon/razzle_transient.git
