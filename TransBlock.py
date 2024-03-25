@@ -333,21 +333,11 @@ class PredictBlock(TransBlock):
                 self.off_imm = call_inst['IMM']
                 self.inst_list.append(call_inst)
             case 'return':
+                self.inst_list.append(Instruction(f'add ra, {self.dep_reg.lower()}, a0'))
+                self.inst_list.append(RawInstruction('ret'))
                 self.inst_list.append(RawInstruction(f'{self.entry}:'))
-                delay_link_inst = Instruction(f'add ra, {self.dep_reg}, a0')
-                self.inst_list.append(delay_link_inst)
-                ret_inst = Instruction()
-                ret_inst.set_name_constraint(['JALR'])
-                ret_inst.set_category_constraint(['JUMP'])
-                ret_inst.set_extension_constraint(['RV_I'])
-                ret_inst.set_imm_constraint(range(0,1))
-                def c_ret(rd, rs1):
-                    return rd == 'ZERO' and rs1 == 'RA'
-                ret_inst.add_constraint(c_ret,['RD','RS1'],True)
-                ret_inst.solve()
-
-                self.off_imm = ret_inst['IMM']
-                self.inst_list.append(ret_inst)
+                self.inst_list.append(RawInstruction(f'call {delay_block.entry}'))
+                self.off_imm = 0
             case 'branch_taken'|'branch_not_taken':
                 self.inst_list.append(RawInstruction(f'{self.entry}:'))
                 ret_inst = Instruction()
@@ -450,6 +440,12 @@ class RunTimeBlock(TransBlock):
     def _gen_inst_list(self, graph):
         delay_block = graph['delay']
         predict_block = graph['predict']
+        if predict_block.predict_kind != 'return':
+            train_entry = predict_block.entry
+            victim_entry = delay_block.entry
+        else:
+            train_entry = delay_block.entry
+            victim_entry = predict_block.entry
 
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
         for i in range(self.train_loop):
@@ -462,7 +458,7 @@ class RunTimeBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'ld a1, {i*8*table_width+8}(t0)'))
             self.inst_list.append(RawInstruction(f"ld {delay_block.result_reg.lower()}, {i*8*table_width+16}(t0)"))
             self.inst_list.append(RawInstruction('INFO_TRAIN_START'))
-            self.inst_list.append(RawInstruction(f'j {predict_block.entry}'))
+            self.inst_list.append(RawInstruction(f'j {train_entry}'))
             self.inst_list.append(RawInstruction(f'train_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_TRAIN_END'))
         
@@ -475,7 +471,7 @@ class RunTimeBlock(TransBlock):
             self.inst_list.append(RawInstruction(f'ld a0, {i*8*table_width}(t0)'))
             self.inst_list.append(RawInstruction(f'ld a1, {i*8*table_width+8}(t0)'))
             self.inst_list.append(RawInstruction('INFO_VCTM_START'))
-            self.inst_list.append(RawInstruction(f'j {delay_block.entry}'))
+            self.inst_list.append(RawInstruction(f'j {victim_entry}'))
             self.inst_list.append(RawInstruction(f'victim_{i}_end:'))
             self.inst_list.append(RawInstruction('INFO_VCTM_END'))
 
