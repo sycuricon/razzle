@@ -11,5 +11,10 @@
     fdiv.s	fa5, fa5, fa5
     fdiv.s	fa5, fa5, fa5
     fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
 encode_fail:
     INFO_TEXE_END

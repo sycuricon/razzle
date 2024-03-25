@@ -104,8 +104,8 @@ class EncodeBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
         super().__init__(extension, fuzz_param)
         self.leak_kind = fuzz_param['leak_kind']
-        assert self.leak_kind in ['cache', 'FPUport', 'LSUport', 'Mulport'], \
-            f"leak_kind must be 'cache', 'FPUport' ,'LSUport' or 'Mulport, rather than {self.leak_kind}"
+        assert self.leak_kind in ['cache', 'FPUport', 'LSUport'], \
+            f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {self.leak_kind}"
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
@@ -119,8 +119,6 @@ class EncodeBlock(TransBlock):
                 self.inst_list.extend(self._load_raw_asm("trans/encode.FPUport.text.S"))
             case 'LSUport':
                 self.inst_list.extend(self._load_raw_asm("trans/encode.LSUport.text.S"))
-            case 'Mulport':
-                self.inst_list.extend(self._load_raw_asm("trans/encode.Mulport.text.S"))
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
@@ -138,7 +136,7 @@ class DecodeBlock(TransBlock):
         match(encode_block.leak_kind):
             case 'cache':
                 self.inst_list.extend(self._load_raw_asm("trans/decode.cache.text.S"))
-            case 'FPUport'|'LSUport'|'Mulport':
+            case 'FPUport'|'LSUport':
                 self.inst_list.append(RawInstruction('ret'))
             case _:
                 raise f"leak_kind cannot be {encode_block.leak_kind}"
