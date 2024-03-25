@@ -5,6 +5,11 @@ __pycache__/
 out/
 build/
 
+.pytest_cache/
 venv/
 .idea/
 .vscode/
+build/
+*.o
+*.bin
+*.hex
