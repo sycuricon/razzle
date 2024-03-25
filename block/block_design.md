@@ -163,4 +163,9 @@ branch_not_taken 情况下，初始化为 10，默认 taken，不 train 就可�
 
 ![fdiv-double](img/fdiv-double-rewind.png)
 
+结论：
+* 算术指令、M 扩展指令都不会导致窗口回滚阻塞，LSU、FPU、rocc 这种多周期、外部单元托管的指令才会
+* 指令数量越多对窗口延迟的影响越大，越能导致后续状态的发散
+* 发散程度是有上限的
+
 
