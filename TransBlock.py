@@ -120,7 +120,7 @@ class EncodeBlock(TransBlock):
             case 'LSUport':
                 self.inst_list.extend(self._load_raw_asm("trans/encode.LSUport.text.S"))
             case _:
-                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {self.leak_kind}"
+                raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
 
 class DecodeBlock(TransBlock):
@@ -139,7 +139,7 @@ class DecodeBlock(TransBlock):
             case 'FPUport'|'LSUport':
                 self.inst_list.append(RawInstruction('ret'))
             case _:
-                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {encode_block.leak_kind}"
+                raise f"leak_kind cannot be {encode_block.leak_kind}"
 
 class DecodeCallBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
