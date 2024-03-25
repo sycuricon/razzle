@@ -304,10 +304,11 @@ class RISCVSnapshot:
             load_base_addr = f"la x31, {hex(rom_addr)}"
 
         with open(asm_file, "wt") as asm_file:
+            RAZZLE_ROOT = os.environ["RAZZLE_ROOT"]
             if self.fuzz:
-                template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init_fuzz.tmp", "r").read())
+                template = Template(open(f"{RAZZLE_ROOT}/template/loader/init_fuzz.tmp", "r").read())
             else:
-                template = Template(open(f"{os.path.dirname(os.path.realpath(__file__))}/loader/init.tmp", "r").read())
+                template = Template(open(f"{RAZZLE_ROOT}/template/loader/init.tmp", "r").read())
             done = template.substitute(
                 load_state_setup=load_base_addr,
                 load_state_body="\n".join(load_offset),

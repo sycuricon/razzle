@@ -1,0 +1,177 @@
+{
+    init: {
+        bound: [
+            0x80000000
+            0x80001000
+        ]
+        virtual_bound: [
+            0x0000000080000000
+            0x0000000080001000
+        ]
+        pmp: 4
+        image: reg_init.h
+        format: asm
+        asm: init.S
+        init_input: config/snapshot/dummy_state.hjson
+        init_output: reg_init.hjson
+        folder: []
+        file: []
+    }
+    page_table: {
+        bound: [
+            0x80001000
+            0x80004000
+        ]
+        virtual_bound: [
+            0x0000000080001000
+            0x0000000080004000
+        ]
+        pg_level: 3
+        xLen: 64
+    }
+    secret: {
+        bound: [
+            0x80004000
+            0x80005000
+        ]
+        virtual_bound: [
+            0x0000000000004000
+            0x0000000000005000
+        ]
+        secret_value: [
+            100,
+            101,
+            97,
+            100,
+            98,
+            101,
+            101,
+            102
+        ]
+        secret_value_variant: [
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7
+        ]
+    }
+    channel: {
+        bound: [
+            0x80005000
+            0x80009000
+        ]
+        virtual_bound: [
+            0x0000000000005000
+            0x0000000000009000
+        ]
+        image_value: 0x1e
+    }
+    payload: {
+        bound: [
+            0x80009000
+            0x80020000
+        ]
+        virtual_bound: [
+            0x0000000000009000
+            0x0000000000020000
+        ]
+        folder: [
+            template/default/payload_code
+        ]
+        file: [
+            template/default/testcase_code/spectre-v1.c
+        ]
+    }
+    fuzz: {
+        bound: [
+            0x80009000
+            0x80020000
+            0x80020000
+            0x8003F000
+        ]
+        virtual_bound: [
+            0x0000000000009000
+            0x0000000000020000
+            0x0000000000020000
+            0x000000000003F000
+        ]
+        block_param: {
+            _init_param: {
+                name: _init_block
+                strategy: default
+            }
+            trap_param: {
+                name: trap_block
+                strategy: default
+            }
+            exit_param: {
+                name: exit_block
+                strategy: default
+            }
+            return_param: {
+                name: return_block
+                strategy: default
+            }
+
+            run_time_param: {
+                name: run_time_block
+                strategy: default
+                train_loop: 3
+                victim_loop: 1
+            }
+            delay_param: {
+                name: delay_block
+                strategy: default
+                float_rate: 0.5
+                delay_len: 4
+            }
+            predict_param: {
+                name: predict_block
+                strategy: default
+                predict_kind: branch_not_taken
+            }
+
+            encode_param: {
+                name: encode_block
+                strategy: default
+                leak_kind:LSUport
+            }
+            decode_call_param: {
+                name: decode_call_block
+                strategy: default
+            }
+            decode_param: {
+                name: decode_block
+                strategy: default
+            }
+        }
+    }
+    poc: {
+        bound: [
+            0x80020000
+            0x8003F000
+        ]
+        virtual_bound: [
+            0x0000000000020000
+            0x000000000003F000
+        ]
+        folder: [
+            template/default/poc_code
+        ]
+        file: []
+    }
+    stack: {
+        bound: [
+            0x8003F000
+            0x80040000
+        ]
+        virtual_bound: [
+            0x000000000003F000
+            0x0000000000040000
+        ]
+    }
+}

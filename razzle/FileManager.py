@@ -23,6 +23,7 @@ class FileManager(SectionManager):
 
         filename = []
         for folder in self.folder:
+            folder = os.path.join(os.environ["RAZZLE_ROOT"], folder)
             os.system("cp " + folder + "/* " + path)
             files = list(
                 filter(
@@ -31,6 +32,7 @@ class FileManager(SectionManager):
             )
             filename.extend(files)
         for file in self.file:
+            file = os.path.join(os.environ["RAZZLE_ROOT"], file)
             os.system("cp " + file + " " + path)
             filename.append(os.path.basename(file))
         for i in range(len(filename)):

@@ -1,8 +1,11 @@
 #ifndef __PARAFUZZ_H
 #define __PARAFUZZ_H
 
+#include <stdint.h>
+
 #include "boom_conf.h"
-#include "util.h"
+
+#define static_assert(cond) switch(0) { case 0: case !!(long)(cond): ; }
 
 #define __STR(name) #name
 #define macro_2_str(name) __STR(name)

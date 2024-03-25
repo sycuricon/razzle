@@ -2,6 +2,8 @@ import os
 import argparse
 from DistributeManager import *
 
+os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument("-I", "--input", dest="input", required=True, help="input hjson")

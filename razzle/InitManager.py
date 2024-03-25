@@ -88,7 +88,7 @@ class InitManager(SectionManager):
                 f"{self.output_path}/{self.asm}", with_bin=image_name
             )
 
-        os.system(f"cp ./rvsnap/src/loader/rvsnap.h {self.output_path}/")
+        # os.system(f"cp ./rvsnap/src/loader/rvsnap.h {self.output_path}/")
 
     def _generate_sections(self):
         self._reg_init_generate()
