@@ -28,11 +28,15 @@ class InitManager(SectionManager):
         # gp
         if not self.do_fuzz:
             self.reg_init_config["xreg"][2]="__global_pointer$"
-        # mtvec
-        self.reg_init_config["csr"]["mtvec"]["BASE"]="trap_entry"
-        self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
-        # stvec
-        if not self.do_fuzz:
+        # mtvec/stvec
+        if self.do_fuzz:
+            self.reg_init_config["csr"]["mtvec"]["BASE"]="mtrap_block_entry"
+            self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
+            self.reg_init_config["csr"]["stvec"]["BASE"]="strap_block_entry"
+            self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
+        else:
+            self.reg_init_config["csr"]["mtvec"]["BASE"]="trap_entry"
+            self.reg_init_config["csr"]["mtvec"]["MODE"]="0b00"
             self.reg_init_config["csr"]["stvec"]["BASE"]="abort"
             self.reg_init_config["csr"]["stvec"]["MODE"]="0b00"
         # mepc/sepc

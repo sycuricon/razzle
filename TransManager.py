@@ -25,9 +25,11 @@ class TransManager(SectionManager):
         self.block_param=config['block_param']
     
     def _generate_sections(self):
-        block_index = [('_init',InitBlock),('trap',TrapBlock),('exit',ExitBlock),('return',ReturnBlock),\
+        block_index = [('_init',InitBlock),('mtrap',MTrapBlock),('strap',STrapBlock),\
+            ('exit',ExitBlock),('return',ReturnBlock),\
             ('delay',DelayBlock),('predict',PredictBlock),('run_time',RunTimeBlock),\
-            ('encode',EncodeBlock),('decode_call',DecodeCallBlock),('decode',DecodeBlock)]
+            ('encode',EncodeBlock),('decode_call',DecodeCallBlock),('decode',DecodeBlock)\
+        ]
 
         self.graph = {}
         for index, block_construct in block_index:
@@ -39,13 +41,19 @@ class TransManager(SectionManager):
 
         text_section=self.section['.text']=FuzzSection('.text',Flag.U|Flag.X|Flag.R)
         data_section=self.section['.data']=FuzzSection('.data',Flag.U|Flag.W|Flag.R)
-        trap_section=self.section['.trap']=FuzzSection('.trap',Flag.X|Flag.R|Flag.W)
+        mtrap_section=self.section['.mtrap']=FuzzSection('.mtrap',Flag.X|Flag.R|Flag.W)
+        strap_section=self.section['.strap']=FuzzSection('.strap',Flag.X|Flag.R|Flag.W)
         poc_section=self.section['.poc']=FuzzSection('.poc',Flag.U|Flag.X|Flag.R)
 
-        inst_list, data_list = self.graph['trap'].gen_asm()
-        trap_section.add_inst_list(inst_list)
-        trap_section.add_inst_list(data_list)
-        trap_section.add_global_label([self.graph['trap'].entry, "trap_handle"])
+        inst_list, data_list = self.graph['mtrap'].gen_asm()
+        mtrap_section.add_inst_list(inst_list)
+        mtrap_section.add_inst_list(data_list)
+        mtrap_section.add_global_label([self.graph['mtrap'].entry])
+
+        inst_list, data_list = self.graph['strap'].gen_asm()
+        strap_section.add_inst_list(inst_list)
+        strap_section.add_inst_list(data_list)
+        strap_section.add_global_label([self.graph['strap'].entry])
 
         inst_list, data_list = self.graph['decode'].gen_asm()
         poc_section.add_inst_list(inst_list)
@@ -65,10 +73,25 @@ class TransManager(SectionManager):
         text_section.add_global_label([self.graph['_init'].entry])
 
     def _distribute_address(self):
-        self.section['.trap'].get_bound(self.memory_bound[0][0],self.memory_bound[0][0],0x1000)
-        self.section['.text'].get_bound(self.virtual_memory_bound[0][0]+0x1000,self.memory_bound[0][0]+0x1000,0x1000)
-        self.section['.data'].get_bound(self.virtual_memory_bound[0][0]+0x2000,self.memory_bound[0][0]+0x2000,0x1000)
-        self.section['.poc'].get_bound(self.virtual_memory_bound[1][0],self.memory_bound[1][0],0x1000)
+        offset = 0
+        length = Page.size
+        self.section['.mtrap'].get_bound(self.memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length)
+        
+        offset += length
+        length = Page.size
+        self.section['.strap'].get_bound(self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset , length)
+
+        offset += length
+        length = Page.size
+        self.section['.text'].get_bound(self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset , length)
+
+        offset += length
+        length = Page.size
+        self.section['.data'].get_bound(self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset , length)
+
+        offset = 0
+        length = Page.size
+        self.section['.poc'].get_bound(self.virtual_memory_bound[1][0] + offset, self.memory_bound[1][0] + offset, length)
     
     def _write_headers(self,f,is_variant):
         header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'trans')

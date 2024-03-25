@@ -67,7 +67,7 @@ class InitBlock(TransBlock):
         self.inst_list.extend(self._load_raw_asm("trans/_init.text.S"))
         self.data_list=self._load_raw_asm("trans/_init.data.S")
 
-class TrapBlock(TransBlock):
+class MTrapBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
         super().__init__(extension, fuzz_param)
         assert self.strategy == 'default', \
@@ -75,8 +75,19 @@ class TrapBlock(TransBlock):
     
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
-        self.inst_list.extend(self._load_raw_asm("trans/trap.text.S"))
-        self.data_list=self._load_raw_asm("trans/trap.data.S")
+        self.inst_list.extend(self._load_raw_asm("trans/mtrap.text.S"))
+        self.data_list=self._load_raw_asm("trans/mtrap.data.S")
+
+class STrapBlock(TransBlock):
+    def __init__(self, extension, fuzz_param):
+        super().__init__(extension, fuzz_param)
+        assert self.strategy == 'default', \
+            f'strategy of {self.name} must be default rather than {self.strategy}'
+    
+    def gen_default(self, graph):
+        self.inst_list.append(RawInstruction(f'{self.entry}:'))
+        self.inst_list.extend(self._load_raw_asm("trans/strap.text.S"))
+        self.data_list=self._load_raw_asm("trans/strap.data.S")
 
 class ReturnBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
@@ -422,6 +433,8 @@ class RunTimeBlock(TransBlock):
     def _gen_data_list(self, victim_predict_param, victim_offset_param, train_predict_param, train_offset_param, graph):
         delay_block = graph['delay']
 
+        self.data_list.append(RawInstruction('trap_return_entry:'))
+        self.data_list.append(RawInstruction('.space 0x8'))
         self.data_list.append(RawInstruction('train_param_table:'))
         for i in range(self.train_loop):
             self.data_list.append(RawInstruction(f'train_predict_param_{i}:'))
@@ -440,6 +453,7 @@ class RunTimeBlock(TransBlock):
     def _gen_inst_list(self, graph):
         delay_block = graph['delay']
         predict_block = graph['predict']
+        return_block = graph['return']
         if predict_block.predict_kind != 'return':
             train_entry = predict_block.entry
             victim_entry = delay_block.entry
@@ -448,6 +462,9 @@ class RunTimeBlock(TransBlock):
             victim_entry = predict_block.entry
 
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
+        self.inst_list.append(RawInstruction(f'la t0, {return_block.entry}'))
+        self.inst_list.append(RawInstruction('la t1, trap_return_entry'))
+        self.inst_list.append(RawInstruction('sd t0, 0(t1)'))
         for i in range(self.train_loop):
             table_width = 3
             self.inst_list.append(RawInstruction(f'la t0, train_{i}_end'))
