@@ -1,7 +1,7 @@
 import os
 import hjson
 import logging
-from riscv import *
+from razzle.snapshot.riscv_csr import *
 from string import Template
 
 class RISCVReg:

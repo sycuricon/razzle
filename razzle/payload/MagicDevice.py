@@ -1,4 +1,4 @@
-from Instruction import *
+from razzle.payload.Instruction import *
 
 magic_device_type = {
     'MAGIC_RANDOM',

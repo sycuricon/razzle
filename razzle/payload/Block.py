@@ -1,5 +1,5 @@
-from MagicDevice import *
-import Config
+from razzle.payload.MagicDevice import *
+import razzle.payload.Config
 
 def use_rs1(name):
     return 'RS1' in all_instructions[name]['variables']

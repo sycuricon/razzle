@@ -1,5 +1,5 @@
-import Config
-from Utils import *
+from razzle.payload.Config import *
+from razzle.payload.Utils import *
 
 reg_range = [
     "ZERO", "RA", "SP", "GP", "TP", "T0", "T1", "T2", "S0", "S1", "A0", "A1",

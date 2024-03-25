@@ -1,9 +1,6 @@
 from FileManager import *
 from SectionUtils import *
-import sys
-import os
-sys.path.append(os.path.join(os.getcwd(),'rvsnap/src'))
-from rvsnap.src.generator import *
+from razzle.snapshot.riscv_state import *
 
 class InitManager(SectionManager):
     def __init__(self,config,do_fuzz,virtual,output_path):

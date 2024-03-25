@@ -3,9 +3,9 @@ import os
 import random
 from SectionUtils import *
 sys.path.append(os.path.join(os.getcwd(),'razzle_transient/src'))
-from razzle_transient.src.Instruction import *
-from razzle_transient.src.MagicDevice import *
-from razzle_transient.src.Block import *
+from payload.Instruction import *
+from payload.MagicDevice import *
+from payload.Block import *
 
 class TransBlock:
     def __init__(self, extension, fuzz_param):
