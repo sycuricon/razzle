@@ -1,0 +1,16 @@
+    INFO_TEXE_START
+    la t0, trapoline
+    add t0, t0, a1
+    lb t0, 0(t0)
+    la t1, secret_target
+    ld t1, 0(t1)
+    bne t0, t1, encode_fail
+port_loop:
+    fcvt.s.lu	fa5, t1
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+    fdiv.s	fa5, fa5, fa5
+encode_fail:
+    INFO_TEXE_END

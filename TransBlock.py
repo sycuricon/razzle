@@ -103,14 +103,25 @@ class ExitBlock(TransBlock):
 class EncodeBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
         super().__init__(extension, fuzz_param)
+        self.leak_kind = fuzz_param['leak_kind']
+        assert self.leak_kind in ['cache', 'FPUport', 'LSUport'], \
+            f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {self.leak_kind}"
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
     
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
-        self.inst_list.extend(self._load_raw_asm("trans/encode.text.S"))
-        self.inst_list.append(RawInstruction(f"j {graph['predict'].entry}"))
+        match(self.leak_kind):
+            case 'cache':
+                self.inst_list.extend(self._load_raw_asm("trans/encode.cache.text.S"))
+            case 'FPUport':
+                self.inst_list.extend(self._load_raw_asm("trans/encode.FPUport.text.S"))
+            case 'LSUport':
+                self.inst_list.extend(self._load_raw_asm("trans/encode.LSUport.text.S"))
+            case _:
+                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {self.leak_kind}"
+        self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
 
 class DecodeBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
@@ -119,8 +130,16 @@ class DecodeBlock(TransBlock):
             f'strategy of {self.name} must be default rather than {self.strategy}'
 
     def gen_default(self, graph):
+        encode_block = graph['encode']
+
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
-        self.inst_list.extend(self._load_raw_asm("trans/decode.text.S"))
+        match(encode_block.leak_kind):
+            case 'cache':
+                self.inst_list.extend(self._load_raw_asm("trans/decode.cache.text.S"))
+            case 'FPUport'|'LSUport':
+                self.inst_list.append(RawInstruction('ret'))
+            case _:
+                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {encode_block.leak_kind}"
 
 class DecodeCallBlock(TransBlock):
     def __init__(self, extension, fuzz_param):

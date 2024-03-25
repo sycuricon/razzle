@@ -127,12 +127,12 @@
                 name:run_time_block
                 strategy:default
                 train_loop:3
-                victim_loop:3
+                victim_loop:1
             }
             delay_param:
             {
                 name:delay_block
-                strategy:random
+                strategy:default
                 float_rate:0.5
                 delay_len:4
             }
@@ -147,6 +147,7 @@
             {
                 name:encode_block
                 strategy:default
+                leak_kind:LSUport
             }
             decode_call_param:
             {
