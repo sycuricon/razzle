@@ -1,0 +1,2959 @@
+{
+    "FRRM": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "frrm {RD}",
+        "variables": [
+            "RD"
+        ]
+    },
+    "FSRM": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "fsrm {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "FRFLAGS": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "frflags {RD}",
+        "variables": [
+            "RD"
+        ]
+    },
+    "FSFLAGS": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "fsflags {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "LUI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "lui {RD}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 20,
+        "variables": [
+            "IMM",
+            "RD"
+        ]
+    },
+    "AUIPC": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "auipc {RD}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 20,
+        "variables": [
+            "IMM",
+            "RD"
+        ]
+    },
+    "JAL": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "JUMP",
+        "format": "jal {RD}, {LABEL}",
+        "variables": [
+            "LABEL",
+            "RD"
+        ]
+    },
+    "JALR": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "JUMP",
+        "format": "jalr {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RD",
+            "RS1",
+            "IMM"
+        ]
+    },
+    "BEQ": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "beq {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "BNE": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "bne {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "BLT": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "blt {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "BGE": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "bge {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "BLTU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "bltu {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "BGEU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "BRANCH",
+        "format": "bgeu {RS1}, {RS2}, {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "RS1",
+            "RS2",
+            "LABEL"
+        ]
+    },
+    "LB": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD",
+        "format": "lb {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "LH": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD",
+        "format": "lh {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ],
+        "imm_align": 2
+    },
+    "LW": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD",
+        "format": "lw {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ],
+        "imm_align": 4
+    },
+    "LBU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD",
+        "format": "lbu {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "LHU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD",
+        "format": "lhu {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ],
+        "imm_align": 2
+    },
+    "SB": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "STORE",
+        "format": "sb {RS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SH": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "STORE",
+        "format": "sh {RS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "RS2"
+        ],
+        "imm_align": 2
+    },
+    "SW": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "STORE",
+        "format": "sw {RS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "RS2"
+        ],
+        "imm_align": 4
+    },
+    "ADDI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "addi {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SLTI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "slti {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SLTIU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sltiu {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "XORI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "xori {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "ORI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "ori {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "ANDI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "andi {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SLLI": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "slli {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SRLI": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "srli {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SRAI": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "srai {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "ADD": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "add {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SUB": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sub {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SLL": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sll {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SLT": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "slt {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SLTU": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sltu {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "XOR": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "xor {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SRL": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "srl {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SRA": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sra {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "OR": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "or {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AND": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "and {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "FENCE": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "SYNCH",
+        "format": "fence",
+        "variables": [
+            "RS1",
+            "RD"
+        ]
+    },
+    "ECALL": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "SYSTEM",
+        "format": "ecall",
+        "variables": []
+    },
+    "EBREAK": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "SYSTEM",
+        "format": "ebreak",
+        "variables": []
+    },
+    "CSRRW": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrw {RD}, {CSR}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1",
+            "CSR"
+        ]
+    },
+    "CSRRS": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrs {RD}, {CSR}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1",
+            "CSR"
+        ]
+    },
+    "CSRRC": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrc {RD}, {CSR}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1",
+            "CSR"
+        ]
+    },
+    "CSRRWI": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrwi {RD}, {CSR}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "CSR"
+        ]
+    },
+    "CSRRSI": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrsi {RD}, {CSR}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "CSR"
+        ]
+    },
+    "CSRRCI": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrrci {RD}, {CSR}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "CSR"
+        ]
+    },
+    "ADDIW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "addiw {RD}, {RS1}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SLLIW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "slliw {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SRLIW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "srliw {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "SRAIW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sraiw {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "ADDW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "addw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SUBW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "subw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SLLW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sllw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SRLW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "srlw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "SRAW": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sraw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "LWU": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "LOAD",
+        "format": "lwu {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ],
+        "imm_align": 4
+    },
+    "LD": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "LOAD",
+        "format": "ld {RD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ],
+        "imm_align": 8
+    },
+    "SD": {
+        "extension": [
+            "RV64_I"
+        ],
+        "category": "STORE",
+        "format": "sd {RS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "RS2"
+        ],
+        "imm_align": 8
+    },
+    "FMADD.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmadd.s {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FMSUB.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmsub.s {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FNMADD.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fnmadd.s {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FNMSUB.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fnmsub.s {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FADD.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fadd.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSUB.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fsub.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMUL.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmul.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FDIV.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fdiv.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSQRT.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fsqrt.s {FRD}, {FRS1}",
+        "variables": [
+            "FRD",
+            "FRS1"
+        ]
+    },
+    "FSGNJ.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnj.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSGNJN.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnjn.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSGNJX.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnjx.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMIN.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmin.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMAX.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmax.s {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FCVT.W.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.w.s {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.WU.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.wu.s {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FMV.X.W": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmv.x.w {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FEQ.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "feq.s {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FLT.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "flt.s {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FLE.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fle.s {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FCLASS.S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fclass.s {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.S.W": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.s.w {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.S.WU": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.s.wu {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FMV.W.X": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT",
+        "format": "fmv.w.x {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FMADD.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmadd.d {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FMSUB.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmsub.d {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FNMADD.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fnmadd.d {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FNMSUB.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fnmsub.d {FRD}, {FRS1}, {FRS2}, {FRS3}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2",
+            "FRS3"
+        ]
+    },
+    "FADD.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fadd.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSUB.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fsub.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMUL.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmul.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FDIV.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fdiv.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSQRT.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fsqrt.d {FRD}, {FRS1}",
+        "variables": [
+            "FRD",
+            "FRS1"
+        ]
+    },
+    "FSGNJ.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnj.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSGNJN.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnjn.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FSGNJX.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fsgnjx.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMIN.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmin.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FMAX.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmax.d {FRD}, {FRS1}, {FRS2}",
+        "variables": [
+            "FRD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FCVT.W.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.w.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.WU.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.wu.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FEQ.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "feq.d {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FLT.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "flt.d {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FLE.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fle.d {RD}, {FRS1}, {FRS2}",
+        "variables": [
+            "RD",
+            "FRS1",
+            "FRS2"
+        ]
+    },
+    "FCLASS.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fclass.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.D.W": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.d.w {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.D.WU": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.d.wu {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.S.D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.s.d {FRD}, {FRS1}",
+        "variables": [
+            "FRD",
+            "FRS1"
+        ]
+    },
+    "FCVT.D.S": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.d.s {FRD}, {FRS1}",
+        "variables": [
+            "FRD",
+            "FRS1"
+        ]
+    },
+    "FLW": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT_LOAD",
+        "format": "flw {FRD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "FRD",
+            "RS1"
+        ],
+        "imm_align": 4
+    },
+    "FSW": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "FLOAT_STORE",
+        "format": "fsw {FRS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "FRS2"
+        ],
+        "imm_align": 4
+    },
+    "FLD": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT_LOAD",
+        "format": "fld {FRD}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "FRD",
+            "RS1"
+        ],
+        "imm_align": 8
+    },
+    "FSD": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "FLOAT_STORE",
+        "format": "fsd {FRS2}, {IMM}({RS1})",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "IMM",
+            "RS1",
+            "FRS2"
+        ],
+        "imm_align": 8
+    },
+    "FCVT.L.S": {
+        "extension": [
+            "RV64_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.l.s {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.LU.S": {
+        "extension": [
+            "RV64_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.lu.s {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.S.L": {
+        "extension": [
+            "RV64_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.s.l {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.S.LU": {
+        "extension": [
+            "RV64_F"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.s.lu {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.L.D": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.l.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.LU.D": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.lu.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FMV.X.D": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmv.x.d {RD}, {FRS1}",
+        "variables": [
+            "RD",
+            "FRS1"
+        ]
+    },
+    "FCVT.D.L": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.d.l {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FCVT.D.LU": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fcvt.d.lu {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "FMV.D.X": {
+        "extension": [
+            "RV64_D"
+        ],
+        "category": "FLOAT",
+        "format": "fmv.d.x {FRD}, {RS1}",
+        "variables": [
+            "FRD",
+            "RS1"
+        ]
+    },
+    "C.LWSP": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "LOAD_SP",
+        "format": "c.lwsp {RD}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "RD_N0"
+        ],
+        "imm_align": 4
+    },
+    "C.LDSP": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "LOAD_SP",
+        "format": "c.ldsp {RD}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 9,
+        "variables": [
+            "IMM",
+            "RD_N0"
+        ],
+        "imm_align": 8
+    },
+    "C.FLWSP": {
+        "extension": [
+            "RV32_C_F"
+        ],
+        "category": "LOAD_SP",
+        "format": "c.flwsp {FRD}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "FRD"
+        ],
+        "imm_align": 4
+    },
+    "C.FLDSP": {
+        "extension": [
+            "RV_C_D"
+        ],
+        "category": "LOAD_SP",
+        "format": "c.fldsp {FRD}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 9,
+        "variables": [
+            "IMM",
+            "FRD"
+        ],
+        "imm_align": 8
+    },
+    "C.SWSP": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "STORE_SP",
+        "format": "c.swsp {RS2}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "C_RS2"
+        ],
+        "imm_align": 4
+    },
+    "C.SDSP": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "STORE_SP",
+        "format": "c.sdsp {RS2}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 9,
+        "variables": [
+            "IMM",
+            "C_RS2"
+        ],
+        "imm_align": 8
+    },
+    "C.FSWSP": {
+        "extension": [
+            "RV32_C_F"
+        ],
+        "category": "STORE_SP",
+        "format": "c.fswsp {FRS2}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "C_FRS2"
+        ],
+        "imm_align": 4
+    },
+    "C.FSDSP": {
+        "extension": [
+            "RV_C_D"
+        ],
+        "category": "STORE_SP",
+        "format": "c.fsdsp {FRS2}, {IMM}(SP)",
+        "imm_type": "UIMM",
+        "imm_length": 9,
+        "variables": [
+            "IMM",
+            "C_FRS2"
+        ],
+        "imm_align": 8
+    },
+    "C.LW": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "LOAD",
+        "format": "c.lw {RD}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 7,
+        "variables": [
+            "IMM",
+            "RD_P",
+            "RS1_P"
+        ],
+        "imm_align": 4
+    },
+    "C.LD": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "LOAD",
+        "format": "c.ld {RD}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "RD_P",
+            "RS1_P"
+        ],
+        "imm_align": 8
+    },
+    "C.FLW": {
+        "extension": [
+            "RV32_C_F"
+        ],
+        "category": "FLOAT_LOAD",
+        "format": "c.flw {FRD}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 7,
+        "variables": [
+            "IMM",
+            "FRD_P",
+            "RS1_P"
+        ],
+        "imm_align": 4
+    },
+    "C.FLD": {
+        "extension": [
+            "RV_C_D"
+        ],
+        "category": "FLOAT_LOAD",
+        "format": "c.fld {FRD}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "FRD_P",
+            "RS1_P"
+        ],
+        "imm_align": 8
+    },
+    "C.SW": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "STORE",
+        "format": "c.sw {RS2}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 7,
+        "variables": [
+            "IMM",
+            "RS1_P",
+            "RS2_P"
+        ],
+        "imm_align": 4
+    },
+    "C.SD": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "STORE",
+        "format": "c.sd {RS2}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "RS1_P",
+            "RS2_P"
+        ],
+        "imm_align": 8
+    },
+    "C.FSW": {
+        "extension": [
+            "RV32_C_F"
+        ],
+        "category": "FLOAT_STORE",
+        "format": "c.fsw {FRS2}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 7,
+        "variables": [
+            "IMM",
+            "RS1_P",
+            "FRS2_P"
+        ],
+        "imm_align": 4
+    },
+    "C.FSD": {
+        "extension": [
+            "RV_C_D"
+        ],
+        "category": "FLOAT_STORE",
+        "format": "c.fsd {FRS2}, {IMM}({RS1})",
+        "imm_type": "UIMM",
+        "imm_length": 8,
+        "variables": [
+            "IMM",
+            "RS1_P",
+            "FRS2_P"
+        ],
+        "imm_align": 8
+    },
+    "C.J": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "JUMP",
+        "format": "c.j {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "LABEL"
+        ]
+    },
+    "C.JAL": {
+        "extension": [
+            "RV32_C"
+        ],
+        "category": "JUMP",
+        "format": "c.jal {LABEL}",
+        "imm_type": "IMM",
+        "imm_length": 12,
+        "variables": [
+            "LABEL"
+        ]
+    },
+    "C.JR": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "JUMP",
+        "format": "c.jr {RS1}",
+        "variables": [
+            "RS1_N0"
+        ]
+    },
+    "C.JALR": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "JUMP",
+        "format": "c.jalr {RS1}",
+        "variables": [
+            "C_RS1_N0"
+        ]
+    },
+    "C.BEQZ": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "BRANCH",
+        "format": "c.beqz {RS1}, {LABEL}",
+        "variables": [
+            "RS1_P",
+            "LABEL"
+        ]
+    },
+    "C.BNEZ": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "BRANCH",
+        "format": "c.bnez {RS1}, {LABEL}",
+        "variables": [
+            "RS1_P",
+            "LABEL"
+        ]
+    },
+    "C.LI": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.li {RD}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD"
+        ]
+    },
+    "C.LUI": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.lui {RD}, {IMM}",
+        "imm_type": "NZUIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD_N2"
+        ]
+    },
+    "C.ADDI": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.addi {RD}, {IMM}",
+        "imm_type": "NZIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD_RS1_N0"
+        ]
+    },
+    "C.ADDIW": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.addiw {RD}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD_RS1_N0"
+        ]
+    },
+    "C.ADDI16SP": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.addi16sp sp, {IMM}",
+        "imm_type": "NZIMM",
+        "imm_length": 10,
+        "variables": [
+            "IMM"
+        ],
+        "imm_align": 16
+    },
+    "C.ADDI4SPN": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.addi4spn {RD}, sp, {IMM}",
+        "imm_type": "NZUIMM",
+        "imm_length": 10,
+        "variables": [
+            "IMM",
+            "RD_P"
+        ],
+        "imm_align": 4
+    },
+    "C.SLLI": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.slli {RD}, {IMM}",
+        "imm_type": "NZUIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD_RS1_N0"
+        ]
+    },
+    "`C.SRLI": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.srli {RD}, {IMM}",
+        "imm_type": "NZUIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD_RS1_P"
+        ]
+    },
+    "C.SRAI": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.srai {RD}, {IMM}",
+        "imm_type": "NZUIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD_RS1_P"
+        ]
+    },
+    "C.ANDI": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.andi {RD}, {IMM}",
+        "imm_type": "IMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD_RS1_P"
+        ]
+    },
+    "C.MV": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.mv {RD}, {RS2}",
+        "variables": [
+            "RD",
+            "C_RS2_N0"
+        ]
+    },
+    "C.ADD": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.add {RD}, {RS2}",
+        "variables": [
+            "RD_RS1",
+            "C_RS2_N0"
+        ]
+    },
+    "C.AND": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.and {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.OR": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.or {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.XOR": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.xor {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.SUB": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.sub {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.ADDW": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.addw {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.SUBW": {
+        "extension": [
+            "RV64_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.subw {RD}, {RS2}",
+        "variables": [
+            "RD_RS1_P",
+            "RS2_P"
+        ]
+    },
+    "C.NOP": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "ARITHMETIC",
+        "format": "c.nop",
+        "imm_type": "NZIMM",
+        "imm_length": 6,
+        "variables": []
+    },
+    "C.EBREAK": {
+        "extension": [
+            "RV_C"
+        ],
+        "category": "SYSTEM",
+        "format": "c.ebreak",
+        "variables": []
+    },
+    "MUL": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "mul {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "MULH": {
+        "extension": [
+            "RV32_ZPN"
+        ],
+        "category": "ARITHMETIC",
+        "format": "mulh {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "MULHSU": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "mulhsu {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "MULHU": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "mulhu {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "DIV": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "div {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "DIVU": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "divu {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "REM": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "rem {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "REMU": {
+        "extension": [
+            "RV_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "remu {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "MULW": {
+        "extension": [
+            "RV64_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "mulw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "DIVW": {
+        "extension": [
+            "RV64_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "divw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "DIVUW": {
+        "extension": [
+            "RV64_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "divuw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "REMW": {
+        "extension": [
+            "RV64_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "remw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "REMUW": {
+        "extension": [
+            "RV64_M"
+        ],
+        "category": "ARITHMETIC",
+        "format": "remuw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "LR.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO_LOAD",
+        "format": "lr.w {RD}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SC.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO_STORE",
+        "format": "sc.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOSWAP.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amoswap.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOADD.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amoadd.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOXOR.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amoxor.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOAND.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amoand.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOOR.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amoor.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMIN.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amomin.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMAX.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amomax.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMINU.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amominu.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMAXU.W": {
+        "extension": [
+            "RV_A"
+        ],
+        "category": "AMO",
+        "format": "amomaxu.w {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "LR.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO_LOAD",
+        "format": "lr.d {RD}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SC.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO_STORE",
+        "format": "sc.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOSWAP.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amoswap.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOADD.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amoadd.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOXOR.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amoxor.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOAND.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amoand.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOOR.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amoor.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMIN.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amomin.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMAX.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amomax.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMINU.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amominu.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AMOMAXU.D": {
+        "extension": [
+            "RV64_A"
+        ],
+        "category": "AMO",
+        "format": "amomaxu.d {RD}, {RS2}, ({RS1})",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "ROR": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "ror {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "ROL": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "rol {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "RORI": {
+        "extension": [
+            "RV64_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "rori {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 6,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "RORW": {
+        "extension": [
+            "RV64_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "rorw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "ROLW": {
+        "extension": [
+            "RV64_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "rolw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "RORIW": {
+        "extension": [
+            "RV64_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "roriw {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 5,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "ANDN": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "andn {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "ORN": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "orn {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "XNOR": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "xnor {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "PACK": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "pack {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "PACKH": {
+        "extension": [
+            "RV_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "packh {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "PACKW": {
+        "extension": [
+            "RV64_ZBKB"
+        ],
+        "category": "ARITHMETIC",
+        "format": "packw {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "CLMUL": {
+        "extension": [
+            "RV_ZBKC"
+        ],
+        "category": "ARITHMETIC",
+        "format": "clmul {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "CLMULH": {
+        "extension": [
+            "RV_ZBKC"
+        ],
+        "category": "ARITHMETIC",
+        "format": "clmulh {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "XPERM8": {
+        "extension": [
+            "RV_ZBKX"
+        ],
+        "category": "ARITHMETIC",
+        "format": "xperm8 {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "XPERM4": {
+        "extension": [
+            "RV_ZBKX"
+        ],
+        "category": "ARITHMETIC",
+        "format": "xperm4 {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64ES": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64es {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64ESM": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64esm {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64KS1I": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64ks1i {RD}, {RS1}, {IMM}",
+        "imm_type": "UIMM",
+        "imm_length": 4,
+        "variables": [
+            "IMM",
+            "RD",
+            "RS1"
+        ]
+    },
+    "AES64KS2": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64ks2 {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64DS": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64ds {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64DSM": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64dsm {RD}, {RS1}, {RS2}",
+        "variables": [
+            "RD",
+            "RS1",
+            "RS2"
+        ]
+    },
+    "AES64IM": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "aes64im {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA256SIG0": {
+        "extension": [
+            "RV_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha256sig0 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA256SIG1": {
+        "extension": [
+            "RV_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha256sig1 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA256SUM0": {
+        "extension": [
+            "RV_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha256sum0 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA256SUM1": {
+        "extension": [
+            "RV_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha256sum1 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA512SIG0": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha512sig0 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA512SIG1": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha512sig1 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA512SUM0": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha512sum0 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "SHA512SUM1": {
+        "extension": [
+            "RV64_ZK"
+        ],
+        "category": "ARITHMETIC",
+        "format": "sha512sum1 {RD}, {RS1}",
+        "variables": [
+            "RD",
+            "RS1"
+        ]
+    },
+    "MAGIC_LI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "MAGIC_LOAD",
+        "format": "MAGIC_LI({L_TYPE}, {RD}, {MAGIC_ADDR}, {IMM})",
+        "variables": [
+            "L_TYPE",
+            "RD",
+            "MAGIC_ADDR",
+            "IMM"
+        ],
+        "imm_type": "UIMM",
+        "imm_length": 32,
+        "macro": true
+    },
+    "MAGIC_LI_S": {
+        "extension": [
+            "RV_F"
+        ],
+        "category": "MAGIC_LOAD",
+        "format": "MAGIC_LI_S(flw, {FRD}, MAGIC_RDM_FLOAT, {IMM})",
+        "variables": [
+            "FRD",
+            "IMM"
+        ],
+        "imm_type": "UIMM",
+        "imm_length": 32,
+        "macro": true
+    },
+    "MAGIC_LI_D": {
+        "extension": [
+            "RV_D"
+        ],
+        "category": "MAGIC_LOAD",
+        "format": "MAGIC_LI_D(fld, {FRD}, MAGIC_RDM_DOUBLE, {IMM})",
+        "variables": [
+            "FRD",
+            "IMM"
+        ],
+        "imm_type": "UIMM",
+        "imm_length": 32,
+        "macro": true
+    },
+    "MAGIC_LA": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "MAGIC_LOAD_A",
+        "format": "MAGIC_LA(ld, {RD}, {MAGIC_ADDR}, {LABEL})",
+        "variables": [
+            "RD",
+            "MAGIC_ADDR_A",
+            "LABEL"
+        ],
+        "macro": true
+    },
+    "MAGIC_JUMP": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "MAGIC_JUMP",
+        "format": "MAGIC_JUMP({RS1}, {RS2})",
+        "variables": [
+            "RS1",
+            "RS2"
+        ],
+        "macro": true
+    },
+    "CEASE": {
+        "extension": [
+            "ROCC"
+        ],
+        "category": "SYSTEM",
+        "format": ".insn 0x30500073",
+        "variables": [],
+        "insn": true
+    },
+    "LI": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "ARITHMETIC",
+        "format": "li {RD}, {IMM}",
+        "variables": [
+            "RD",
+            "IMM"
+        ],
+        "imm_length": 32,
+        "imm_type": "IMM"
+    }
+}
