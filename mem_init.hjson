@@ -1,6 +1,6 @@
 {   
     attack:S
-    victim:S
+    victim:M
     init:
     {
         bound:[
@@ -113,6 +113,11 @@
                 name:mtrap_block
                 strategy:default
             }
+            secret_protect_param:
+            {
+                name:secret_protect_block
+                strategy:default
+            }
             strap_param:
             {
                 name:strap_block
@@ -147,7 +152,7 @@
             {
                 name:predict_block
                 strategy:default
-                predict_kind:return
+                predict_kind:except
             }
 
             encode_param:

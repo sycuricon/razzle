@@ -78,6 +78,28 @@ class MTrapBlock(TransBlock):
         self.inst_list.extend(self._load_raw_asm("trans/mtrap.text.S"))
         self.data_list=self._load_raw_asm("trans/mtrap.data.S")
 
+class SecretProtectBlock(TransBlock):
+    def __init__(self, extension, fuzz_param):
+        super().__init__(extension, fuzz_param)
+        self.victim_privilege = fuzz_param['victim_privilege']
+        self.virtual = fuzz_param['virtual']
+        assert self.strategy == 'default', \
+            f'strategy of {self.name} must be default rather than {self.strategy}'
+    
+    def gen_default(self, graph):
+        self.inst_list.append(RawInstruction(f'{self.entry}:'))
+        mtrap_block = graph['mtrap']
+        if (self.victim_privilege == 'M' or self.victim_privilege == 'S') and self.virtual:
+            self.inst_list.extend(self._load_raw_asm('trans/secret_protect.S.text.S'))
+        if self.victim_privilege == 'M':
+            self.inst_list.extend(self._load_raw_asm('trans/secret_protect.M.text.S'))
+        self.inst_list.append(RawInstruction(f'la t0, {mtrap_block.entry}'))
+        self.inst_list.append(RawInstruction('csrw mtvec, t0'))
+        self.inst_list.append(RawInstruction('csrr t0, mepc'))
+        self.inst_list.append(RawInstruction('addi t0, t0, 4'))
+        self.inst_list.append(RawInstruction('csrw mepc, t0'))
+        self.inst_list.append(RawInstruction('mret'))
+
 class STrapBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
         super().__init__(extension, fuzz_param)
@@ -367,6 +389,8 @@ class PredictBlock(TransBlock):
             
                 self.branch_kind=ret_inst['NAME']
                 self.inst_list.append(ret_inst)
+            case 'except':
+                self.inst_list.append(RawInstruction(f'{self.entry}:'))
             case _:
                 raise "Error: predict_kind not implemented!"
 
@@ -426,6 +450,9 @@ class RunTimeBlock(TransBlock):
 
                 if predict_block.predict_kind == 'branch_not_taken':
                     train_param, victim_param = victim_param, train_param
+            case 'except':
+                train_param = 0
+                victim_param = 0
             case _:
                 raise "Error: predict_kind not implemented!"
         return victim_param, train_param

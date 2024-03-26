@@ -16,22 +16,28 @@ class DistributeManager:
         hjson_file=open(hjson_filename)
         config=hjson.load(hjson_file)
         hjson_file.close()
-        
+
+        self.attack_privilege = config['attack']
+        self.victim_privilege = config['victim']
+        privilege_stage = {'M':0, 'S':1, 'U':3}
+        assert privilege_stage[self.attack_privilege] >= privilege_stage[self.victim_privilege],\
+            "the privilege of vicitm smaller than attack's is meanless"
+
         self.output_path=output_path
-        self.virtual=virtual
+        self.virtual=virtual if self.attack_privilege != 'M' else False
 
         self.code={}
         self.code['secret']=SecretManager(config["secret"])
         self.code['channel']=ChannelManager(config["channel"])
         self.code['stack']=StackManager(config["stack"])
         if do_fuzz:
-            self.code['payload']=TransManager(config["fuzz"])
+            self.code['payload']=TransManager(config["fuzz"],self.victim_privilege,self.virtual)
         else:
             self.code['payload']=PayloadManager(config["payload"])
             self.code['poc']=PocManager(config["poc"])
-        self.code['init']=InitManager(config["init"],do_fuzz,virtual,output_path)
+        self.code['init']=InitManager(config["init"],do_fuzz,virtual,self.attack_privilege,output_path)
 
-        self.page_table=PageTableManager(config["page_table"])
+        self.page_table=PageTableManager(config["page_table"],self.attack_privilege=='U')
         self.loader=LoaderManager(virtual)
 
         self.file_list=[]

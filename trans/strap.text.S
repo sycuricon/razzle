@@ -1,4 +1,5 @@
     csrrw sp, sscratch, sp
+    addi sp, sp, -8
     sd t0, 0(sp)
 
     ld t0, strap_ptr_mode
@@ -19,5 +20,6 @@
     csrw sepc, t0
     
     ld t0, 0(sp)
+    addi sp, sp, 8
     csrrw sp, sscratch, sp
     sret

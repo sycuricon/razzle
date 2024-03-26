@@ -17,16 +17,20 @@ class FuzzSection(Section):
         return self.inst_list
 
 class TransManager(SectionManager):
-    def __init__(self,config):
+    def __init__(self,config,victim_privilege,virtual):
         super().__init__(config)
         self.transblock={}
         self.extension=['RV_I','RV64_I','RV_ZICSR','RV_F','RV64_F',\
                         'RV_D','RV64_D','RV_A','RV64_A','RV_M','RV64_M']
         self.block_param=config['block_param']
+        self.victim_privilege=victim_privilege
+        self.virtual=virtual
+        self.block_param['secret_protect_param']['victim_privilege']=self.victim_privilege
+        self.block_param['secret_protect_param']['virtual']=self.virtual
     
     def _generate_sections(self):
         block_index = [('_init',InitBlock),('mtrap',MTrapBlock),('strap',STrapBlock),\
-            ('exit',ExitBlock),('return',ReturnBlock),\
+            ('secret_protect',SecretProtectBlock),('exit',ExitBlock),('return',ReturnBlock),\
             ('delay',DelayBlock),('predict',PredictBlock),('run_time',RunTimeBlock),\
             ('encode',EncodeBlock),('decode_call',DecodeCallBlock),('decode',DecodeBlock)\
         ]
@@ -45,31 +49,28 @@ class TransManager(SectionManager):
         strap_section=self.section['.strap']=FuzzSection('.strap',Flag.X|Flag.R|Flag.W)
         poc_section=self.section['.poc']=FuzzSection('.poc',Flag.U|Flag.X|Flag.R)
 
-        inst_list, data_list = self.graph['mtrap'].gen_asm()
-        mtrap_section.add_inst_list(inst_list)
-        mtrap_section.add_inst_list(data_list)
-        mtrap_section.add_global_label([self.graph['mtrap'].entry])
-
-        inst_list, data_list = self.graph['strap'].gen_asm()
-        strap_section.add_inst_list(inst_list)
-        strap_section.add_inst_list(data_list)
-        strap_section.add_global_label([self.graph['strap'].entry])
-
-        inst_list, data_list = self.graph['decode'].gen_asm()
-        poc_section.add_inst_list(inst_list)
-        poc_section.add_inst_list(data_list)
-
-        block_list = ['_init', 'run_time', 'decode_call', 'exit', 'delay', 'predict']
+        mtrap_block = ['mtrap', 'secret_protect']
+        strap_block = ['strap']
+        poc_block = ['decode']
+        payload_block = ['_init', 'run_time', 'decode_call', 'exit', 'delay', 'predict']
         if self.graph['predict'].predict_kind == 'branch_not_taken':
-            block_list.extend(['return', 'encode'])
+            payload_block.extend(['return', 'encode'])
         else:
-            block_list.extend(['encode', 'return'])
+            payload_block.extend(['encode', 'return'])
 
-        for block_index in block_list:
-            block = self.graph[block_index]
-            inst_list, data_list = block.gen_asm()
-            text_section.add_inst_list(inst_list)
-            data_section.add_inst_list(data_list)
+        def set_section(text_section, data_section, block_list):
+            for block_index in block_list:
+                block = self.graph[block_index]
+                inst_list, data_list = block.gen_asm()
+                text_section.add_inst_list(inst_list)
+                data_section.add_inst_list(data_list)
+        
+        set_section(mtrap_section,mtrap_section,mtrap_block)
+        set_section(strap_section,strap_section,strap_block)
+        set_section(poc_section,poc_section,poc_block)
+        set_section(text_section,data_section,payload_block)
+        mtrap_section.add_global_label([self.graph['mtrap'].entry, self.graph['secret_protect'].entry, 'mtrap_stack_bottom'])
+        strap_section.add_global_label([self.graph['strap'].entry,'strap_stack_bottom'])
         text_section.add_global_label([self.graph['_init'].entry])
 
     def _distribute_address(self):

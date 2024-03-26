@@ -1,4 +1,5 @@
     csrrw sp, mscratch, sp
+    addi sp, sp, -16
     sd t0, 0(sp)
     sd t1, 8(sp)
 
@@ -23,5 +24,6 @@
     
     ld t0, 0(sp)
     ld t1, 8(sp)
+    addi sp, sp, 16
     csrrw sp, mscratch, sp
     mret

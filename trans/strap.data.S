@@ -11,3 +11,7 @@ strap_secret_target:
     .dword GUESS_TARGET
 strap_leak_target: 
     .dword LEAK_TARGET
+
+strap_stack_top:
+    .space 0x100
+strap_stack_bottom:
