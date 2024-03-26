@@ -10,5 +10,5 @@
     fdiv.s	fa5, fa5, fa4
     fdiv.s	fa5, fa5, fa4
     fdiv.s	fa5, fa5, fa4
-    fcvt.lu.s   t0, fa5, rtz
+    fcvt.lu.s   t2, fa5, rtz
     INFO_DELAY_END
