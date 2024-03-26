@@ -35,10 +35,10 @@ class DistributeManager:
         else:
             self.code['payload']=PayloadManager(config["payload"])
             self.code['poc']=PocManager(config["poc"])
-        self.code['init']=InitManager(config["init"],do_fuzz,virtual,self.attack_privilege,output_path)
+        self.code['init']=InitManager(config["init"],do_fuzz,self.virtual,self.attack_privilege,output_path)
 
         self.page_table=PageTableManager(config["page_table"],self.attack_privilege=='U')
-        self.loader=LoaderManager(virtual)
+        self.loader=LoaderManager(self.virtual)
 
         self.file_list=[]
         self.var_file_list=[]
