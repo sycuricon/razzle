@@ -59,8 +59,9 @@ class PageTableSection(Section):
         return write_line
 
 class PageTableManager(SectionManager):
-    def __init__(self,config):
+    def __init__(self,config,set_U):
         super().__init__(config)
+        self.set_U=set_U
         self.xLen=config["xLen"]
         self.pg_level=config["pg_level"]
         self.page_tables=[]
@@ -73,6 +74,8 @@ class PageTableManager(SectionManager):
         self.index_width=9 if self.xLen==64 else 10
     
     def _register_page(self,vaddr,paddr,flag):
+        if not self.set_U:
+            flag &= ~Flag.U
         self.pgtlb_paddr[-1]=paddr
         self.pgtlb_flag[-1]=flag|Flag.A|Flag.D|Flag.V
         
@@ -102,10 +105,13 @@ class PageTableManager(SectionManager):
             for offset in range(0,length,Page.size):
                 vaddr_offset=vaddr+offset
                 paddr_offset=paddr+offset
-                self._register_page(vaddr_offset,paddr_offset,flag)
+                vaddr_virtual_offset=vaddr_offset+0xfffffffffff00000
+                self._register_page(vaddr_virtual_offset,paddr_offset,flag&~Flag.U)
+                self._register_page(vaddr_offset,paddr_offset,flag)                   
     
     def _generate_sections(self):
         self.section['pagetable']=PageTableSection('.pagetable',self.pg_level,self.page_tables)
+        self.section['pagetable'].add_global_label(['vaddr_0x4000_paddr_0x80004000'])
 
     def _distribute_address(self):
         self.section['pagetable'].get_bound(self.virtual_memory_bound[0][0],self.memory_bound[0][0],None)
