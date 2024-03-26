@@ -93,6 +93,7 @@ class SecretProtectBlock(TransBlock):
             self.inst_list.extend(self._load_raw_asm('trans/secret_protect.S.text.S'))
         if self.victim_privilege == 'M':
             self.inst_list.extend(self._load_raw_asm('trans/secret_protect.M.text.S'))
+
         self.inst_list.append(RawInstruction(f'la t0, {mtrap_block.entry}'))
         self.inst_list.append(RawInstruction('csrw mtvec, t0'))
         self.inst_list.append(RawInstruction('csrr t0, mepc'))
@@ -329,7 +330,7 @@ class DelayBlock(TransBlock):
         self.inst_list.append(RawInstruction(f'{self.entry}:'))
         self.inst_list.extend(self._load_raw_asm("trans/delay.text.S"))
         self.data_list=self._load_raw_asm("trans/delay.data.S")
-        self.result_reg = 't0'.upper()
+        self.result_reg = 't2'.upper()
         self.result_imm = 0
 
 class PredictBlock(TransBlock):
@@ -391,6 +392,16 @@ class PredictBlock(TransBlock):
                 self.inst_list.append(ret_inst)
             case 'except':
                 self.inst_list.append(RawInstruction(f'{self.entry}:'))
+            case 'load':
+                self.data_list.append(RawInstruction('target_offset:'))
+                self.data_list.append(RawInstruction('.dword secret + LEAK_TARGET - trapoline'))
+
+                self.inst_list.append(RawInstruction(f'{self.entry}:'))
+                self.inst_list.append(RawInstruction('la t0, target_offset'))
+                self.inst_list.append(RawInstruction('ld a1, 0(t0)'))
+                self.inst_list.append(RawInstruction(f'add t1, a0, {self.dep_reg.lower()}'))
+                self.inst_list.append(RawInstruction(f'sd zero, 0(t1)'))
+                self.inst_list.append(RawInstruction(f'ld a1, 0(t0)'))
             case _:
                 raise "Error: predict_kind not implemented!"
 
@@ -453,6 +464,9 @@ class RunTimeBlock(TransBlock):
             case 'except':
                 train_param = 0
                 victim_param = 0
+            case 'load':
+                train_param = f'target_offset - {delay_block.result_imm}'
+                victim_param = f'target_offset - {delay_block.result_imm}'
             case _:
                 raise "Error: predict_kind not implemented!"
         return victim_param, train_param
