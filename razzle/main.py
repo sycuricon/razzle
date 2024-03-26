@@ -22,6 +22,8 @@ if __name__ == "__main__":
     )
 
     args = parse.parse_args()
+    args.output = os.path.realpath(args.output)
+
     if not os.path.exists(args.output):
         os.makedirs(args.output)
     dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz)
