@@ -138,7 +138,7 @@
             {
                 name:run_time_block
                 strategy:default
-                train_loop:0
+                train_loop:3
                 victim_loop:1
             }
             delay_param:
@@ -152,7 +152,7 @@
             {
                 name:predict_block
                 strategy:default
-                predict_kind:except
+                predict_kind:load
             }
 
             encode_param:

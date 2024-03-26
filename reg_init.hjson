@@ -87,7 +87,7 @@
       MPIE: 0b0
       SPP: 0b0
       VS: 0b00
-      MPP: 0b11
+      MPP: 0b01
       FS: 0b11
       XS: 0b00
       MPRV: 0b0
@@ -163,7 +163,7 @@
       Load_Access_Fault: 0b0
       Store_Addr_Misalign: 0b0
       Store_Access_Fault: 0b0
-      Ecall_U: 0b1
+      Ecall_U: 0b0
       Ecall_S: 0b0
       Ecall_H: 0b0
       Ecall_M: 0b0
@@ -243,27 +243,27 @@
     }
     mtvec:
     {
-      BASE: trap_entry
+      BASE: secret_protect_block_entry
       MODE: 0b00
     }
     stvec:
     {
-      BASE: 0x0
+      BASE: strap_block_entry  + 0xfffffffffff00000
       MODE: 0b00
     }
     satp:
     {
-      PPN: 0x0000000000000000
+      PPN: 0x80001000
       ASID: 0x0
-      MODE: 0x0
+      MODE: 0x8
     }
     mscratch:
     {
-      SCRATCH: 0x80003800
+      SCRATCH: mtrap_stack_bottom
     }
     sscratch:
     {
-      SCRATCH: 0x0
+      SCRATCH: strap_stack_bottom + 0xfffffffffff00000
     }
   }
   pmp:
