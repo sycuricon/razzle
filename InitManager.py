@@ -59,11 +59,11 @@ class InitManager(SectionManager):
         #mstatus
         match(self.privilege):
             case 'M':
-                self.reg_init_config["csr"]["mstatus"]["MPP"]="0b00"
+                self.reg_init_config["csr"]["mstatus"]["MPP"]="0b11"
             case 'S':
                 self.reg_init_config["csr"]["mstatus"]["MPP"]="0b01"
             case 'U':
-                self.reg_init_config["csr"]["mstatus"]["MPP"]="0b11"
+                self.reg_init_config["csr"]["mstatus"]["MPP"]="0b00"
             case _:
                 raise 'privilege must be M, S or U'
         #mscratch
