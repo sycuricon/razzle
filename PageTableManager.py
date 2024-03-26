@@ -74,8 +74,6 @@ class PageTableManager(SectionManager):
         self.index_width=9 if self.xLen==64 else 10
     
     def _register_page(self,vaddr,paddr,flag):
-        if not self.set_U:
-            flag &= ~Flag.U
         self.pgtlb_paddr[-1]=paddr
         self.pgtlb_flag[-1]=flag|Flag.A|Flag.D|Flag.V
         
@@ -99,6 +97,8 @@ class PageTableManager(SectionManager):
             vaddr=info['vaddr']
             paddr=info['paddr']
             flag=info['flag']
+            if not self.set_U:
+                flag &= ~Flag.U
             length=info['length']
             if vaddr==paddr:
                 continue
@@ -106,8 +106,9 @@ class PageTableManager(SectionManager):
                 vaddr_offset=vaddr+offset
                 paddr_offset=paddr+offset
                 vaddr_virtual_offset=vaddr_offset+0xfffffffffff00000
+                self._register_page(vaddr_offset,paddr_offset,flag)      
                 self._register_page(vaddr_virtual_offset,paddr_offset,flag&~Flag.U)
-                self._register_page(vaddr_offset,paddr_offset,flag)                   
+                             
     
     def _generate_sections(self):
         self.section['pagetable']=PageTableSection('.pagetable',self.pg_level,self.page_tables)
