@@ -650,10 +650,9 @@ class RunTimeBlock(TransBlock):
 def inst_simlutor(inst_list, data_list):
     file_name = "inst_sim/Testcase.S"
     with open(file_name, "wt") as file:
-        file.write('#include"../razzle/template/trans/boom_conf.h"\n')
-        file.write('#include"../razzle/template/trans/encoding.h"\n')
-        file.write('#include"../razzle/template/trans/parafuzz.h"\n')
-        file.write('#include"../razzle/template/trans/util.h"\n')
+        file.write('#include"../razzle/template/trans/boom_conf_asm.h"\n')
+        file.write('#include"../razzle/template/trans/encoding_asm.h"\n')
+        file.write('#include"../razzle/template/trans/parafuzz_asm.h"\n')
         file.write(".section .text\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")

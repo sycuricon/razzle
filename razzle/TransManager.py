@@ -161,4 +161,3 @@ class TransManager(SectionManager):
         for file in filenames:
             if file.endswith(".h"):
                 f.write(f'#include"{file}"\n')
-                os.system(f"cp {header_dir}/{file} {output_dirname}/")
