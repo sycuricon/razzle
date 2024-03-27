@@ -3,7 +3,7 @@ import os
 import random
 from SectionUtils import *
 
-sys.path.append(os.path.join(os.getcwd(), "razzle_transient/src"))
+sys.path.append(os.path.join(os.getcwd(), "razzle_razzle/template/transient/src"))
 from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
@@ -70,8 +70,8 @@ class InitBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/_init.text.S"))
-        self.data_list = self._load_raw_asm("trans/_init.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/_init.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/_init.data.S")
 
 
 class MTrapBlock(TransBlock):
@@ -83,8 +83,8 @@ class MTrapBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/mtrap.text.S"))
-        self.data_list = self._load_raw_asm("trans/mtrap.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/mtrap.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/mtrap.data.S")
 
 
 class SecretProtectBlock(TransBlock):
@@ -102,9 +102,9 @@ class SecretProtectBlock(TransBlock):
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
         ) and self.virtual:
-            self.inst_list.extend(self._load_raw_asm("trans/secret_protect.S.text.S"))
+            self.inst_list.extend(self._load_raw_asm("razzle/template/trans/secret_protect.S.text.S"))
         if self.victim_privilege == "M":
-            self.inst_list.extend(self._load_raw_asm("trans/secret_protect.M.text.S"))
+            self.inst_list.extend(self._load_raw_asm("razzle/template/trans/secret_protect.M.text.S"))
 
         self.inst_list.append(RawInstruction(f"la t0, {mtrap_block.entry}"))
         self.inst_list.append(RawInstruction("csrw mtvec, t0"))
@@ -123,8 +123,8 @@ class STrapBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/strap.text.S"))
-        self.data_list = self._load_raw_asm("trans/strap.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/strap.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/strap.data.S")
 
 
 class ReturnBlock(TransBlock):
@@ -136,8 +136,8 @@ class ReturnBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/return.text.S"))
-        self.data_list = self._load_raw_asm("trans/return.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/return.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/return.data.S")
 
 
 class ExitBlock(TransBlock):
@@ -149,8 +149,8 @@ class ExitBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/exit.text.S"))
-        self.data_list = self._load_raw_asm("trans/exit.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/exit.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/exit.data.S")
 
 
 class EncodeBlock(TransBlock):
@@ -170,11 +170,11 @@ class EncodeBlock(TransBlock):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (self.leak_kind):
             case "cache":
-                self.inst_list.extend(self._load_raw_asm("trans/encode.cache.text.S"))
+                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.cache.text.S"))
             case "FPUport":
-                self.inst_list.extend(self._load_raw_asm("trans/encode.FPUport.text.S"))
+                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.FPUport.text.S"))
             case "LSUport":
-                self.inst_list.extend(self._load_raw_asm("trans/encode.LSUport.text.S"))
+                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.LSUport.text.S"))
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
@@ -193,7 +193,7 @@ class DecodeBlock(TransBlock):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (encode_block.leak_kind):
             case "cache":
-                self.inst_list.extend(self._load_raw_asm("trans/decode.cache.text.S"))
+                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/decode.cache.text.S"))
             case "FPUport" | "LSUport":
                 self.inst_list.append(RawInstruction("ret"))
             case _:
@@ -209,7 +209,7 @@ class DecodeCallBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/decode_call.text.S"))
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/decode_call.text.S"))
 
 
 class DelayBlock(TransBlock):
@@ -379,8 +379,8 @@ class DelayBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/delay.text.S"))
-        self.data_list = self._load_raw_asm("trans/delay.data.S")
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/delay.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/delay.data.S")
         self.result_reg = "t2".upper()
         self.result_imm = 0
 
@@ -650,10 +650,10 @@ class RunTimeBlock(TransBlock):
 def inst_simlutor(inst_list, data_list):
     file_name = "inst_sim/Testcase.S"
     with open(file_name, "wt") as file:
-        file.write('#include"../trans/boom_conf.h"\n')
-        file.write('#include"../trans/encoding.h"\n')
-        file.write('#include"../trans/parafuzz.h"\n')
-        file.write('#include"../trans/util.h"\n')
+        file.write('#include"../razzle/template/trans/boom_conf.h"\n')
+        file.write('#include"../razzle/template/trans/encoding.h"\n')
+        file.write('#include"../razzle/template/trans/parafuzz.h"\n')
+        file.write('#include"../razzle/template/trans/util.h"\n')
         file.write(".section .text\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")

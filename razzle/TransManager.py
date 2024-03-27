@@ -155,7 +155,7 @@ class TransManager(SectionManager):
         )
 
     def _write_headers(self, f, is_variant):
-        header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trans")
+        header_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "template/trans")
         filenames = os.listdir(header_dir)
         output_dirname = os.path.dirname(f.name)
         for file in filenames:
