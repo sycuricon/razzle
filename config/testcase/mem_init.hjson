@@ -142,7 +142,7 @@
             predict_param: {
                 name: predict_block
                 strategy: default
-                predict_kind: load
+                predict_kind: call
             }
 
             encode_param: {
