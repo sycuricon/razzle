@@ -1,6 +1,17 @@
 from SectionManager import *
 from SectionUtils import *
 
+class ShellCommand:
+    def __init__(self, cmd, args=[]):
+        self.args = [cmd]
+        self.args.extend(args)
+
+    def add_options(self, extra_args=[]):
+        self.args.extend(extra_args)
+
+    def generate(self, extra_args=[]):
+        return " ".join(self.args + extra_args)
+
 
 class BuildManager:
     def __init__(self, env_var, file_name, shell="/bin/zsh"):

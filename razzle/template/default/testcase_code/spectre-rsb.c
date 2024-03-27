@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "util.h"
 #include "encoding.h"
 #include "parafuzz.h"
 #include "boom_conf.h"

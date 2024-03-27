@@ -1,4 +1,6 @@
+#include "encoding.h"
 #include "parafuzz.h"
+
 __attribute__((optimize("align-functions=64")))
 __attribute__((section (".poc.text")))
 uint64_t access_time(uint8_t* base, int index, int offset) {

@@ -1,3 +1,4 @@
+#include "encoding.h"
 #include "parafuzz.h"
 
 uint64_t current_round = 0;

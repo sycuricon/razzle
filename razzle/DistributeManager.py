@@ -16,7 +16,10 @@ class DistributeManager:
         config = hjson.load(hjson_file)
         hjson_file.close()
 
-        self.baker = BuildManager({"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, os.path.join(output_path, "build.sh"))
+        self.baker = BuildManager(
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
+            os.path.join(output_path, "build.sh"),
+        )
         self.output_path = output_path
         self.virtual = virtual
 
@@ -81,6 +84,26 @@ class DistributeManager:
 
         self.loader.append_section_list(self.section_list)
         self.loader.file_generate(self.output_path, ld_name)
+
+        RAZZLE_ROOT = os.environ["RAZZLE_ROOT"]
+        gen_elf = ShellCommand(
+            "riscv64-unknown-elf-gcc",
+            [
+                "-march=rv64g_zicsr",
+                "-mabi=lp64f",
+                "-mcmodel=medany",
+                "-nostdlib",
+                "-nostartfiles",
+                f"-I{self.output_path}",
+                f"-I{RAZZLE_ROOT}/template",
+                f"-I{RAZZLE_ROOT}/template/trans",
+                f"-I{RAZZLE_ROOT}/template/loader",
+                # TODO: fix this hook
+                f"-T{self.output_path}/{ld_name}",
+            ]
+        )
+        self.baker.add_cmd(gen_elf.generate([*self.file_list, "-o", f"{self.output_path}/Testbench"]))
+        self.baker.add_cmd(gen_elf.generate([*self.var_file_list, "-o", f"{self.output_path}/Testbench.variant"]))
 
         self._generate_compile_files()
 

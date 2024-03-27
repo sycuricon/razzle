@@ -107,7 +107,7 @@ class SectionManager:
                 template_file.append(file)
 
         self.dut_file_list = template_file
-        self.vnt_file_list = template_file
+        self.vnt_file_list = template_file.copy()
 
 
     def get_section_list(self):
