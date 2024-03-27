@@ -104,7 +104,7 @@ def pmp_addr_decode(self, init_state):
         case "NAPOT":
             addr = self.decode_reg(addr)
             range = self.decode_reg(init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"])
-            self.data = self.decode_fields({"PMPADDR": hex(addr & ~range | (range - 1))}, globals()[f"RV{self.width}_PMPADDR_META"])
+            self.data = self.decode_fields({"PMPADDR": hex(addr & ~range | ((range - 1)>>1))}, globals()[f"RV{self.width}_PMPADDR_META"])
 
 def pmp_cfg_decode(self, init_state):
     cfg = 0
