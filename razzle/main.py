@@ -2,7 +2,8 @@ import os
 import argparse
 from DistributeManager import *
 
-os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+if "RAZZLE_ROOT" not in os.environ:
+    os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
@@ -26,10 +27,7 @@ if __name__ == "__main__":
 
     if not os.path.exists(args.output):
         os.makedirs(args.output)
-    
-    bake = BuildManager({"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, os.path.join(args.output, "build.sh"))
 
     dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz)
     dist.generate_test()
-
-    bake.run()
+    dist.run()

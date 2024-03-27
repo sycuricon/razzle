@@ -108,4 +108,6 @@ class InitManager(SectionManager):
 
     def _write_file(self, path, name):
         filename = os.path.join(path, self.asm)
-        return [[filename], [filename]]
+        self.dut_file_list.append(filename)
+        self.vnt_file_list.append(filename)
+

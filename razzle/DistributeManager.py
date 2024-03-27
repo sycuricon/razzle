@@ -1,14 +1,12 @@
-import hjson
-import argparse
-import os
+from BuildManager import *
 from ChannelManger import *
 from PageTableManager import *
+from InitManager import *
 from LoaderManager import *
-from SecretManager import *
-from StackManager import *
 from PocManager import *
 from PayloadManager import *
-from InitManager import *
+from SecretManager import *
+from StackManager import *
 from TransManager import *
 
 
@@ -18,6 +16,7 @@ class DistributeManager:
         config = hjson.load(hjson_file)
         hjson_file.close()
 
+        self.baker = BuildManager({"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, os.path.join(output_path, "build.sh"))
         self.output_path = output_path
         self.virtual = virtual
 
@@ -87,3 +86,6 @@ class DistributeManager:
 
         # os.system(f'make BUILD_PATH={self.output_path}')
         # os.system(f'make sim BUILD_PATH={self.output_path}')
+
+    def run(self, cmd=None):
+        self.baker.run(cmd)

@@ -1,5 +1,5 @@
-from SectionUtils import *
 import os
+from SectionUtils import *
 
 
 class Section:
@@ -63,6 +63,12 @@ class Section:
         return info
 
 
+class FileSection(Section):
+    def __init__(self, name, flag, link):
+        super().__init__(name, flag)
+        self.link = link
+
+
 class SectionManager:
     def __init__(self, config):
         self.memory_bound = []
@@ -78,6 +84,31 @@ class SectionManager:
             end = int(end, base=16)
             self.virtual_memory_bound.append((begin, end))
         self.section = {}
+
+        # TODO: optimize this
+        template_file = []
+
+        if "folder" in config:
+            for folder in config["folder"]:
+                folder = os.path.join(os.environ["RAZZLE_ROOT"], folder)
+                files = list(
+                    filter(
+                        lambda filename: filename.endswith((".S", ".c")),
+                        os.listdir(folder),
+                    )
+                )
+                for file in files:
+                    file = os.path.join(folder, file)
+                    template_file.append(file)
+
+        if "file" in config:
+            for file in config["file"]:
+                file = os.path.join(os.environ["RAZZLE_ROOT"], file)
+                template_file.append(file)
+
+        self.dut_file_list = template_file
+        self.vnt_file_list = template_file
+
 
     def get_section_list(self):
         section_info_list = []
@@ -103,9 +134,11 @@ class SectionManager:
         with open(filename, "wt") as f:
             self._write_headers(f, False)
             self._write_sections(f, False)
-        return [[filename], [filename]]
+        self.dut_file_list.append(filename)
+        self.vnt_file_list.append(filename)
 
     def file_generate(self, path, name):
         self._generate_sections()
         self._distribute_address()
-        return self._write_file(path, name)
+        self._write_file(path, name)
+        return [self.dut_file_list, self.vnt_file_list]

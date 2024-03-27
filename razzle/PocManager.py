@@ -1,8 +1,8 @@
-from BuildManager import *
 from SectionUtils import *
+from SectionManager import *
 
 
-class PocManager(FileManager):
+class PocManager(SectionManager):
     def __init__(self, config):
         super().__init__(config)
 

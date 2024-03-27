@@ -46,7 +46,8 @@ class SecretManager(SectionManager):
         var_filename = os.path.join(path, "variant_" + name)
         with open(var_filename, "wt") as f:
             self._write_sections(f, True)
-        return [[filename], [var_filename]]
+        self.dut_file_list.append(filename)
+        self.vnt_file_list.append(var_filename)
 
 
 if __name__ == "__main__":
