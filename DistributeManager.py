@@ -19,8 +19,8 @@ class DistributeManager:
 
         self.attack_privilege = config['attack']
         self.victim_privilege = config['victim']
-        privilege_stage = {'M':0, 'S':1, 'U':3}
-        assert privilege_stage[self.attack_privilege] >= privilege_stage[self.victim_privilege],\
+        privilege_stage = {'M':0b11, 'S':0b01, 'U':0b00}
+        assert privilege_stage[self.attack_privilege] <= privilege_stage[self.victim_privilege],\
             "the privilege of vicitm smaller than attack's is meanless"
 
         self.output_path=output_path
