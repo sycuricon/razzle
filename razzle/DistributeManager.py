@@ -58,26 +58,6 @@ class DistributeManager:
         self.file_list.extend(file_list[0])
         self.var_file_list.extend(file_list[1])
 
-    def _generate_compile_file(self, filename, var_name, files_list):
-        with open(filename, "wt") as f:
-            f.write(var_name + "_C = \\\n")
-            for file in files_list:
-                if file.endswith(".c"):
-                    f.write("\t" + file + " \\\n")
-            f.write("\n")
-
-            f.write(var_name + "_S = \\\n")
-            for file in files_list:
-                if file.endswith(".S"):
-                    f.write("\t" + file + " \\\n")
-            f.write("\n")
-
-    def _generate_compile_files(self):
-        origin_files = os.path.join(self.output_path, "origin_list.mk")
-        variant_files = os.path.join(self.output_path, "variant_list.mk")
-        self._generate_compile_file(origin_files, "ORIGIN_SRC", self.file_list)
-        self._generate_compile_file(variant_files, "VARIANT_SRC", self.var_file_list)
-
     def generate_test(self):
         page_table_name = "page_table.S"
         ld_name = "link.ld"
