@@ -140,8 +140,32 @@ branch_not_taken 情况下，初始化为 10，默认 taken，不 train 就可�
 
 结论：M 型指令和 F 型指令混合使用，指令序列长度 3-5 为宜，可以打开瞬态窗口大小 18-24 
 
+## rewind 阻塞类型
+1. 使用 add 等算术指令和 mul、div 等 M 扩展的指令，这些指令都是单周期的，所以在瞬态窗口回滚的时候，rob 和 fetch-buffer 都会被直接撤销，因此当瞬态窗口撤销后它基本不会对微体系状态造成影响，无法做到数据的侧信道泄露。在 taint 波形图中可以看到，因为在瞬态窗口内部 origin 和 variant 因为控制流的不同导致 taint 产生了巨大的分歧，但是当瞬态窗口结束回滚之后，variant 的 taint 急速上升和 origin 的 taint 保持一致，最后二者轨迹基本重合，故而在瞬态窗口结束之后二者的微体系状态并不明显差异，无法通过测信道泄露机密。
+
+![add](img/add-rewind.png)
+![mul-div](img/mul-div-rewind.png)
 
 
+2. 在 if 块内部使用 load/store 指令进行填充，当瞬态窗口回滚的时候，因为 load/store 已经在 LSU 中执行，并且向 cache、总线等部件发出请求等待响应等，因此必须要等待他的执行事务完整结束才可以回滚该指令。如果 load/store 的条数过少，这些指令的事务虽然会影响回滚地进行，但是影响十分有限，一段时间之后二者的状态就会趋于一致，导致无法利用微体系内容进行攻击。
 
+![load](img/ld-rewind.png)
+
+但是如果 load/store 指令的条数较多，比如 10-20 条，因为瞬态窗口无法直接回滚，fetch-buffer 也会被阻塞，在回滚之后需要重新访问内存载入正确的指令，进而导致 origin 的执行会显著慢于 variant。之后二者的执行状态产生分歧和不一致，可以以此反应 secret 信息。
+
+![load-double](img/ld-double-rewind.png)
+
+3. fdiv 则利用了 FPU 指令作为协处理器，当接收到指令之后必须等待指令执行完毕，无法直接撤销执行的能力来阻止 rob 和 fetch-buffer 的回滚，进而造成 origin 和 variant 的差异。相比于 load/store，fdiv 指令可以用更少的条数就触发瞬态攻击。
+
+![fdiv](img/fdiv-rewind.png)
+
+如果引入更多的 fdiv 指令可以产生更大的差异，从而有更明显的攻击能力。
+
+![fdiv-double](img/fdiv-double-rewind.png)
+
+结论：
+* 算术指令、M 扩展指令都不会导致窗口回滚阻塞，LSU、FPU、rocc 这种多周期、外部单元托管的指令才会
+* 指令数量越多对窗口延迟的影响越大，越能导致后续状态的发散
+* 发散程度是有上限的
 
 

@@ -71,7 +71,7 @@ void exit(int code) {
 
 void setup_pmp() {
   uintptr_t cfg0, addr0;
-  addr0 = ((uintptr_t) _secret_start | (0x1000 - 1)) >> 2;
+  addr0 = ((uintptr_t) _secret_start | ((0x1000 - 1)>>1)) >> 2;
   write_csr(pmpaddr0, addr0);
   cfg0 = PMP_NAPOT | PMP_L;
   write_csr(pmpcfg0, cfg0);

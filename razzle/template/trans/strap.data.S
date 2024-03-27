@@ -1,13 +1,17 @@
 .align 3
-trap_num_mode: 
+strap_num_mode: 
     .dword CMD_SWITCH_STATE|STATE_DUMP_NUM
-trap_char_mode: 
+strap_char_mode: 
     .dword CMD_SWITCH_STATE|STATE_DUMP_CHAR
-trap_ptr_mode: 
+strap_ptr_mode: 
     .dword CMD_SWITCH_STATE|STATE_DUMP_ADDR
-trap_stop: 
+strap_stop: 
     .dword CMD_POWER_OFF
-trap_secret_target: 
+strap_secret_target: 
     .dword GUESS_TARGET
-trap_leak_target: 
+strap_leak_target: 
     .dword LEAK_TARGET
+
+strap_stack_top:
+    .space 0x100
+strap_stack_bottom:

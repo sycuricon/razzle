@@ -1,4 +1,6 @@
 {
+    attack: S
+    victim: M
     init: {
         bound: [
             0x80000000
@@ -104,8 +106,16 @@
                 name: _init_block
                 strategy: default
             }
-            trap_param: {
-                name: trap_block
+            mtrap_param: {
+                name: mtrap_block
+                strategy: default
+            }
+            secret_protect_param: {
+                name: secret_protect_block
+                strategy: default
+            }
+            strap_param: {
+                name: strap_block
                 strategy: default
             }
             exit_param: {
@@ -132,13 +142,13 @@
             predict_param: {
                 name: predict_block
                 strategy: default
-                predict_kind: branch_not_taken
+                predict_kind: load
             }
 
             encode_param: {
                 name: encode_block
                 strategy: default
-                leak_kind:LSUport
+                leak_kind: cache
             }
             decode_call_param: {
                 name: decode_call_block

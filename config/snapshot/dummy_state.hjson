@@ -153,7 +153,7 @@
 			Load_Access_Fault:      0b0
 			Store_Addr_Misalign:    0b0
 			Store_Access_Fault:     0b0
-			Ecall_U:                0b1
+			Ecall_U:                0b0
 			Ecall_S:                0b0
 			Ecall_H:                0b0
 			Ecall_M:                0b0

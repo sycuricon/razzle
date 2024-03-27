@@ -69,8 +69,9 @@ class PageTableSection(Section):
 
 
 class PageTableManager(SectionManager):
-    def __init__(self, config):
+    def __init__(self, config, set_U):
         super().__init__(config)
+        self.set_U = set_U
         self.xLen = config["xLen"]
         self.pg_level = config["pg_level"]
         self.page_tables = []
@@ -127,18 +128,23 @@ class PageTableManager(SectionManager):
             vaddr = info["vaddr"]
             paddr = info["paddr"]
             flag = info["flag"]
+            if not self.set_U:
+                flag &= ~Flag.U
             length = info["length"]
             if vaddr == paddr:
                 continue
             for offset in range(0, length, Page.size):
                 vaddr_offset = vaddr + offset
                 paddr_offset = paddr + offset
+                vaddr_virtual_offset = vaddr_offset + 0xFFFFFFFFFFF00000
                 self._register_page(vaddr_offset, paddr_offset, flag)
+                self._register_page(vaddr_virtual_offset, paddr_offset, flag & ~Flag.U)
 
     def _generate_sections(self):
         self.section["pagetable"] = PageTableSection(
             ".pagetable", self.pg_level, self.page_tables
         )
+        self.section["pagetable"].add_global_label(["vaddr_0x4000_paddr_0x80004000"])
 
     def _distribute_address(self):
         self.section["pagetable"].get_bound(

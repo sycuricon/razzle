@@ -74,7 +74,7 @@ class InitBlock(TransBlock):
         self.data_list = self._load_raw_asm("trans/_init.data.S")
 
 
-class TrapBlock(TransBlock):
+class MTrapBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
         super().__init__(extension, fuzz_param)
         assert (
@@ -83,8 +83,48 @@ class TrapBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("trans/trap.text.S"))
-        self.data_list = self._load_raw_asm("trans/trap.data.S")
+        self.inst_list.extend(self._load_raw_asm("trans/mtrap.text.S"))
+        self.data_list = self._load_raw_asm("trans/mtrap.data.S")
+
+
+class SecretProtectBlock(TransBlock):
+    def __init__(self, extension, fuzz_param):
+        super().__init__(extension, fuzz_param)
+        self.victim_privilege = fuzz_param["victim_privilege"]
+        self.virtual = fuzz_param["virtual"]
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+
+    def gen_default(self, graph):
+        self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        mtrap_block = graph["mtrap"]
+        if (
+            self.victim_privilege == "M" or self.victim_privilege == "S"
+        ) and self.virtual:
+            self.inst_list.extend(self._load_raw_asm("trans/secret_protect.S.text.S"))
+        if self.victim_privilege == "M":
+            self.inst_list.extend(self._load_raw_asm("trans/secret_protect.M.text.S"))
+
+        self.inst_list.append(RawInstruction(f"la t0, {mtrap_block.entry}"))
+        self.inst_list.append(RawInstruction("csrw mtvec, t0"))
+        self.inst_list.append(RawInstruction("csrr t0, mepc"))
+        self.inst_list.append(RawInstruction("addi t0, t0, 4"))
+        self.inst_list.append(RawInstruction("csrw mepc, t0"))
+        self.inst_list.append(RawInstruction("mret"))
+
+
+class STrapBlock(TransBlock):
+    def __init__(self, extension, fuzz_param):
+        super().__init__(extension, fuzz_param)
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+
+    def gen_default(self, graph):
+        self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        self.inst_list.extend(self._load_raw_asm("trans/strap.text.S"))
+        self.data_list = self._load_raw_asm("trans/strap.data.S")
 
 
 class ReturnBlock(TransBlock):
@@ -136,7 +176,7 @@ class EncodeBlock(TransBlock):
             case "LSUport":
                 self.inst_list.extend(self._load_raw_asm("trans/encode.LSUport.text.S"))
             case _:
-                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {self.leak_kind}"
+                raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
 
 
@@ -157,7 +197,7 @@ class DecodeBlock(TransBlock):
             case "FPUport" | "LSUport":
                 self.inst_list.append(RawInstruction("ret"))
             case _:
-                raise f"leak_kind must be 'cache', 'FPUport' or 'LSUport', rather than {encode_block.leak_kind}"
+                raise f"leak_kind cannot be {encode_block.leak_kind}"
 
 
 class DecodeCallBlock(TransBlock):
@@ -341,7 +381,7 @@ class DelayBlock(TransBlock):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         self.inst_list.extend(self._load_raw_asm("trans/delay.text.S"))
         self.data_list = self._load_raw_asm("trans/delay.data.S")
-        self.result_reg = "t0".upper()
+        self.result_reg = "t2".upper()
         self.result_imm = 0
 
 
@@ -381,23 +421,13 @@ class PredictBlock(TransBlock):
                 self.off_imm = call_inst["IMM"]
                 self.inst_list.append(call_inst)
             case "return":
+                self.inst_list.append(
+                    Instruction(f"add ra, {self.dep_reg.lower()}, a0")
+                )
+                self.inst_list.append(RawInstruction("ret"))
                 self.inst_list.append(RawInstruction(f"{self.entry}:"))
-                delay_link_inst = Instruction(f"add ra, {self.dep_reg}, a0")
-                self.inst_list.append(delay_link_inst)
-                ret_inst = Instruction()
-                ret_inst.set_name_constraint(["JALR"])
-                ret_inst.set_category_constraint(["JUMP"])
-                ret_inst.set_extension_constraint(["RV_I"])
-                ret_inst.set_imm_constraint(range(0, 1))
-
-                def c_ret(rd, rs1):
-                    return rd == "ZERO" and rs1 == "RA"
-
-                ret_inst.add_constraint(c_ret, ["RD", "RS1"], True)
-                ret_inst.solve()
-
-                self.off_imm = ret_inst["IMM"]
-                self.inst_list.append(ret_inst)
+                self.inst_list.append(RawInstruction(f"call {delay_block.entry}"))
+                self.off_imm = 0
             case "branch_taken" | "branch_not_taken":
                 self.inst_list.append(RawInstruction(f"{self.entry}:"))
                 ret_inst = Instruction()
@@ -432,6 +462,22 @@ class PredictBlock(TransBlock):
 
                 self.branch_kind = ret_inst["NAME"]
                 self.inst_list.append(ret_inst)
+            case "except":
+                self.inst_list.append(RawInstruction(f"{self.entry}:"))
+            case "load":
+                self.data_list.append(RawInstruction("target_offset:"))
+                self.data_list.append(
+                    RawInstruction(".dword secret + LEAK_TARGET - trapoline")
+                )
+
+                self.inst_list.append(RawInstruction(f"{self.entry}:"))
+                self.inst_list.append(RawInstruction("la t0, target_offset"))
+                self.inst_list.append(RawInstruction("ld a1, 0(t0)"))
+                self.inst_list.append(
+                    RawInstruction(f"add t1, a0, {self.dep_reg.lower()}")
+                )
+                self.inst_list.append(RawInstruction(f"sd zero, 0(t1)"))
+                self.inst_list.append(RawInstruction(f"ld a1, 0(t0)"))
             case _:
                 raise "Error: predict_kind not implemented!"
 
@@ -500,6 +546,12 @@ class RunTimeBlock(TransBlock):
 
                 if predict_block.predict_kind == "branch_not_taken":
                     train_param, victim_param = victim_param, train_param
+            case "except":
+                train_param = 0
+                victim_param = 0
+            case "load":
+                train_param = f"target_offset - {delay_block.result_imm}"
+                victim_param = f"target_offset - {delay_block.result_imm}"
             case _:
                 raise "Error: predict_kind not implemented!"
         return victim_param, train_param
@@ -514,6 +566,8 @@ class RunTimeBlock(TransBlock):
     ):
         delay_block = graph["delay"]
 
+        self.data_list.append(RawInstruction("trap_return_entry:"))
+        self.data_list.append(RawInstruction(".space 0x8"))
         self.data_list.append(RawInstruction("train_param_table:"))
         for i in range(self.train_loop):
             self.data_list.append(RawInstruction(f"train_predict_param_{i}:"))
@@ -532,8 +586,18 @@ class RunTimeBlock(TransBlock):
     def _gen_inst_list(self, graph):
         delay_block = graph["delay"]
         predict_block = graph["predict"]
+        return_block = graph["return"]
+        if predict_block.predict_kind != "return":
+            train_entry = predict_block.entry
+            victim_entry = delay_block.entry
+        else:
+            train_entry = delay_block.entry
+            victim_entry = predict_block.entry
 
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        self.inst_list.append(RawInstruction(f"la t0, {return_block.entry}"))
+        self.inst_list.append(RawInstruction("la t1, trap_return_entry"))
+        self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
         for i in range(self.train_loop):
             table_width = 3
             self.inst_list.append(RawInstruction(f"la t0, train_{i}_end"))
@@ -548,7 +612,7 @@ class RunTimeBlock(TransBlock):
                 )
             )
             self.inst_list.append(RawInstruction("INFO_TRAIN_START"))
-            self.inst_list.append(RawInstruction(f"j {predict_block.entry}"))
+            self.inst_list.append(RawInstruction(f"j {train_entry}"))
             self.inst_list.append(RawInstruction(f"train_{i}_end:"))
             self.inst_list.append(RawInstruction("INFO_TRAIN_END"))
 
@@ -561,7 +625,7 @@ class RunTimeBlock(TransBlock):
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
             self.inst_list.append(RawInstruction(f"ld a1, {i*8*table_width+8}(t0)"))
             self.inst_list.append(RawInstruction("INFO_VCTM_START"))
-            self.inst_list.append(RawInstruction(f"j {delay_block.entry}"))
+            self.inst_list.append(RawInstruction(f"j {victim_entry}"))
             self.inst_list.append(RawInstruction(f"victim_{i}_end:"))
             self.inst_list.append(RawInstruction("INFO_VCTM_END"))
 
