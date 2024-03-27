@@ -243,27 +243,27 @@
     }
     mtvec:
     {
-      BASE: secret_protect_block_entry
+      BASE: trap_entry
       MODE: 0b00
     }
     stvec:
     {
-      BASE: strap_block_entry  + 0xfffffffffff00000
+      BASE: abort
       MODE: 0b00
     }
     satp:
     {
-      PPN: 0x80001000
+      PPN: 0x0000000000000000
       ASID: 0x0
-      MODE: 0x8
+      MODE: 0x0
     }
     mscratch:
     {
-      SCRATCH: mtrap_stack_bottom
+      SCRATCH: 0x80003800
     }
     sscratch:
     {
-      SCRATCH: strap_stack_bottom + 0xfffffffffff00000
+      SCRATCH: 0x0
     }
   }
   pmp:
