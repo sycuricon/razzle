@@ -100,15 +100,51 @@ class DistributeManager:
                 f"-I{RAZZLE_ROOT}/template/loader",
                 # TODO: fix this hook
                 f"-T{self.output_path}/{ld_name}",
-            ]
+            ],
         )
-        self.baker.add_cmd(gen_elf.generate([*self.file_list, "-o", f"{self.output_path}/Testbench"]))
-        self.baker.add_cmd(gen_elf.generate([*self.var_file_list, "-o", f"{self.output_path}/Testbench.variant"]))
+        self.baker.add_cmd(
+            gen_elf.generate([*self.file_list, "-o", f"{self.output_path}/Testbench"])
+        )
+        self.baker.add_cmd(
+            gen_elf.generate(
+                [*self.var_file_list, "-o", f"{self.output_path}/Testbench.variant"]
+            )
+        )
 
-        self._generate_compile_files()
+        gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
+        self.baker.add_cmd(
+            gen_bin.generate(
+                [f"{self.output_path}/Testbench", f"{self.output_path}/Testbench.bin"]
+            )
+        )
+        self.baker.add_cmd(
+            gen_bin.generate(
+                [
+                    f"{self.output_path}/Testbench.variant",
+                    f"{self.output_path}/Testbench.variant.bin",
+                ]
+            )
+        )
 
-        # os.system(f'make BUILD_PATH={self.output_path}')
-        # os.system(f'make sim BUILD_PATH={self.output_path}')
+        gen_hex = ShellCommand("od", ["-v", "-An", "-tx8"])
+        self.baker.add_cmd(
+            gen_hex.generate(
+                [
+                    f"{self.output_path}/Testbench.bin",
+                    ">",
+                    f"{self.output_path}/Testbench.hex",
+                ]
+            )
+        )
+        self.baker.add_cmd(
+            gen_hex.generate(
+                [
+                    f"{self.output_path}/Testbench.variant.bin",
+                    ">",
+                    f"{self.output_path}/Testbench.variant.hex",
+                ]
+            )
+        )
 
     def run(self, cmd=None):
         self.baker.run(cmd)
