@@ -249,6 +249,9 @@ class RISCVSnapshot:
     def dump(self):
         logging.info(f"{self}: {self.__dict__}")
 
+    def load_state(self, init_state):
+        self.state.load_state(init_state)
+
     def load_snapshot(self, init_file):
         init_state = hjson.load(open(init_file, "r"))
         self.state.load_state(init_state)

@@ -11,7 +11,6 @@ class InitManager(SectionManager):
         self.privilege = privilege
         self.output_path = output_path
         self.init_input = config["init_input"]
-        self.init_output = os.path.join(output_path, config["init_output"])
 
         pmp = config["pmp"]
         self.design = RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, do_fuzz)
@@ -95,11 +94,13 @@ class InitManager(SectionManager):
         with open(self.init_input, "rt") as base_init_file:
             self.reg_init_config = hjson.load(base_init_file)
         self._set_symbol_relate_register()
-        with open(self.init_output, "wt") as output_file:
+        output_path = os.path.join(self.output_path, "init.done.hjson")
+        with open(output_path, "wt") as output_file:
+            print(f"[*] The init file is overwritten, check {output_path}")
             hjson.dump(self.reg_init_config, output_file)
 
     def _reg_asm_generate(self):
-        self.design.load_snapshot(self.init_output)
+        self.design.load_state(self.reg_init_config)
         image_name = f"{self.output_path}/{self.image}"
         self.design.save(image_name, output_format=self.output_format, output_width=64)
 

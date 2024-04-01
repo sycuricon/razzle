@@ -15,7 +15,6 @@
         format: asm
         asm: init.S
         init_input: config/snapshot/dummy_state.hjson
-        init_output: reg_init.hjson
         folder: []
         file: []
     }
