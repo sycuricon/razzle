@@ -4,6 +4,7 @@ import logging
 from razzle.snapshot.riscv_csr import *
 from string import Template
 
+
 class RISCVReg:
     def __init__(self, width):
         self.width = width
@@ -41,12 +42,13 @@ class RISCVReg:
             val = 0
             for name, offset, mask in meta_list:
                 val |= (
-                    (self.decode_reg(val_dict[name]) & mask) // ((mask) & ~((mask) << 1))
+                    (self.decode_reg(val_dict[name]) & mask)
+                    // ((mask) & ~((mask) << 1))
                 ) << offset
             return val
         except TypeError:
             return val_dict[name]
-    
+
     def __save(self, func):
         if isinstance(self.data, list):
             return [func(d, i) for i, d in enumerate(self.data)]
@@ -60,17 +62,20 @@ class RISCVReg:
             case "bin":
                 return self.__save(lambda d, i: d.to_bytes(self.width // 8, "little"))
             case "asm":
-                return self.__save(lambda d, i: f"init_{self.init_name[i]}:\n " + \
-                                   (f".dword {hex(d) if isinstance(d, int) else d}\n"))
+                return self.__save(
+                    lambda d, i: f"init_{self.init_name[i]}:\n "
+                    + (f".dword {hex(d) if isinstance(d, int) else d}\n")
+                )
 
-for rf, (begin, end) in zip(["xreg", "freg"],[(1, 32), (0, 32)]):
+
+for rf, (begin, end) in zip(["xreg", "freg"], [(1, 32), (0, 32)]):
     globals()[f"RISCVReg_{rf}"] = type(
         f"RISCVReg_{rf}",
         (RISCVReg,),
         {
             "name": rf,
-            "init_name": [f"{rf}{i}" for i in range(begin,end)],
-            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "init_name": [f"{rf}{i}" for i in range(begin, end)],
+            "__init__": lambda self, width: RISCVReg.__init__(self, width),
             "decode": lambda self, init_state: setattr(
                 self, "data", [self.decode_reg(reg) for reg in init_state[self.name]]
             ),
@@ -84,9 +89,10 @@ for csr in SUPPORTED_CSR:
         {
             "name": csr,
             "init_name": [csr],
-            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "__init__": lambda self, width: RISCVReg.__init__(self, width),
             "decode": lambda self, init_state: setattr(
-                self, "data",
+                self,
+                "data",
                 self.decode_fields(
                     init_state["csr"][self.name],
                     globals()[f"RV{self.width}_{self.name.upper()}_META"],
@@ -95,16 +101,25 @@ for csr in SUPPORTED_CSR:
         },
     )
 
+
 def pmp_addr_decode(self, init_state):
     mode = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["A"]
     addr = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["ADDR"]
     match mode:
         case "OFF" | "TOR" | "NA4":
-            self.data = self.decode_fields({"PMPADDR": addr}, globals()[f"RV{self.width}_PMPADDR_META"])
+            self.data = self.decode_fields(
+                {"PMPADDR": addr}, globals()[f"RV{self.width}_PMPADDR_META"]
+            )
         case "NAPOT":
             addr = self.decode_reg(addr)
-            range = self.decode_reg(init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"])
-            self.data = self.decode_fields({"PMPADDR": hex(addr & ~range | ((range - 1)>>1))}, globals()[f"RV{self.width}_PMPADDR_META"])
+            range = self.decode_reg(
+                init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"]
+            )
+            self.data = self.decode_fields(
+                {"PMPADDR": hex(addr & ~range | ((range - 1) >> 1))},
+                globals()[f"RV{self.width}_PMPADDR_META"],
+            )
+
 
 def pmp_cfg_decode(self, init_state):
     cfg = 0
@@ -114,7 +129,9 @@ def pmp_cfg_decode(self, init_state):
             A_alias = {"OFF": "0b00", "TOR": "0b01", "NA4": "0b10", "NAPOT": "0b11"}
             cfg_state = dict(init_state["pmp"][f"pmp{idx}"])
             cfg_state["A"] = A_alias[cfg_state["A"]]
-            cfg |= self.decode_fields(cfg_state, globals()[f"RV{self.width}_PMPCFG_META"]) << (cfg_idx * 8)
+            cfg |= self.decode_fields(
+                cfg_state, globals()[f"RV{self.width}_PMPCFG_META"]
+            ) << (cfg_idx * 8)
     self.data = cfg
 
 
@@ -126,7 +143,7 @@ for pmp_idx in range(64):
             "name": f"pmpaddr{pmp_idx}",
             "init_name": [f"pmpaddr{pmp_idx}"],
             "pmp_addr_idx": pmp_idx,
-            '__init__': lambda self, width: RISCVReg.__init__(self, width),
+            "__init__": lambda self, width: RISCVReg.__init__(self, width),
             "decode": pmp_addr_decode,
         },
     )
@@ -138,7 +155,7 @@ for pmp_idx in range(64):
                 "name": f"pmpcfg{pmp_idx // 4}",
                 "init_name": [f"pmpcfg{pmp_idx // 4}"],
                 "pmp_cfg_idx": pmp_idx // 4,
-                '__init__': lambda self, width: RISCVReg.__init__(self, width),
+                "__init__": lambda self, width: RISCVReg.__init__(self, width),
                 "decode": pmp_cfg_decode,
             },
         )
@@ -165,16 +182,21 @@ class RISCVState:
 
 
 class RISCVSnapshot:
-    def __init__(self, march, pmp_num, selected_csr, fuzz = False):
+    def __init__(self, march, pmp_num, selected_csr, fuzz=False):
         self.fuzz = fuzz
         self.xlen, self.extension = self.parse_march(march)
         self.selected_csr = selected_csr
         self.target_list = (
-            selected_csr + self.gen_pmp_list(pmp_num) +
-            [t for t in [
-                "freg" if self.extension.issuperset(["f", "d"]) else None,
-                "xreg",
-            ] if t is not None]
+            selected_csr
+            + self.gen_pmp_list(pmp_num)
+            + [
+                t
+                for t in [
+                    "freg" if self.extension.issuperset(["f", "d"]) else None,
+                    "xreg",
+                ]
+                if t is not None
+            ]
         )
 
         self.state = RISCVState(self.xlen, self.target_list, self.pmp_num)
@@ -185,17 +207,20 @@ class RISCVSnapshot:
         if self.xlen == 32:
             pmp_cfg_list = [f"pmpcfg{idx}" for idx in range((self.pmp_num + 3) // 4)]
         elif self.xlen == 64:
-            pmp_cfg_list = [f"pmpcfg{idx * 2}" for idx in range((self.pmp_num + 7) // 8)]
+            pmp_cfg_list = [
+                f"pmpcfg{idx * 2}" for idx in range((self.pmp_num + 7) // 8)
+            ]
         else:
             pmp_cfg_list = []
 
         return pmp_addr_list + pmp_cfg_list
 
-
     def parse_march(self, march):
         if len(march) < 5:
             return None, None
-        march = march.lower().replace("rv64g", "rv64imafd").replace("rv32g", "rv32imafd")
+        march = (
+            march.lower().replace("rv64g", "rv64imafd").replace("rv32g", "rv32imafd")
+        )
         if march[0:5] not in ["rv64i", "rv32i"]:
             logging.error(f"Unsupported march {march[0:5]}")
             return None, None
@@ -248,12 +273,21 @@ class RISCVSnapshot:
                     assert output_width % self.xlen == 0, "Misaligned output width"
                     chunk_size = output_width // self.xlen
                     for i in range(0, len(format_state), chunk_size):
-                        output_buffer.append("".join(reversed(format_state[i:i + chunk_size])))
+                        output_buffer.append(
+                            "".join(reversed(format_state[i : i + chunk_size]))
+                        )
                 elif output_width < self.xlen:
                     assert self.xlen % output_width == 0, "Misaligned output width"
                     chunk_size = output_width // 8 * 2
                     for s in format_state:
-                        output_buffer.extend(reversed([s[i:i + chunk_size] for i in range(0, self.xlen // 8 * 2, chunk_size)]))
+                        output_buffer.extend(
+                            reversed(
+                                [
+                                    s[i : i + chunk_size]
+                                    for i in range(0, self.xlen // 8 * 2, chunk_size)
+                                ]
+                            )
+                        )
                 else:
                     output_buffer = format_state
                 output_file.write("\n".join(output_buffer))
@@ -261,8 +295,6 @@ class RISCVSnapshot:
             with open(output_file, "wt") as output_file:
                 for s in format_state:
                     output_file.write(s)
-
-
 
     def __gen_load_asm(self, target, idx, base="x31", tmp="x30"):
         result = []
@@ -278,27 +310,26 @@ class RISCVSnapshot:
 
         return result
 
-
     def gen_loader(self, asm_file, **kwargs):
         if all(attr in kwargs for attr in ["with_bin", "with_rom", "with_asm"]):
             raise ValueError("with_bin, with_rom and with_asm cannot be used together")
-        
+
         load_offset = []
         offset = 0
         for t in self.target_list:
             asm_list = self.__gen_load_asm(t, offset)
             load_offset.extend(asm_list)
             offset += len(asm_list)
-        
+
         include_bin = ""
         if "with_bin" in kwargs:
             load_base_addr = "la x31, reg_info"
             binary_file = kwargs["with_bin"]
-            include_bin = f".incbin \"{binary_file}\""
+            include_bin = f'.incbin "{binary_file}"'
         elif "with_asm" in kwargs:
             load_base_addr = "la x31, reg_info"
             data_asm_file = kwargs["with_asm"]
-            include_bin = f"#include \"{data_asm_file}\""
+            include_bin = f'#include "{data_asm_file}"'
         else:
             rom_addr = kwargs["with_rom"]
             load_base_addr = f"la x31, {hex(rom_addr)}"
@@ -306,13 +337,17 @@ class RISCVSnapshot:
         with open(asm_file, "wt") as asm_file:
             RAZZLE_ROOT = os.environ["RAZZLE_ROOT"]
             if self.fuzz:
-                template = Template(open(f"{RAZZLE_ROOT}/template/loader/init_fuzz.tmp", "r").read())
+                template = Template(
+                    open(f"{RAZZLE_ROOT}/template/loader/init_fuzz.tmp", "r").read()
+                )
             else:
-                template = Template(open(f"{RAZZLE_ROOT}/template/loader/init.tmp", "r").read())
+                template = Template(
+                    open(f"{RAZZLE_ROOT}/template/loader/init.tmp", "r").read()
+                )
             done = template.substitute(
                 load_state_setup=load_base_addr,
                 load_state_body="\n".join(load_offset),
-                load_state_extra=include_bin
+                load_state_extra=include_bin,
             )
 
             asm_file.write(done)

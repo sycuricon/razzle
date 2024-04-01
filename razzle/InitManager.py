@@ -11,7 +11,7 @@ class InitManager(SectionManager):
         self.privilege = privilege
         self.output_path = output_path
         self.init_input = config["init_input"]
-        self.init_output = config["init_output"]
+        self.init_output = os.path.join(output_path, config["init_output"])
 
         pmp = config["pmp"]
         self.design = RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, do_fuzz)
@@ -114,14 +114,11 @@ class InitManager(SectionManager):
                 f"{self.output_path}/{self.asm}", with_bin=image_name
             )
 
-        # os.system(f"cp ./rvsnap/src/loader/rvsnap.h {self.output_path}/")
-
     def _generate_sections(self):
         self._reg_init_generate()
         self._reg_asm_generate()
 
         init_link = [
-            # '\t\t*(.text.init)\n'
             "\t\t*(.text.init)\n"
             "\t\t*(.data.init)\n"
         ]
