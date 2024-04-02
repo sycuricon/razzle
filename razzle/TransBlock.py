@@ -713,16 +713,16 @@ def inst_simlutor(baker, inst_list, data_list):
         ],
     )
     baker.add_cmd(
-        gen_elf.generate([file_name, "-o", os.path.join(baker.output_path, "tmp")])
+        gen_elf.generate([file_name, "-o", "$OUTPUT_PATH/tmp"])
     )
 
     inst_cnt = ShellCommand(
-        "riscv64-unknown-elf-objdump", ["-d", os.path.join(baker.output_path, "tmp"), "| grep -cE '^[[:space:]]+'"]
+        "riscv64-unknown-elf-objdump", ["-d", "$OUTPUT_PATH/tmp", "| grep -cE '^[[:space:]]+'"]
     )
     baker.add_cmd(inst_cnt.save_to("INST_CNT"))
 
     gen_dump = ShellCommand(
-        "spike-solve", [f'{os.path.join(baker.output_path, "tmp")}', f"$INST_CNT", f'{os.path.join(baker.output_path, "dump")}']
+        "spike-solve", ["$OUTPUT_PATH/tmp", "$INST_CNT", "$OUTPUT_PATH/dump"]
     )
     baker.add_cmd(gen_dump.generate())
     baker.run()

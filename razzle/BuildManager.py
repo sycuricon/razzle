@@ -34,7 +34,7 @@ class BuildManager:
                 f.write(f"export {env}={val}\n")
             f.write(f"export OUTPUT_PATH={self.output_path}\n")
             
-            f.write(f"cd {self.output_path}\n")
+            f.write(f"cd $OUTPUT_PATH\n")
             for cmd in self.build_cmds:
                 f.write(cmd + "\n")
 
