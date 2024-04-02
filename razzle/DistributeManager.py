@@ -1,8 +1,8 @@
 from BuildManager import *
 from ChannelManger import *
-from PageTableManager import *
 from InitManager import *
 from LoaderManager import *
+from PageTableManager import *
 from PocManager import *
 from PayloadManager import *
 from SecretManager import *
@@ -17,8 +17,7 @@ class DistributeManager:
         hjson_file.close()
 
         self.baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
-            os.path.join(output_path, "build.sh"),
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
         )
         self.attack_privilege = config["attack"]
         self.victim_privilege = config["victim"]
@@ -37,7 +36,7 @@ class DistributeManager:
         self.code["stack"] = StackManager(config["stack"])
         if do_fuzz:
             self.code["payload"] = TransManager(
-                config["fuzz"], self.victim_privilege, self.virtual
+                config["fuzz"], self.victim_privilege, self.virtual, output_path
             )
         else:
             self.code["payload"] = PayloadManager(config["payload"])

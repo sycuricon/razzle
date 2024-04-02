@@ -1,7 +1,7 @@
 #ifndef __PARAFUZZ_H
 #define __PARAFUZZ_H
 
-#include "boom_conf_asm.h"
+#include "boom_conf.h"
 
 #define CMD_SWITCH_STATE    0xAF1B608E883A0000ul
 #define STATE_DEFAULT       0

@@ -14,9 +14,10 @@ class ShellCommand:
 
 
 class BuildManager:
-    def __init__(self, env_var, file_name, shell="/bin/zsh"):
+    def __init__(self, env_var, output_path, shell="/bin/zsh"):
         self.shell = shell
-        self.file_name = file_name
+        self.output_path = output_path
+        self.file_name = os.path.join(output_path, "build.sh")
         self.env_var = env_var
         self.build_cmds = []
 
@@ -28,7 +29,9 @@ class BuildManager:
 
             for env, val in self.env_var.items():
                 f.write(f"export {env}={val}\n")
-
+            f.write(f"export OUTPUT_PATH={self.output_path}\n")
+            
+            f.write(f"cd {self.output_path}\n")
             for cmd in self.build_cmds:
                 f.write(cmd + "\n")
 

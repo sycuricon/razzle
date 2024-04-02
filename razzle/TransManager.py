@@ -1,7 +1,6 @@
+import os
 from SectionManager import *
 from SectionUtils import *
-import sys
-import os
 from TransBlock import *
 
 
@@ -19,7 +18,7 @@ class FuzzSection(Section):
 
 
 class TransManager(SectionManager):
-    def __init__(self, config, victim_privilege, virtual):
+    def __init__(self, config, victim_privilege, virtual, output_path):
         super().__init__(config)
         self.transblock = {}
         self.extension = [
@@ -42,6 +41,7 @@ class TransManager(SectionManager):
             "victim_privilege"
         ] = self.victim_privilege
         self.block_param["secret_protect_param"]["virtual"] = self.virtual
+        self.output_path = output_path
 
     def _generate_sections(self):
         block_index = [
@@ -60,12 +60,12 @@ class TransManager(SectionManager):
         ]
 
         self.graph = {}
-        for index, block_construct in block_index:
-            block = block_construct(self.extension, self.block_param[index + "_param"])
-            self.graph[index] = block
+        for block_type, block_construct in block_index:
+            block = block_construct(self.extension, self.block_param[block_type + "_param"], self.output_path)
+            self.graph[block_type] = block
 
-        for index, block_construct in block_index:
-            self.graph[index].gen_instr(self.graph)
+        for block_type, block_construct in block_index:
+            self.graph[block_type].gen_instr(self.graph)
 
         text_section = self.section[".text"] = FuzzSection(
             ".text", Flag.U | Flag.X | Flag.R

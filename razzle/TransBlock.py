@@ -1,16 +1,17 @@
-import sys
+
 import os
 import random
+import sys
+from BuildManager import *
 from SectionUtils import *
 
-sys.path.append(os.path.join(os.getcwd(), "razzle_razzle/template/transient/src"))
 from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
 
 class TransBlock:
-    def __init__(self, extension, fuzz_param):
+    def __init__(self, extension, fuzz_param, output_path):
         self.name = fuzz_param["name"]
         self.entry = self.name + "_entry"
         self.inst_list = []
@@ -20,6 +21,11 @@ class TransBlock:
         assert (
             self.strategy == "default" or self.strategy == "random"
         ), "strategy must be default or random"
+        self.baker = BuildManager(
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
+            os.path.join(output_path, self.name)
+        )
+
 
     def _load_raw_asm(self, file_name):
         # file_name=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..',file_name)
@@ -62,8 +68,8 @@ class TransBlock:
 
 
 class InitBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -75,8 +81,8 @@ class InitBlock(TransBlock):
 
 
 class MTrapBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -88,8 +94,8 @@ class MTrapBlock(TransBlock):
 
 
 class SecretProtectBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         self.victim_privilege = fuzz_param["victim_privilege"]
         self.virtual = fuzz_param["virtual"]
         assert (
@@ -115,8 +121,8 @@ class SecretProtectBlock(TransBlock):
 
 
 class STrapBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -128,8 +134,8 @@ class STrapBlock(TransBlock):
 
 
 class ReturnBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -141,8 +147,8 @@ class ReturnBlock(TransBlock):
 
 
 class ExitBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -154,8 +160,8 @@ class ExitBlock(TransBlock):
 
 
 class EncodeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         self.leak_kind = fuzz_param["leak_kind"]
         assert self.leak_kind in [
             "cache",
@@ -181,8 +187,8 @@ class EncodeBlock(TransBlock):
 
 
 class DecodeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -201,8 +207,8 @@ class DecodeBlock(TransBlock):
 
 
 class DecodeCallBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -213,8 +219,8 @@ class DecodeCallBlock(TransBlock):
 
 
 class DelayBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         self.float_rate = fuzz_param["float_rate"]
         self.delay_len = fuzz_param["delay_len"]
 
@@ -373,7 +379,7 @@ class DelayBlock(TransBlock):
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
         self._gen_init_inst(dep_list)
-        dump_reg = inst_simlutor(self.inst_list, self.data_list)
+        dump_reg = inst_simlutor(self.baker, self.inst_list, self.data_list)
         self.result_reg = dep_list[-1]
         self.result_imm = dump_reg[self.result_reg]
 
@@ -386,8 +392,8 @@ class DelayBlock(TransBlock):
 
 
 class PredictBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         self.predict_kind = fuzz_param["predict_kind"]
 
     def gen_random(self, graph):
@@ -483,8 +489,8 @@ class PredictBlock(TransBlock):
 
 
 class RunTimeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         self.train_loop = fuzz_param["train_loop"]
         self.victim_loop = fuzz_param["victim_loop"]
         # self.predict_kind = predict_kind
@@ -647,12 +653,15 @@ class RunTimeBlock(TransBlock):
         self._gen_inst_list(graph)
 
 
-def inst_simlutor(inst_list, data_list):
-    file_name = "inst_sim/Testcase.S"
+def inst_simlutor(baker, inst_list, data_list):
+    if not os.path.exists(baker.output_path):
+        os.makedirs(baker.output_path)
+
+    file_name = os.path.join(baker.output_path, "tmp.S")
     with open(file_name, "wt") as file:
-        file.write('#include"../razzle/template/trans/boom_conf_asm.h"\n')
-        file.write('#include"../razzle/template/trans/encoding_asm.h"\n')
-        file.write('#include"../razzle/template/trans/parafuzz_asm.h"\n')
+        file.write('#include "boom_conf.h"\n')
+        file.write('#include "encoding.h"\n')
+        file.write('#include "parafuzz_asm.h"\n')
         file.write(".section .text\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")
@@ -663,8 +672,32 @@ def inst_simlutor(inst_list, data_list):
         for data in data_list:
             file.write(data.to_asm())
             file.write("\n")
-    os.system("make -C inst_sim sim")
-    with open("inst_sim/dump", "rt") as file:
+
+    gen_elf = ShellCommand(
+        "riscv64-unknown-elf-gcc",
+        [
+            "-march=rv64g_zicsr",
+            "-mabi=lp64f",
+            "-mcmodel=medany",
+            "-nostdlib",
+            "-nostartfiles",
+            "-I$RAZZLE_ROOT/template",
+            "-I$RAZZLE_ROOT/template/trans",
+            "-T$RAZZLE_ROOT/template/tmp/link.ld",
+        ],
+    )
+    baker.add_cmd(
+        gen_elf.generate([file_name, "-o", os.path.join(baker.output_path, "tmp")])
+    )
+
+    gen_dump = ShellCommand(
+        "make", ["-C", "$RAZZLE_ROOT/concreg", f'TESTCASE={os.path.join(baker.output_path, "tmp")}', f'DUMPLOG={os.path.join(baker.output_path, "dump")}']
+    )
+    baker.add_cmd(gen_dump.generate())
+    baker.run()
+
+    # os.system("make -C inst_sim sim")
+    with open(os.path.join(baker.output_path, "dump"), "rt") as file:
         reg_lines = file.readlines()
         dump_reg = {}
         for reg_line in reg_lines:
