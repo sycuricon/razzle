@@ -87,34 +87,33 @@ class DistributeManager:
                 "-mcmodel=medany",
                 "-nostdlib",
                 "-nostartfiles",
-                f"-I{self.output_path}",
-                f"-I{RAZZLE_ROOT}/template",
-                f"-I{RAZZLE_ROOT}/template/trans",
-                f"-I{RAZZLE_ROOT}/template/loader",
-                # TODO: fix this hook
-                f"-T{self.output_path}/{ld_name}",
+                f"-I$OUTPUT_PATH",
+                f"-I$RAZZLE_ROOT/template",
+                f"-I$RAZZLE_ROOT/template/trans",
+                f"-I$RAZZLE_ROOT/template/loader",
+                f"-T$OUTPUT_PATH/{ld_name}",
             ],
         )
         self.baker.add_cmd(
-            gen_elf.generate([*self.file_list, "-o", f"{self.output_path}/Testbench"])
+            gen_elf.generate([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench"])
         )
         self.baker.add_cmd(
             gen_elf.generate(
-                [*self.var_file_list, "-o", f"{self.output_path}/Testbench.variant"]
+                [*self.var_file_list, "-o", f"$OUTPUT_PATH/Testbench.variant"]
             )
         )
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
         self.baker.add_cmd(
             gen_bin.generate(
-                [f"{self.output_path}/Testbench", f"{self.output_path}/Testbench.bin"]
+                [f"$OUTPUT_PATH/Testbench", f"$OUTPUT_PATH/Testbench.bin"]
             )
         )
         self.baker.add_cmd(
             gen_bin.generate(
                 [
-                    f"{self.output_path}/Testbench.variant",
-                    f"{self.output_path}/Testbench.variant.bin",
+                    f"$OUTPUT_PATH/Testbench.variant",
+                    f"$OUTPUT_PATH/Testbench.variant.bin",
                 ]
             )
         )
@@ -123,18 +122,16 @@ class DistributeManager:
         self.baker.add_cmd(
             gen_hex.generate(
                 [
-                    f"{self.output_path}/Testbench.bin",
-                    ">",
-                    f"{self.output_path}/Testbench.hex",
+                    f"$OUTPUT_PATH/Testbench.bin",
+                    f"> $OUTPUT_PATH/Testbench.hex",
                 ]
             )
         )
         self.baker.add_cmd(
             gen_hex.generate(
                 [
-                    f"{self.output_path}/Testbench.variant.bin",
-                    ">",
-                    f"{self.output_path}/Testbench.variant.hex",
+                    f"$OUTPUT_PATH/Testbench.variant.bin",
+                    f"> $OUTPUT_PATH/Testbench.variant.hex",
                 ]
             )
         )

@@ -1,4 +1,3 @@
-
 import os
 import random
 import sys
@@ -23,9 +22,8 @@ class TransBlock:
         ), "strategy must be default or random"
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
-            os.path.join(output_path, self.name)
+            os.path.join(output_path, self.name),
         )
-
 
     def _load_raw_asm(self, file_name):
         # file_name=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..',file_name)
@@ -76,8 +74,8 @@ class InitBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/_init.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/_init.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/_init.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/_init.data.S"))
 
 
 class MTrapBlock(TransBlock):
@@ -89,8 +87,8 @@ class MTrapBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/mtrap.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/mtrap.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap.data.S"))
 
 
 class SecretProtectBlock(TransBlock):
@@ -108,9 +106,13 @@ class SecretProtectBlock(TransBlock):
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
         ) and self.virtual:
-            self.inst_list.extend(self._load_raw_asm("razzle/template/trans/secret_protect.S.text.S"))
+            self.inst_list.extend(
+                self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect.S.text.S"))
+            )
         if self.victim_privilege == "M":
-            self.inst_list.extend(self._load_raw_asm("razzle/template/trans/secret_protect.M.text.S"))
+            self.inst_list.extend(
+                self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect.M.text.S"))
+            )
 
         self.inst_list.append(RawInstruction(f"la t0, {mtrap_block.entry}"))
         self.inst_list.append(RawInstruction("csrw mtvec, t0"))
@@ -129,8 +131,8 @@ class STrapBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/strap.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/strap.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap.data.S"))
 
 
 class ReturnBlock(TransBlock):
@@ -142,8 +144,8 @@ class ReturnBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/return.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/return.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return.data.S"))
 
 
 class ExitBlock(TransBlock):
@@ -155,8 +157,9 @@ class ExitBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/exit.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/exit.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit.data.S"))
+
 
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, fuzz_param, output_path):
@@ -167,8 +170,12 @@ class AccessSecretBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/access_secret.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/access_secret.data.S")
+        self.inst_list.extend(
+            self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/access_secret.text.S"))
+        )
+        self.data_list = self._load_raw_asm(
+            "razzle/template/trans/access_secret.data.S"
+        )
 
 
 class EncodeBlock(TransBlock):
@@ -188,11 +195,17 @@ class EncodeBlock(TransBlock):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (self.leak_kind):
             case "cache":
-                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.cache.text.S"))
+                self.inst_list.extend(
+                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.cache.text.S"))
+                )
             case "FPUport":
-                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.FPUport.text.S"))
+                self.inst_list.extend(
+                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.FPUport.text.S"))
+                )
             case "LSUport":
-                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/encode.LSUport.text.S"))
+                self.inst_list.extend(
+                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.LSUport.text.S"))
+                )
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
@@ -211,7 +224,9 @@ class DecodeBlock(TransBlock):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (encode_block.leak_kind):
             case "cache":
-                self.inst_list.extend(self._load_raw_asm("razzle/template/trans/decode.cache.text.S"))
+                self.inst_list.extend(
+                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode.cache.text.S"))
+                )
             case "FPUport" | "LSUport":
                 self.inst_list.append(RawInstruction("ret"))
             case _:
@@ -227,7 +242,9 @@ class DecodeCallBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/decode_call.text.S"))
+        self.inst_list.extend(
+            self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_call.text.S"))
+        )
 
 
 class DelayBlock(TransBlock):
@@ -397,8 +414,8 @@ class DelayBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/delay.text.S"))
-        self.data_list = self._load_raw_asm("razzle/template/trans/delay.data.S")
+        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/delay.text.S")))
+        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/delay.data.S"))
         self.result_reg = "t2".upper()
         self.result_imm = 0
 
@@ -587,7 +604,7 @@ class RunTimeBlock(TransBlock):
             self.data_list.append(RawInstruction(f"train_delay_value_{i}:"))
             self.data_list.append(RawInstruction(f".dword {delay_block.result_imm}"))
 
-        self.data_list.append(RawInstruction('train_offset_table:'))
+        self.data_list.append(RawInstruction("train_offset_table:"))
         for i in range(self.train_loop):
             self.data_list.append(RawInstruction(f"train_offset_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {train_offset_param}"))
@@ -597,7 +614,7 @@ class RunTimeBlock(TransBlock):
             self.data_list.append(RawInstruction(f"victim_predict_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_predict_param}"))
 
-        self.data_list.append(RawInstruction('victim_offset_table:'))
+        self.data_list.append(RawInstruction("victim_offset_table:"))
         for i in range(self.victim_loop):
             self.data_list.append(RawInstruction(f"victim_offset_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_offset_param}"))
@@ -628,7 +645,11 @@ class RunTimeBlock(TransBlock):
             # predict param
             self.inst_list.append(RawInstruction("la t0, train_param_table"))
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
-            self.inst_list.append(RawInstruction(f"ld {delay_block.result_reg.lower()}, {i*8*table_width+8}(t0)"))
+            self.inst_list.append(
+                RawInstruction(
+                    f"ld {delay_block.result_reg.lower()}, {i*8*table_width+8}(t0)"
+                )
+            )
 
             # offset param, stored in train_offset_table
             self.inst_list.append(RawInstruction("la t0, train_offset_table"))
@@ -712,12 +733,11 @@ def inst_simlutor(baker, inst_list, data_list):
             "-T$RAZZLE_ROOT/template/tmp/link.ld",
         ],
     )
-    baker.add_cmd(
-        gen_elf.generate([file_name, "-o", "$OUTPUT_PATH/tmp"])
-    )
+    baker.add_cmd(gen_elf.generate([file_name, "-o", "$OUTPUT_PATH/tmp"]))
 
     inst_cnt = ShellCommand(
-        "riscv64-unknown-elf-objdump", ["-d", "$OUTPUT_PATH/tmp", "| grep -cE '^[[:space:]]+'"]
+        "riscv64-unknown-elf-objdump",
+        ["-d", "$OUTPUT_PATH/tmp", "| grep -cE '^[[:space:]]+'"],
     )
     baker.add_cmd(inst_cnt.save_to("INST_CNT"))
 
