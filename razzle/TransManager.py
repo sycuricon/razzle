@@ -54,6 +54,7 @@ class TransManager(SectionManager):
             ("delay", DelayBlock),
             ("predict", PredictBlock),
             ("run_time", RunTimeBlock),
+            ("access_secret",AccessSecretBlock),
             ("encode", EncodeBlock),
             ("decode_call", DecodeCallBlock),
             ("decode", DecodeBlock),
@@ -88,9 +89,9 @@ class TransManager(SectionManager):
         poc_block = ["decode"]
         payload_block = ["_init", "run_time", "decode_call", "exit", "delay", "predict"]
         if self.graph["predict"].predict_kind == "branch_not_taken":
-            payload_block.extend(["return", "encode"])
+            payload_block.extend(["return", "access_secret", "encode"])
         else:
-            payload_block.extend(["encode", "return"])
+            payload_block.extend(["access_secret", "encode", "return"])
 
         def set_section(text_section, data_section, block_list):
             for block_index in block_list:
