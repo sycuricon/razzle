@@ -716,13 +716,17 @@ def inst_simlutor(baker, inst_list, data_list):
         gen_elf.generate([file_name, "-o", os.path.join(baker.output_path, "tmp")])
     )
 
+    inst_cnt = ShellCommand(
+        "riscv64-unknown-elf-objdump", ["-d", os.path.join(baker.output_path, "tmp"), "| grep -cE '^[[:space:]]+'"]
+    )
+    baker.add_cmd(inst_cnt.save_to("INST_CNT"))
+
     gen_dump = ShellCommand(
-        "make", ["-C", "$RAZZLE_ROOT/concreg", f'TESTCASE={os.path.join(baker.output_path, "tmp")}', f'DUMPLOG={os.path.join(baker.output_path, "dump")}']
+        "spike-solve", [f'{os.path.join(baker.output_path, "tmp")}', f"$INST_CNT", f'{os.path.join(baker.output_path, "dump")}']
     )
     baker.add_cmd(gen_dump.generate())
     baker.run()
 
-    # os.system("make -C inst_sim sim")
     with open(os.path.join(baker.output_path, "dump"), "rt") as file:
         reg_lines = file.readlines()
         dump_reg = {}

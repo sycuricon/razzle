@@ -12,6 +12,9 @@ class ShellCommand:
     def generate(self, extra_args=[]):
         return " ".join(self.args + extra_args)
 
+    def save_to(self, name, extra_args=[]):
+        return f"{name}=$({self.generate(extra_args)})"
+
 
 class BuildManager:
     def __init__(self, env_var, output_path, shell="/bin/zsh"):
