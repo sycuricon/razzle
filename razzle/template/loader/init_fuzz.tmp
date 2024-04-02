@@ -1,5 +1,5 @@
 #include "rvsnap.h"
-#include "parafuzz_asm.h"
+#include "parafuzz.h"
 
 .section .text.init
 .global _start

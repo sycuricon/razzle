@@ -1,7 +1,6 @@
 #ifndef __PARAFUZZ_H
 #define __PARAFUZZ_H
 
-#include <stdint.h>
 
 #include "boom_conf.h"
 
@@ -29,11 +28,15 @@
     #define LEAK_SECRET     {100, 101, 97, 100, 98, 101, 101, 102, 32, 105, 115, 32, 97, 32, 109, 97, 103, 105, 99, 32, 110, 117, 109, 98, 101, 114, 32, 116, 104, 97, 116, 32, 117, 115, 101, 100, 32, 98, 121, 32, 112, 114, 97, 114, 97, 102, 117, 122, 122, 32, 116, 111, 32, 100, 105, 115, 99, 108, 111, 115, 101, 32, 116, 114, 97, 110, 115, 105, 101, 110, 116, 32, 101, 120, 101, 99, 117, 116, 105, 111, 110, 32, 118, 117, 108, 110, 101, 114, 97, 98, 105, 108, 105, 116, 121, 32, 105, 110, 32, 116, 104, 101, 32, 112, 114, 111, 99, 101, 115, 115, 111, 114, 46, 32, 58, 80, 0}
 #endif
 
-#define PARAFUZZ_DEFINE \
-    uint64_t guess; \
-    extern uint8_t secret[]; \
+#ifndef __ASSEMBLER__
+#include <stdint.h>
+
+#define PARAFUZZ_DEFINE         \
+    uint64_t guess;             \
+    extern uint8_t secret[];    \
     extern uint8_t trapoline[]; \
     extern uint8_t array[];
+
 extern uint8_t _secret_start[], _secret_end[];
 
 void init_resetmanager();
@@ -51,6 +54,8 @@ extern void disable_fs();
 void setup_pmp();
 
 #define INFO_INLINE_ASM(x)          "slti zero, zero, " macro_2_str(x) "\n"
+#endif
+
 #define ENUM_INFO_VCTM_START        0
 #define ENUM_INFO_VCTM_END          1
 #define ENUM_INFO_DELAY_START       2
@@ -59,7 +64,14 @@ void setup_pmp();
 #define ENUM_INFO_TEXE_END          5
 #define ENUM_INFO_LEAK_START        6
 #define ENUM_INFO_LEAK_END          7
+#define ENUM_INFO_INIT_START        8
+#define ENUM_INFO_INIT_END          9
+#define ENUM_INFO_BIM_START         10
+#define ENUM_INFO_BIM_END           11
+#define ENUM_INFO_TRAIN_START       12
+#define ENUM_INFO_TRAIN_END         13
 
+#ifndef __ASSEMBLER__
 #define INFO_VCTM_START     asm("slti zero, zero, " macro_2_str(ENUM_INFO_VCTM_START)     "\n");   // 0x00002013
 #define INFO_VCTM_END       asm("fence\nslti zero, zero, " macro_2_str(ENUM_INFO_VCTM_END)"\n");   // 0x00102013
 #define INFO_DELAY_START    asm("slti zero, zero, " macro_2_str(ENUM_INFO_DELAY_START)    "\n");   // 0x00202013
@@ -73,5 +85,24 @@ void setup_pmp();
                                 "csrw 0x800, %[default_mode]\n"     \
                                 "csrw 0x800, t0\n"                  \
                                 :: [default_mode] "r" ((CMD_SWITCH_STATE | STATE_DEFAULT)));
-
+#else
+#define INFO_VCTM_START     slti zero, zero, ENUM_INFO_VCTM_START
+#define INFO_VCTM_END       fence; slti zero, zero, ENUM_INFO_VCTM_END
+#define INFO_DELAY_START    slti zero, zero, ENUM_INFO_DELAY_START
+#define INFO_DELAY_END      slti zero, zero, ENUM_INFO_DELAY_END
+#define INFO_TEXE_START     slti zero, zero, ENUM_INFO_TEXE_START
+#define INFO_TEXE_END       slti zero, zero, ENUM_INFO_TEXE_END
+#define INFO_LEAK_START     slti zero, zero, ENUM_INFO_LEAK_START
+#define INFO_LEAK_END       slti zero, zero, ENUM_INFO_LEAK_END
+#define INFO_INIT_START     slti zero, zero, ENUM_INFO_INIT_START
+#define INFO_INIT_END       slti zero, zero, ENUM_INFO_INIT_END
+#define INFO_BIM_START      slti zero, zero, ENUM_INFO_BIM_START
+#define INFO_BIM_END        slti zero, zero, ENUM_INFO_BIM_END
+#define INFO_TRAIN_START    slti zero, zero, ENUM_INFO_TRAIN_START
+#define INFO_TRAIN_END      slti zero, zero, ENUM_INFO_TRAIN_END
+#define INFO_CONTROL_LEAK   csrr t0, cycle;                             \
+                            li t1, CMD_SWITCH_STATE | STATE_DEFAULT;    \
+                            csrw 0x800, t1;                             \
+                            csrw 0x800, t0
+#endif
 #endif //__PARAFUZZ_H

@@ -159,8 +159,8 @@ class ExitBlock(TransBlock):
         self.data_list = self._load_raw_asm("razzle/template/trans/exit.data.S")
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, fuzz_param):
-        super().__init__(extension, fuzz_param)
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__(extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -687,7 +687,7 @@ def inst_simlutor(baker, inst_list, data_list):
     with open(file_name, "wt") as file:
         file.write('#include "boom_conf.h"\n')
         file.write('#include "encoding.h"\n')
-        file.write('#include "parafuzz_asm.h"\n')
+        file.write('#include "parafuzz.h"\n')
         file.write(".section .text\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")

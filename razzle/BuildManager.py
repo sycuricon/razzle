@@ -25,7 +25,7 @@ class BuildManager:
         with open(self.file_name, "wt") as f:
             f.write(f"#!{self.shell}\n")
             # exit if any command fails
-            f.write("set -e\n")
+            f.write("set -e -x\n")
 
             for env, val in self.env_var.items():
                 f.write(f"export {env}={val}\n")
