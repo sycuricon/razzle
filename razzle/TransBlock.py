@@ -152,6 +152,18 @@ class ExitBlock(TransBlock):
         self.inst_list.extend(self._load_raw_asm("razzle/template/trans/exit.text.S"))
         self.data_list = self._load_raw_asm("razzle/template/trans/exit.data.S")
 
+class AccessSecretBlock(TransBlock):
+    def __init__(self, extension, fuzz_param):
+        super().__init__(extension, fuzz_param)
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+
+    def gen_default(self, graph):
+        self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        self.inst_list.extend(self._load_raw_asm("razzle/template/trans/access_secret.text.S"))
+        self.data_list = self._load_raw_asm("razzle/template/trans/access_secret.data.S")
+
 
 class EncodeBlock(TransBlock):
     def __init__(self, extension, fuzz_param):
@@ -220,7 +232,7 @@ class DelayBlock(TransBlock):
 
     def _gen_dep_list(self):
         self.GPR_list = [
-            reg for reg in reg_range if reg not in ["A0", "A1", "ZERO", "T0", "T1"]
+            reg for reg in reg_range if reg not in ["A0", "ZERO", "T0", "T1"]
         ]
         self.FLOAT_list = float_range
         dep_list = []
@@ -399,6 +411,7 @@ class PredictBlock(TransBlock):
         self.dep_reg = graph["delay"].result_reg
         self.dep_val = graph["delay"].result_imm
         encode_block = graph["encode"]
+        access_secret_block = graph["access_secret"]
         return_block = graph["return"]
         delay_block = graph["delay"]
 
@@ -436,7 +449,7 @@ class PredictBlock(TransBlock):
                 if self.predict_kind == "branch_taken":
                     ret_inst.set_label_constraint([return_block.entry])
                 else:
-                    ret_inst.set_label_constraint([encode_block.entry])
+                    ret_inst.set_label_constraint([access_secret_block.entry])
 
                 def c_param(NAME, RS1, RS2):
                     return (
@@ -465,19 +478,11 @@ class PredictBlock(TransBlock):
             case "except":
                 self.inst_list.append(RawInstruction(f"{self.entry}:"))
             case "load":
-                self.data_list.append(RawInstruction("target_offset:"))
-                self.data_list.append(
-                    RawInstruction(".dword secret + LEAK_TARGET - trapoline")
-                )
-
                 self.inst_list.append(RawInstruction(f"{self.entry}:"))
-                self.inst_list.append(RawInstruction("la t0, target_offset"))
-                self.inst_list.append(RawInstruction("ld a1, 0(t0)"))
                 self.inst_list.append(
                     RawInstruction(f"add t1, a0, {self.dep_reg.lower()}")
                 )
                 self.inst_list.append(RawInstruction(f"sd zero, 0(t1)"))
-                self.inst_list.append(RawInstruction(f"ld a1, 0(t0)"))
             case _:
                 raise "Error: predict_kind not implemented!"
 
@@ -499,12 +504,13 @@ class RunTimeBlock(TransBlock):
     def _gen_predict_param(self, graph):
         predict_block = graph["predict"]
         encode_block = graph["encode"]
+        access_secret_block = graph["access_secret"]
         return_block = graph["return"]
         delay_block = graph["delay"]
 
         match (predict_block.predict_kind):
             case "call" | "return":
-                train_param = f"{encode_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
+                train_param = f"{access_secret_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
                 victim_param = f"{return_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
             case "branch_taken" | "branch_not_taken":
                 delay_imm = delay_block.result_imm
@@ -572,14 +578,21 @@ class RunTimeBlock(TransBlock):
         for i in range(self.train_loop):
             self.data_list.append(RawInstruction(f"train_predict_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {train_predict_param}"))
-            self.data_list.append(RawInstruction(f"train_offset_param_{i}:"))
-            self.data_list.append(RawInstruction(f".dword {train_offset_param}"))
             self.data_list.append(RawInstruction(f"train_delay_value_{i}:"))
             self.data_list.append(RawInstruction(f".dword {delay_block.result_imm}"))
+
+        self.data_list.append(RawInstruction('train_offset_table:'))
+        for i in range(self.train_loop):
+            self.data_list.append(RawInstruction(f"train_offset_param_{i}:"))
+            self.data_list.append(RawInstruction(f".dword {train_offset_param}"))
+
         self.data_list.append(RawInstruction("victim_param_table:"))
         for i in range(self.victim_loop):
             self.data_list.append(RawInstruction(f"victim_predict_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_predict_param}"))
+
+        self.data_list.append(RawInstruction('victim_offset_table:'))
+        for i in range(self.victim_loop):
             self.data_list.append(RawInstruction(f"victim_offset_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_offset_param}"))
 
@@ -594,36 +607,49 @@ class RunTimeBlock(TransBlock):
             train_entry = delay_block.entry
             victim_entry = predict_block.entry
 
+        # trap -> return, address stored in trap_return_rtap
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         self.inst_list.append(RawInstruction(f"la t0, {return_block.entry}"))
         self.inst_list.append(RawInstruction("la t1, trap_return_entry"))
         self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
         for i in range(self.train_loop):
-            table_width = 3
+            table_width = 2
+            # return -> runtime, address stored in store_ra
             self.inst_list.append(RawInstruction(f"la t0, train_{i}_end"))
             self.inst_list.append(RawInstruction("la t1, store_ra"))
             self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
+
+            # predict param
             self.inst_list.append(RawInstruction("la t0, train_param_table"))
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
-            self.inst_list.append(RawInstruction(f"ld a1, {i*8*table_width+8}(t0)"))
-            self.inst_list.append(
-                RawInstruction(
-                    f"ld {delay_block.result_reg.lower()}, {i*8*table_width+16}(t0)"
-                )
-            )
+            self.inst_list.append(RawInstruction(f"ld {delay_block.result_reg.lower()}, {i*8*table_width+8}(t0)"))
+
+            # offset param, stored in train_offset_table
+            self.inst_list.append(RawInstruction("la t0, train_offset_table"))
+            self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
+            self.inst_list.append(RawInstruction("la t0, target_offset"))
+            self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
+
+            # call function
             self.inst_list.append(RawInstruction("INFO_TRAIN_START"))
             self.inst_list.append(RawInstruction(f"j {train_entry}"))
             self.inst_list.append(RawInstruction(f"train_{i}_end:"))
             self.inst_list.append(RawInstruction("INFO_TRAIN_END"))
 
         for i in range(self.victim_loop):
-            table_width = 2
+            table_width = 1
             self.inst_list.append(RawInstruction(f"la t0, victim_{i}_end"))
             self.inst_list.append(RawInstruction("la t1, store_ra"))
             self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
+
             self.inst_list.append(RawInstruction("la t0, victim_param_table"))
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
-            self.inst_list.append(RawInstruction(f"ld a1, {i*8*table_width+8}(t0)"))
+
+            self.inst_list.append(RawInstruction("la t0, victim_offset_table"))
+            self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
+            self.inst_list.append(RawInstruction("la t0, target_offset"))
+            self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
+
             self.inst_list.append(RawInstruction("INFO_VCTM_START"))
             self.inst_list.append(RawInstruction(f"j {victim_entry}"))
             self.inst_list.append(RawInstruction(f"victim_{i}_end:"))

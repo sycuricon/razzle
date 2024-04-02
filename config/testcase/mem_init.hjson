@@ -144,6 +144,10 @@
                 predict_kind: call
             }
 
+            access_secret_param: {
+                name: access_secret
+                strategy: default
+            }
             encode_param: {
                 name: encode_block
                 strategy: default
