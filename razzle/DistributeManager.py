@@ -136,5 +136,15 @@ class DistributeManager:
             )
         )
 
+        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
+        self.baker.add_cmd(
+            gen_asm.generate(
+                [
+                    f"$OUTPUT_PATH/Testbench",
+                    f"> $OUTPUT_PATH/Testbench.asm",
+                ]
+            )
+        )
+
     def run(self, cmd=None):
         self.baker.run(cmd)
