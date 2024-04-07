@@ -9,11 +9,11 @@ class ShellCommand:
     def add_options(self, extra_args=[]):
         self.args.extend(extra_args)
 
-    def generate(self, extra_args=[]):
+    def save_cmd(self, extra_args=[]):
         return " ".join(self.args + extra_args)
 
-    def save_to(self, name, extra_args=[]):
-        return f"{name}=$({self.generate(extra_args)})"
+    def save_output(self, name, extra_args=[]):
+        return f"{name}=$({self.save_cmd(extra_args)})"
 
 
 class BuildManager:
@@ -48,7 +48,7 @@ class BuildManager:
         if cmd is not None:
             self.build_cmds.append(cmd)
 
-        self.add_cmd("echo Build Done")
+        self.add_cmd(f'echo "[*] Script {self.file_name} done"')
 
         self._save_file()
         os.system(f"chmod +x {self.file_name}")

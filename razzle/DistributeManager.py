@@ -95,22 +95,22 @@ class DistributeManager:
             ],
         )
         self.baker.add_cmd(
-            gen_elf.generate([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench"])
+            gen_elf.save_cmd([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench"])
         )
         self.baker.add_cmd(
-            gen_elf.generate(
+            gen_elf.save_cmd(
                 [*self.var_file_list, "-o", f"$OUTPUT_PATH/Testbench.variant"]
             )
         )
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
         self.baker.add_cmd(
-            gen_bin.generate(
+            gen_bin.save_cmd(
                 [f"$OUTPUT_PATH/Testbench", f"$OUTPUT_PATH/Testbench.bin"]
             )
         )
         self.baker.add_cmd(
-            gen_bin.generate(
+            gen_bin.save_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench.variant",
                     f"$OUTPUT_PATH/Testbench.variant.bin",
@@ -120,7 +120,7 @@ class DistributeManager:
 
         gen_hex = ShellCommand("od", ["-v", "-An", "-tx8"])
         self.baker.add_cmd(
-            gen_hex.generate(
+            gen_hex.save_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench.bin",
                     f"> $OUTPUT_PATH/Testbench.hex",
@@ -128,7 +128,7 @@ class DistributeManager:
             )
         )
         self.baker.add_cmd(
-            gen_hex.generate(
+            gen_hex.save_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench.variant.bin",
                     f"> $OUTPUT_PATH/Testbench.variant.hex",
@@ -138,7 +138,7 @@ class DistributeManager:
 
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         self.baker.add_cmd(
-            gen_asm.generate(
+            gen_asm.save_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench",
                     f"> $OUTPUT_PATH/Testbench.asm",
