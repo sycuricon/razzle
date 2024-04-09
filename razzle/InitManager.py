@@ -28,11 +28,11 @@ class InitManager(SectionManager):
             self.reg_init_config["xreg"][2] = "__global_pointer$"
         # mtvec/stvec
         if self.do_fuzz:
-            self.reg_init_config["csr"]["mtvec"]["BASE"] = "secret_protect_block_entry"
+            self.reg_init_config["csr"]["mtvec"]["BASE"] = "secret_protect_block_1_entry"
             self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
             self.reg_init_config["csr"]["stvec"][
                 "BASE"
-            ] = "strap_block_entry  + 0xfffffffffff00000"
+            ] = "strap_block_1_entry  + 0xfffffffffff00000"
             self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
         else:
             self.reg_init_config["csr"]["mtvec"]["BASE"] = "trap_entry"
@@ -41,8 +41,8 @@ class InitManager(SectionManager):
             self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
         # mepc/sepc
         if self.do_fuzz:
-            self.reg_init_config["csr"]["mepc"]["EPC"] = "_init_block_entry"
-            self.reg_init_config["csr"]["sepc"]["EPC"] = "_init_block_entry"
+            self.reg_init_config["csr"]["mepc"]["EPC"] = "init_block_1_entry"
+            self.reg_init_config["csr"]["sepc"]["EPC"] = "init_block_1_entry"
         else:
             self.reg_init_config["csr"]["mepc"]["EPC"] = "_init"
             self.reg_init_config["csr"]["sepc"]["EPC"] = "_init"

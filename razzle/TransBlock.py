@@ -10,8 +10,9 @@ from payload.Block import *
 
 
 class TransBlock:
-    def __init__(self, extension, fuzz_param, output_path):
-        self.name = fuzz_param["name"]
+    def __init__(self, name, depth, extension, fuzz_param, output_path):
+        self.name = f'{name}_{depth}'
+        self.depth = depth
         self.entry = self.name + "_entry"
         self.inst_list = []
         self.data_list = []
@@ -25,11 +26,32 @@ class TransBlock:
             os.path.join(output_path, self.name),
         )
 
-    def _load_raw_asm(self, file_name):
+    def _load_file_asm(self, file_name, is_raw = True):
         # file_name=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..',file_name)
         with open(file_name, "rt") as file:
             file_list = file.readlines()
-        inst_list = [RawInstruction(line.strip()) for line in file_list]
+        if is_raw:
+            inst_list = self._load_raw_asm(file_list)
+        else:
+            inst_list = self._load_str_asm(file_list)
+        return inst_list
+
+    def _load_str_asm(self, str_list):
+        inst_list = []
+        for str_element in str_list:
+            str_element = str_element.strip()
+            try:
+                inst = Instruction(str_element)
+            except:
+                inst = RawInstruction(str_element)
+            inst_list.append(inst)
+        return inst_list
+    
+    def _load_raw_asm(self, str_list):
+        inst_list = []
+        for str_element in str_list:
+            inst = RawInstruction(str_element.strip())
+            inst_list.append(inst)
         return inst_list
 
     def is_default(self):
@@ -66,34 +88,34 @@ class TransBlock:
 
 
 class InitBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('init_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/_init.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/_init.data.S"))
+        self.inst_list.extend(self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.text.S")))
+        self.data_list = self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.data.S"))
 
 
 class MTrapBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('mtrap_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap.data.S"))
+        self.inst_list.extend(self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.text.S")))
+        self.data_list = self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.data.S"))
 
 
 class SecretProtectBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('secret_protect_block', depth, extension, fuzz_param, output_path)
         self.victim_privilege = fuzz_param["victim_privilege"]
         self.virtual = fuzz_param["virtual"]
         assert (
@@ -102,16 +124,16 @@ class SecretProtectBlock(TransBlock):
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        mtrap_block = graph["mtrap"]
+        mtrap_block = graph[f"mtrap_block_{self.depth}"]
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
         ) and self.virtual:
             self.inst_list.extend(
-                self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect.S.text.S"))
+                self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.S.text.S"))
             )
         if self.victim_privilege == "M":
             self.inst_list.extend(
-                self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect.M.text.S"))
+                self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
             )
 
         self.inst_list.append(RawInstruction(f"la t0, {mtrap_block.entry}"))
@@ -123,64 +145,75 @@ class SecretProtectBlock(TransBlock):
 
 
 class STrapBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('strap_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap.data.S"))
+        self.inst_list.extend(self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.text.S")))
+        self.data_list = self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.data.S"))
 
 
 class ReturnBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('return_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
-        self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return.data.S"))
-
+        self.inst_list.append(RawInstruction(f'{self.entry}:'))
+        self.inst_list.append(RawInstruction(f'ld ra, {self.name}_store_ra'))
+        self.inst_list.append(RawInstruction('ret'))
+        self.data_list.append(RawInstruction(f'{self.name}_store_ra:'))
+        self.data_list.append(RawInstruction('.space 0x8'))
 
 class ExitBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('exit_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit.data.S"))
+        self.inst_list.extend(self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S")))
+        self.data_list = self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('access_secret_block', depth,extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
-        self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(
-            self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/access_secret.text.S"))
-        )
-        self.data_list = self._load_raw_asm(
-            "razzle/template/trans/access_secret.data.S"
-        )
+        inst_list = [
+            f"{self.entry}:",
+            'INFO_TEXE_START',
+            f'la t0, {self.name}_target_offset',
+            'ld t1, 0(t0)',
+            'la t0, trapoline',
+            'add t0, t0, t1',
+            'lb t0, 0(t0)',
+        ]
+
+        data_list = [
+            f'{self.name}_target_offset:',
+            '.space 0x8',
+        ]
+
+        self.inst_list = self._load_str_asm(inst_list)
+        self.data_list = self._load_str_asm(data_list)
 
 
 class EncodeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('encode_block', depth, extension, fuzz_param, output_path)
         self.leak_kind = fuzz_param["leak_kind"]
         assert self.leak_kind in [
             "cache",
@@ -192,50 +225,52 @@ class EncodeBlock(TransBlock):
         raise "Error: gen_random not implemented!"
 
     def gen_default(self, graph):
+        return_block = graph[f"return_block_{self.depth}"]
+
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (self.leak_kind):
             case "cache":
                 self.inst_list.extend(
-                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.cache.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.cache.text.S"))
                 )
             case "FPUport":
                 self.inst_list.extend(
-                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.FPUport.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.FPUport.text.S"))
                 )
             case "LSUport":
                 self.inst_list.extend(
-                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode.LSUport.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.LSUport.text.S"))
                 )
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
-        self.inst_list.append(RawInstruction(f"j {graph['return'].entry}"))
+        self.inst_list.append(RawInstruction(f"j {return_block.entry}"))
 
 
 class DecodeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('decode_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
-        encode_block = graph["encode"]
+        encode_block = graph[f"encode_block_{graph['depth']}"]
 
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         match (encode_block.leak_kind):
             case "cache":
                 self.inst_list.extend(
-                    self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode.cache.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"))
                 )
             case "FPUport" | "LSUport":
-                self.inst_list.append(RawInstruction("ret"))
+                self.inst_list.append(Instruction("ret"))
             case _:
                 raise f"leak_kind cannot be {encode_block.leak_kind}"
 
 
 class DecodeCallBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('decode_call_block', depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -243,13 +278,13 @@ class DecodeCallBlock(TransBlock):
     def gen_default(self, graph):
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
         self.inst_list.extend(
-            self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_call.text.S"))
+            self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_call_block.text.S"))
         )
 
 
 class DelayBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('delay_block', depth, extension, fuzz_param, output_path)
         self.float_rate = fuzz_param["float_rate"]
         self.delay_len = fuzz_param["delay_len"]
 
@@ -384,8 +419,8 @@ class DelayBlock(TransBlock):
 
         tmp_inst_list = []
         tmp_inst_list.append(RawInstruction(f"{self.entry}:"))
-        tmp_inst_list.append(RawInstruction(f"la t1, delay_data_table"))
-        self.data_list.append(RawInstruction("delay_data_table:"))
+        tmp_inst_list.append(RawInstruction(f"la t1, {self.name}_delay_data_table"))
+        self.data_list.append(RawInstruction(f"{self.name}_delay_data_table:"))
         for i, freg in enumerate(float_init_list):
             self.data_list.append(RawInstruction(f".dword {random.randint(0, 2**64)}"))
             tmp_inst_list.append(RawInstruction(f"ld t0, {i*8}(t1)"))
@@ -413,16 +448,40 @@ class DelayBlock(TransBlock):
         self.result_imm = dump_reg[self.result_reg]
 
     def gen_default(self, graph):
-        self.inst_list.append(RawInstruction(f"{self.entry}:"))
-        self.inst_list.extend(self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/delay.text.S")))
-        self.data_list = self._load_raw_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/delay.data.S"))
+        inst_list = [
+            f'{self.entry}:',
+            'INFO_DELAY_START',
+            f'la t0, {self.name}_delay_dummy1',
+            'ld t0, 0(t0)',
+            f'la t1, {self.name}_delay_dummy2',
+            'ld t1, 0(t1)',
+            'fcvt.s.lu   fa4, t0',
+            'fcvt.s.lu	fa5, t1',
+            'fdiv.s	fa5, fa5, fa4',
+            'fdiv.s	fa5, fa5, fa4',
+            'fdiv.s	fa5, fa5, fa4',
+            'fdiv.s	fa5, fa5, fa4',
+            'fdiv.s	fa5, fa5, fa4',
+            'fcvt.lu.s   t2, fa5, rtz',
+            'INFO_DELAY_END',
+        ]
+
+        data_list = [
+            f'{self.name}_delay_dummy1:',
+            '.dword 0xa234b057963aef89',
+            f'{self.name}_delay_dummy2:',
+            '.dword 0x46fea3467def0136',
+        ]
+
+        self.inst_list = self._load_str_asm(inst_list)
+        self.data_list = self._load_str_asm(data_list)
         self.result_reg = "t2".upper()
         self.result_imm = 0
 
 
 class PredictBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('predict', depth, extension, fuzz_param, output_path)
         self.predict_kind = fuzz_param["predict_kind"]
 
     def gen_random(self, graph):
@@ -431,12 +490,12 @@ class PredictBlock(TransBlock):
     def gen_default(self, graph):
         # self.inst_list.append(RawInstruction(f'xor {self.result_reg.lower()}, {self.result_reg.lower()}, {self.result_reg.lower()}'))
 
-        self.dep_reg = graph["delay"].result_reg
-        self.dep_val = graph["delay"].result_imm
-        encode_block = graph["encode"]
-        access_secret_block = graph["access_secret"]
-        return_block = graph["return"]
-        delay_block = graph["delay"]
+        delay_block = graph[f"delay_block_{self.depth}"]
+        self.dep_reg = delay_block.result_reg
+        self.dep_val = delay_block.result_imm
+        transient_block = graph[f"transient_block_{self.depth}"]\
+            if self.depth != graph["depth"] else graph[f"access_secret_block_{self.depth}"]
+        return_block = graph[f"return_block_{self.depth}"]
 
         match (self.predict_kind):
             case "call":
@@ -472,7 +531,7 @@ class PredictBlock(TransBlock):
                 if self.predict_kind == "branch_taken":
                     ret_inst.set_label_constraint([return_block.entry])
                 else:
-                    ret_inst.set_label_constraint([access_secret_block.entry])
+                    ret_inst.set_label_constraint([transient_block.entry])
 
                 def c_param(NAME, RS1, RS2):
                     return (
@@ -511,8 +570,8 @@ class PredictBlock(TransBlock):
 
 
 class RunTimeBlock(TransBlock):
-    def __init__(self, extension, fuzz_param, output_path):
-        super().__init__(extension, fuzz_param, output_path)
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('run_time_block', depth, extension, fuzz_param, output_path)
         self.train_loop = fuzz_param["train_loop"]
         self.victim_loop = fuzz_param["victim_loop"]
         # self.predict_kind = predict_kind
@@ -525,15 +584,15 @@ class RunTimeBlock(TransBlock):
         #            'branch_kind':predict_block.branch_kind}
 
     def _gen_predict_param(self, graph):
-        predict_block = graph["predict"]
-        encode_block = graph["encode"]
-        access_secret_block = graph["access_secret"]
-        return_block = graph["return"]
-        delay_block = graph["delay"]
+        predict_block = graph[f"predict_block_{self.depth}"]
+        transient_block = graph[f"transient_block_{self.depth}"]\
+            if self.depth != graph["depth"] else graph[f"access_secret_block_{self.depth}"]
+        return_block = graph[f"return_block_{self.depth}"]
+        delay_block = graph[f"delay_block_{self.depth}"]
 
         match (predict_block.predict_kind):
             case "call" | "return":
-                train_param = f"{access_secret_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
+                train_param = f"{transient_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
                 victim_param = f"{return_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
             case "branch_taken" | "branch_not_taken":
                 delay_imm = delay_block.result_imm
@@ -593,42 +652,43 @@ class RunTimeBlock(TransBlock):
         train_offset_param,
         graph,
     ):
-        delay_block = graph["delay"]
+        delay_block = graph[f"delay_block_{self.depth}"]
 
-        self.data_list.append(RawInstruction("trap_return_entry:"))
-        self.data_list.append(RawInstruction(".space 0x8"))
-        self.data_list.append(RawInstruction("train_param_table:"))
+        self.data_list.append(RawInstruction(f"{self.name}_train_param_table:"))
         for i in range(self.train_loop):
-            self.data_list.append(RawInstruction(f"train_predict_param_{i}:"))
+            self.data_list.append(RawInstruction(f"{self.name}_train_predict_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {train_predict_param}"))
-            self.data_list.append(RawInstruction(f"train_delay_value_{i}:"))
+            self.data_list.append(RawInstruction(f"{self.name}_train_delay_value_{i}:"))
             self.data_list.append(RawInstruction(f".dword {delay_block.result_imm}"))
 
-        self.data_list.append(RawInstruction("train_offset_table:"))
+        self.data_list.append(RawInstruction(f"{self.name}_train_offset_table:"))
         for i in range(self.train_loop):
-            self.data_list.append(RawInstruction(f"train_offset_param_{i}:"))
+            self.data_list.append(RawInstruction(f"{self.name}_train_offset_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {train_offset_param}"))
 
-        self.data_list.append(RawInstruction("victim_param_table:"))
+        self.data_list.append(RawInstruction(f"{self.name}_victim_param_table:"))
         for i in range(self.victim_loop):
-            self.data_list.append(RawInstruction(f"victim_predict_param_{i}:"))
+            self.data_list.append(RawInstruction(f"{self.name}_victim_predict_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_predict_param}"))
 
-        self.data_list.append(RawInstruction("victim_offset_table:"))
+        self.data_list.append(RawInstruction(f"{self.name}_victim_offset_table:"))
         for i in range(self.victim_loop):
-            self.data_list.append(RawInstruction(f"victim_offset_param_{i}:"))
+            self.data_list.append(RawInstruction(f"{self.name}_victim_offset_param_{i}:"))
             self.data_list.append(RawInstruction(f".dword {victim_offset_param}"))
 
     def _gen_inst_list(self, graph):
-        delay_block = graph["delay"]
-        predict_block = graph["predict"]
-        return_block = graph["return"]
+        delay_block = graph[f"delay_block_{self.depth}"]
+        predict_block = graph[f"predict_block_{self.depth}"]
+        return_block = graph[f"return_block_{self.depth}"]
         if predict_block.predict_kind != "return":
             train_entry = predict_block.entry
             victim_entry = delay_block.entry
         else:
             train_entry = delay_block.entry
             victim_entry = predict_block.entry
+        
+        if self.depth == graph["depth"]:
+            access_secret_block = graph[f"access_secret_block_{self.depth}"]
 
         # trap -> return, address stored in trap_return_rtap
         self.inst_list.append(RawInstruction(f"{self.entry}:"))
@@ -638,12 +698,12 @@ class RunTimeBlock(TransBlock):
         for i in range(self.train_loop):
             table_width = 2
             # return -> runtime, address stored in store_ra
-            self.inst_list.append(RawInstruction(f"la t0, train_{i}_end"))
-            self.inst_list.append(RawInstruction("la t1, store_ra"))
+            self.inst_list.append(RawInstruction(f"la t0, {self.name}_train_{i}_end"))
+            self.inst_list.append(RawInstruction(f"la t1, {return_block.name}_store_ra"))
             self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
 
             # predict param
-            self.inst_list.append(RawInstruction("la t0, train_param_table"))
+            self.inst_list.append(RawInstruction(f"la t0, {self.name}_train_param_table"))
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
             self.inst_list.append(
                 RawInstruction(
@@ -652,34 +712,36 @@ class RunTimeBlock(TransBlock):
             )
 
             # offset param, stored in train_offset_table
-            self.inst_list.append(RawInstruction("la t0, train_offset_table"))
-            self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
-            self.inst_list.append(RawInstruction("la t0, target_offset"))
-            self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
+            if self.depth == graph["depth"]:
+                self.inst_list.append(RawInstruction(f"la t0, {self.name}_train_offset_table"))
+                self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
+                self.inst_list.append(RawInstruction(f"la t0, {access_secret_block.name}_target_offset"))
+                self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
 
             # call function
             self.inst_list.append(RawInstruction("INFO_TRAIN_START"))
             self.inst_list.append(RawInstruction(f"j {train_entry}"))
-            self.inst_list.append(RawInstruction(f"train_{i}_end:"))
+            self.inst_list.append(RawInstruction(f"{self.name}_train_{i}_end:"))
             self.inst_list.append(RawInstruction("INFO_TRAIN_END"))
 
         for i in range(self.victim_loop):
             table_width = 1
-            self.inst_list.append(RawInstruction(f"la t0, victim_{i}_end"))
-            self.inst_list.append(RawInstruction("la t1, store_ra"))
+            self.inst_list.append(RawInstruction(f"la t0, {self.name}_victim_{i}_end"))
+            self.inst_list.append(RawInstruction(f"la t1, {return_block.name}_store_ra"))
             self.inst_list.append(RawInstruction("sd t0, 0(t1)"))
 
-            self.inst_list.append(RawInstruction("la t0, victim_param_table"))
+            self.inst_list.append(RawInstruction(f"la t0, {self.name}_victim_param_table"))
             self.inst_list.append(RawInstruction(f"ld a0, {i*8*table_width}(t0)"))
 
-            self.inst_list.append(RawInstruction("la t0, victim_offset_table"))
-            self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
-            self.inst_list.append(RawInstruction("la t0, target_offset"))
-            self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
+            if self.depth == graph["depth"]:
+                self.inst_list.append(RawInstruction(f"la t0, {self.name}_victim_offset_table"))
+                self.inst_list.append(RawInstruction(f"ld t1, {i*8}(t0)"))
+                self.inst_list.append(RawInstruction(f"la t0, {access_secret_block.name}_target_offset"))
+                self.inst_list.append(RawInstruction("sd t1, 0(t0)"))
 
             self.inst_list.append(RawInstruction("INFO_VCTM_START"))
             self.inst_list.append(RawInstruction(f"j {victim_entry}"))
-            self.inst_list.append(RawInstruction(f"victim_{i}_end:"))
+            self.inst_list.append(RawInstruction(f"{self.name}_victim_{i}_end:"))
             self.inst_list.append(RawInstruction("INFO_VCTM_END"))
 
     def gen_random(self, graph):
@@ -698,6 +760,20 @@ class RunTimeBlock(TransBlock):
             graph,
         )
         self._gen_inst_list(graph)
+
+class TransientBlock(TransBlock):
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('transient_block', depth, extension, fuzz_param, output_path)
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+
+    def gen_default(self, graph):
+        return_block = graph[f'return_block_{self.depth}']
+        self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        self.inst_list.append(RawInstruction("INFO_TEXE_START"))
+        self.inst_list.append(RawInstruction("INFO_TEXE_END"))
+        self.inst_list.append(RawInstruction(f'j {return_block.entry}'))
 
 
 def inst_simlutor(baker, inst_list, data_list):

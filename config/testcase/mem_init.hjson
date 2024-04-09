@@ -100,65 +100,56 @@
             0x0000000000020000
             0x000000000003F000
         ]
+        transient_depth: 3
         block_param: {
-            _init_param: {
-                name: _init_block
+            init_block_param: {
                 strategy: default
             }
-            mtrap_param: {
-                name: mtrap_block
+            mtrap_block_param: {
                 strategy: default
             }
-            secret_protect_param: {
-                name: secret_protect_block
+            secret_protect_block_param: {
                 strategy: default
             }
-            strap_param: {
-                name: strap_block
+            strap_block_param: {
                 strategy: default
             }
-            exit_param: {
-                name: exit_block
+            exit_block_param: {
                 strategy: default
             }
-            return_param: {
-                name: return_block
+            return_block_param: {
                 strategy: default
             }
 
-            run_time_param: {
-                name: run_time_block
+            run_time_block_param: {
                 strategy: default
                 train_loop: 3
                 victim_loop: 1
             }
-            delay_param: {
-                name: delay_block
+            delay_block_param: {
                 strategy: default
                 float_rate: 0.5
                 delay_len: 4
             }
-            predict_param: {
-                name: predict_block
+            predict_block_param: {
                 strategy: default
                 predict_kind: call
             }
-
-            access_secret_param: {
-                name: access_secret
+            transient_block_param: {
                 strategy: default
             }
-            encode_param: {
-                name: encode_block
+
+            access_secret_block_param: {
+                strategy: default
+            }
+            encode_block_param: {
                 strategy: default
                 leak_kind: cache
             }
-            decode_call_param: {
-                name: decode_call_block
+            decode_call_block_param: {
                 strategy: default
             }
-            decode_param: {
-                name: decode_block
+            decode_block_param: {
                 strategy: default
             }
         }

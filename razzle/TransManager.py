@@ -35,38 +35,102 @@ class TransManager(SectionManager):
             "RV64_M",
         ]
         self.block_param = config["block_param"]
+        self.transient_depth = config["transient_depth"]
         self.victim_privilege = victim_privilege
         self.virtual = virtual
-        self.block_param["secret_protect_param"][
+        self.block_param["secret_protect_block_param"][
             "victim_privilege"
         ] = self.victim_privilege
-        self.block_param["secret_protect_param"]["virtual"] = self.virtual
+        self.block_param["secret_protect_block_param"]["virtual"] = self.virtual
         self.output_path = output_path
 
+        self.block_construct = {
+            "init_block": InitBlock,
+            "mtrap_block": MTrapBlock,
+            "strap_block": STrapBlock,
+            "secret_protect_block": SecretProtectBlock,
+            "exit_block": ExitBlock,
+            "decode_call_block": DecodeCallBlock,
+            "decode_block": DecodeBlock,
+            "delay_block": DelayBlock,
+            "predict_block": PredictBlock,
+            "run_time_block": RunTimeBlock,
+            "transient_block": TransientBlock,
+            "access_secret_block": AccessSecretBlock,
+            "encode_block": EncodeBlock,
+            "return_block": ReturnBlock,
+        }
+
     def _generate_sections(self):
-        block_index = [
-            ("_init", InitBlock),
-            ("mtrap", MTrapBlock),
-            ("strap", STrapBlock),
-            ("secret_protect", SecretProtectBlock),
-            ("exit", ExitBlock),
-            ("return", ReturnBlock),
-            ("delay", DelayBlock),
-            ("predict", PredictBlock),
-            ("run_time", RunTimeBlock),
-            ("access_secret",AccessSecretBlock),
-            ("encode", EncodeBlock),
-            ("decode_call", DecodeCallBlock),
-            ("decode", DecodeBlock),
+        self.graph = {}
+        self.graph["depth"] = self.transient_depth
+        
+        block_instr_gen_order = []
+
+        train_vicitm_block_type = {
+            "run_time":["run_time_block"],
+            "trigger":["delay_block", "predict_block"],
+            "transient":["transient_block"],
+            "victim":["access_secret_block","encode_block"],
+            "return":["return_block"],
+        }
+
+        train_block_array = []
+        for depth in range(self.transient_depth,0,-1):
+            train_block_type = []
+            train_block_type.extend(train_vicitm_block_type['trigger'])
+            if depth == self.transient_depth:
+                transient_type = train_vicitm_block_type["victim"]
+            else:
+                transient_type = train_vicitm_block_type["transient"]
+            if self.block_param["predict_block_param"]["predict_kind"] == "branch_not_taken":
+                train_block_type.extend(train_vicitm_block_type["return"])
+                train_block_type.extend(transient_type)
+            else:
+                train_block_type.extend(transient_type)
+                train_block_type.extend(train_vicitm_block_type["return"])
+            train_block_type.extend(train_vicitm_block_type["run_time"])
+            
+            block_name_array = []
+            for block_type in train_block_type:
+                block_name = f'{block_type}_{depth}'
+                block = self.block_construct[block_type](depth, self.extension, self.block_param[block_type + "_param"], self.output_path)
+                self.graph[block_name] = block
+                block_name_array.append(block_name)
+            
+            block_instr_gen_order.extend(block_name_array)
+            train_block_array.insert(0, (block_name_array[-1],block_name_array[0:-1]))
+
+        main_block_type = [
+            "mtrap_block",
+            "strap_block",
+            "secret_protect_block",
+            "init_block",
+            "decode_call_block",
+            "exit_block",
+            "decode_block",
         ]
 
-        self.graph = {}
-        for block_type, block_construct in block_index:
-            block = block_construct(self.extension, self.block_param[block_type + "_param"], self.output_path)
-            self.graph[block_type] = block
-
-        for block_type, block_construct in block_index:
-            self.graph[block_type].gen_instr(self.graph)
+        for block_type in main_block_type:
+            block_name = f'{block_type}_1'
+            block = self.block_construct[block_type](1 ,self.extension, self.block_param[block_type + "_param"], self.output_path)
+            self.graph[block_name] = block
+            block_instr_gen_order.append(block_name)
+        
+        print(block_instr_gen_order)
+        for block_name in block_instr_gen_order:
+            self.graph[block_name].gen_instr(self.graph)
+        
+        mtrap_block = ["mtrap_block_1", "secret_protect_block_1"]
+        strap_block = ["strap_block_1"]
+        poc_block = ["decode_block_1"]
+        
+        payload_block = ["init_block_1"]
+        for train_block in train_block_array:
+            payload_block.append(train_block[0])
+        payload_block.extend(["decode_call_block_1","exit_block_1"])
+        for train_block in train_block_array:
+            payload_block.extend(train_block[1])
 
         text_section = self.section[".text"] = FuzzSection(
             ".text", Flag.U | Flag.X | Flag.R
@@ -84,15 +148,6 @@ class TransManager(SectionManager):
             ".poc", Flag.U | Flag.X | Flag.R
         )
 
-        mtrap_block = ["mtrap", "secret_protect"]
-        strap_block = ["strap"]
-        poc_block = ["decode"]
-        payload_block = ["_init", "run_time", "decode_call", "exit", "delay", "predict"]
-        if self.graph["predict"].predict_kind == "branch_not_taken":
-            payload_block.extend(["return", "access_secret", "encode"])
-        else:
-            payload_block.extend(["access_secret", "encode", "return"])
-
         def set_section(text_section, data_section, block_list):
             for block_index in block_list:
                 block = self.graph[block_index]
@@ -106,15 +161,15 @@ class TransManager(SectionManager):
         set_section(text_section, data_section, payload_block)
         mtrap_section.add_global_label(
             [
-                self.graph["mtrap"].entry,
-                self.graph["secret_protect"].entry,
+                self.graph["mtrap_block_1"].entry,
+                self.graph["secret_protect_block_1"].entry,
                 "mtrap_stack_bottom",
             ]
         )
         strap_section.add_global_label(
-            [self.graph["strap"].entry, "strap_stack_bottom"]
+            [self.graph["strap_block_1"].entry, "strap_stack_bottom"]
         )
-        text_section.add_global_label([self.graph["_init"].entry])
+        text_section.add_global_label([self.graph["init_block_1"].entry])
 
     def _distribute_address(self):
         offset = 0
