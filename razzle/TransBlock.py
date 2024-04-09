@@ -136,12 +136,15 @@ class SecretProtectBlock(TransBlock):
                 self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
             )
 
-        self.inst_list.append(RawInstruction(f"la t0, {mtrap_block.entry}"))
-        self.inst_list.append(RawInstruction("csrw mtvec, t0"))
-        self.inst_list.append(RawInstruction("csrr t0, mepc"))
-        self.inst_list.append(RawInstruction("addi t0, t0, 4"))
-        self.inst_list.append(RawInstruction("csrw mepc, t0"))
-        self.inst_list.append(RawInstruction("mret"))
+        inst_list = [
+            f"la t0, {mtrap_block.entry}",
+            "csrw mtvec, t0",
+            "csrr t0, mepc",
+            "addi t0, t0, 4",
+            "csrw mepc, t0",
+            "mret",
+        ]
+        self.inst_list.extend(self._load_str_asm(inst_list))
 
 
 class STrapBlock(TransBlock):
@@ -165,11 +168,19 @@ class ReturnBlock(TransBlock):
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
-        self.inst_list.append(RawInstruction(f'{self.entry}:'))
-        self.inst_list.append(RawInstruction(f'ld ra, {self.name}_store_ra'))
-        self.inst_list.append(RawInstruction('ret'))
-        self.data_list.append(RawInstruction(f'{self.name}_store_ra:'))
-        self.data_list.append(RawInstruction('.space 0x8'))
+        inst_list = [
+            f'{self.entry}:',
+            f'ld ra, {self.name}_store_ra',
+            'ret',
+        ]
+
+        data_list = [
+            f'{self.name}_store_ra:',
+            '.space 0x8',
+        ]
+
+        self.inst_list = self._load_raw_asm(inst_list)
+        self.data_list = self._load_raw_asm(data_list)
 
 class ExitBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
@@ -231,20 +242,19 @@ class EncodeBlock(TransBlock):
         match (self.leak_kind):
             case "cache":
                 self.inst_list.extend(
-                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.cache.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.cache.text.S"), is_raw=False)
                 )
             case "FPUport":
                 self.inst_list.extend(
-                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.FPUport.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.FPUport.text.S"), is_raw=False)
                 )
             case "LSUport":
                 self.inst_list.extend(
-                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.LSUport.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/encode_block.LSUport.text.S"), is_raw=False)
                 )
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
         self.inst_list.append(RawInstruction(f"j {return_block.entry}"))
-
 
 class DecodeBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
@@ -260,7 +270,7 @@ class DecodeBlock(TransBlock):
         match (encode_block.leak_kind):
             case "cache":
                 self.inst_list.extend(
-                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"))
+                    self._load_file_asm(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), is_raw=False)
                 )
             case "FPUport" | "LSUport":
                 self.inst_list.append(Instruction("ret"))
@@ -519,12 +529,12 @@ class PredictBlock(TransBlock):
                 self.inst_list.append(
                     Instruction(f"add ra, {self.dep_reg.lower()}, a0")
                 )
-                self.inst_list.append(RawInstruction("ret"))
-                self.inst_list.append(RawInstruction(f"{self.entry}:"))
-                self.inst_list.append(RawInstruction(f"call {delay_block.entry}"))
+                self.inst_list.append(Instruction("ret"))
+                self.inst_list.append(Instruction(f"{self.entry}:"))
+                self.inst_list.append(Instruction(f"call {delay_block.entry}"))
                 self.off_imm = 0
             case "branch_taken" | "branch_not_taken":
-                self.inst_list.append(RawInstruction(f"{self.entry}:"))
+                self.inst_list.append(Instruction(f"{self.entry}:"))
                 ret_inst = Instruction()
                 ret_inst.set_category_constraint(["BRANCH"])
                 ret_inst.set_extension_constraint(["RV_I"])
@@ -558,13 +568,13 @@ class PredictBlock(TransBlock):
                 self.branch_kind = ret_inst["NAME"]
                 self.inst_list.append(ret_inst)
             case "except":
-                self.inst_list.append(RawInstruction(f"{self.entry}:"))
+                self.inst_list.append(Instruction(f"{self.entry}:"))
             case "load":
-                self.inst_list.append(RawInstruction(f"{self.entry}:"))
+                self.inst_list.append(Instruction(f"{self.entry}:"))
                 self.inst_list.append(
-                    RawInstruction(f"add t1, a0, {self.dep_reg.lower()}")
+                    Instruction(f"add t1, a0, {self.dep_reg.lower()}")
                 )
-                self.inst_list.append(RawInstruction(f"sd zero, 0(t1)"))
+                self.inst_list.append(Instruction(f"sd zero, 0(t1)"))
             case _:
                 raise "Error: predict_kind not implemented!"
 
