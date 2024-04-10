@@ -54,9 +54,6 @@ class TransBlock:
             inst_list.append(inst)
         return inst_list
 
-    def is_default(self):
-        return self.strategy == "default"
-
     def gen_instr(self, graph):
         match self.strategy:
             case "default":
@@ -64,13 +61,19 @@ class TransBlock:
             case "random":
                 self.gen_random(graph)
             case _:
-                raise "strategy must be default or random"
+                self.gen_strategy(graph)
+    
+    def _gen_random(self, block_cnt=3):
+        return []
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
 
     def gen_default(self, graph):
         raise "Error: gen_default not implemented!"
+
+    def gen_strategy(self, graph):
+        raise "Error: gen_dstrategy not implemented!"
 
     def gen_asm(self):
         inst_asm_list = []
@@ -220,6 +223,27 @@ class AccessSecretBlock(TransBlock):
 
         self.inst_list = self._load_str_asm(inst_list)
         self.data_list = self._load_str_asm(data_list)
+
+class RandomDataBlock(TransBlock):
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('random_data_block', depth, extension, fuzz_param, output_path)
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+        self.page_num = fuzz_param['page_num']
+
+    def gen_default(self, graph):
+        def random_data_line(byte_num = 0x800):
+            assert byte_num%64==0, "byte_num must be aligned to 64"
+            for i in range(0, byte_num, 64):
+                data = [hex(random.randint(0,0xffffffffffffffff)) for i in range(8)]
+                dataline = " ,".join(data)
+                self.data_list.append(RawInstruction(f'.dword {dataline}'))
+
+        for page_index in range(self.page_num):
+            random_data_line(0x800)
+            self.data_list.append(RawInstruction(f'{self.name}_page_{page_index}:'))
+            random_data_line(0x800)
 
 
 class EncodeBlock(TransBlock):
@@ -449,7 +473,7 @@ class DelayBlock(TransBlock):
         self.inst_list = tmp_inst_list + self.inst_list
         self.inst_list.append(RawInstruction("INFO_DELAY_END"))
 
-    def gen_random(self, graph):
+    def gen_strategy(self, graph):
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
         self._gen_init_inst(dep_list)
@@ -774,9 +798,11 @@ class RunTimeBlock(TransBlock):
 class TransientBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
         super().__init__('transient_block', depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+    
+    def gen_random(self, graph):
+        return_block = graph[f'return_block_{self.depth}']
+        self.inst_list = self._gen_random(random.randint(3,6))
+        self.inst_list.append(RawInstruction(f'j {return_block.entry}'))
 
     def gen_default(self, graph):
         return_block = graph[f'return_block_{self.depth}']

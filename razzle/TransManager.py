@@ -59,13 +59,33 @@ class TransManager(SectionManager):
             "access_secret_block": AccessSecretBlock,
             "encode_block": EncodeBlock,
             "return_block": ReturnBlock,
+            "random_data_block": RandomDataBlock,
         }
+    
+    def _block_construct(self, block_type_array, depth):
+        block_name_array = []
+        for block_type in block_type_array:
+            block_name = f'{block_type}_{depth}'
+            block = self.block_construct[block_type](depth ,self.extension, self.block_param[block_type + "_param"], self.output_path)
+            self.graph[block_name] = block
+            self.block_instr_gen_order.append(block_name)
+            block_name_array.append(block_name)
+        return block_name_array
 
     def _generate_sections(self):
         self.graph = {}
         self.graph["depth"] = self.transient_depth
         
-        block_instr_gen_order = []
+        self.block_instr_gen_order = []
+
+        system_block_type = [
+            "mtrap_block",
+            "strap_block",
+            "secret_protect_block",
+            "random_data_block",
+        ]
+
+        self._block_construct(system_block_type, 1)
 
         train_vicitm_block_type = {
             "run_time":["run_time_block"],
@@ -91,39 +111,26 @@ class TransManager(SectionManager):
                 train_block_type.extend(train_vicitm_block_type["return"])
             train_block_type.extend(train_vicitm_block_type["run_time"])
             
-            block_name_array = []
-            for block_type in train_block_type:
-                block_name = f'{block_type}_{depth}'
-                block = self.block_construct[block_type](depth, self.extension, self.block_param[block_type + "_param"], self.output_path)
-                self.graph[block_name] = block
-                block_name_array.append(block_name)
-            
-            block_instr_gen_order.extend(block_name_array)
+            block_name_array = self._block_construct(train_block_type, depth)
             train_block_array.insert(0, (block_name_array[-1],block_name_array[0:-1]))
 
         main_block_type = [
-            "mtrap_block",
-            "strap_block",
-            "secret_protect_block",
             "init_block",
             "decode_call_block",
             "exit_block",
             "decode_block",
         ]
 
-        for block_type in main_block_type:
-            block_name = f'{block_type}_1'
-            block = self.block_construct[block_type](1 ,self.extension, self.block_param[block_type + "_param"], self.output_path)
-            self.graph[block_name] = block
-            block_instr_gen_order.append(block_name)
+        self._block_construct(main_block_type, 1)
         
-        print(block_instr_gen_order)
-        for block_name in block_instr_gen_order:
+        for block_name in self.block_instr_gen_order:
+            print(block_name)
             self.graph[block_name].gen_instr(self.graph)
         
         mtrap_block = ["mtrap_block_1", "secret_protect_block_1"]
         strap_block = ["strap_block_1"]
         poc_block = ["decode_block_1"]
+        random_data_block = ["random_data_block_1"]
         
         payload_block = ["init_block_1"]
         for train_block in train_block_array:
@@ -147,6 +154,9 @@ class TransManager(SectionManager):
         poc_section = self.section[".poc"] = FuzzSection(
             ".poc", Flag.U | Flag.X | Flag.R
         )
+        random_data_section = self.section[".random_data"] = FuzzSection(
+            ".random_data", Flag.U | Flag.W | Flag.R
+        )
 
         def set_section(text_section, data_section, block_list):
             for block_index in block_list:
@@ -159,6 +169,8 @@ class TransManager(SectionManager):
         set_section(strap_section, strap_section, strap_block)
         set_section(poc_section, poc_section, poc_block)
         set_section(text_section, data_section, payload_block)
+        set_section(text_section, random_data_section, random_data_block)
+
         mtrap_section.add_global_label(
             [
                 self.graph["mtrap_block_1"].entry,
@@ -197,6 +209,14 @@ class TransManager(SectionManager):
         offset += length
         length = Page.size
         self.section[".data"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size * self.graph['random_data_block_1'].page_num
+        self.section[".random_data"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,
