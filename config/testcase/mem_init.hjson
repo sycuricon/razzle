@@ -140,7 +140,7 @@
                 predict_kind: call
             }
             transient_block_param: {
-                strategy: default
+                strategy: random
             }
 
             access_secret_block_param: {

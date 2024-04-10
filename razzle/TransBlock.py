@@ -158,12 +158,15 @@ class RandomDataBlock(TransBlock):
                 data = [hex(random.randint(0,0xffffffffffffffff)) for i in range(8)]
                 dataline = " ,".join(data)
                 self.data_list.append(RawInstruction(f'.dword {dataline}'))
+        
+        self.base_label = []
 
         for page_index in range(self.page_num):
             random_data_line(0x800)
-            self.data_list.append(RawInstruction(f'{self.name}_page_{page_index}:'))
+            base_label = f'{self.name}_page_{page_index}'
+            self.base_label.append(base_label)
+            self.data_list.append(RawInstruction(f'{base_label}:'))
             random_data_line(0x800)
-
 
 class EncodeBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
@@ -717,10 +720,13 @@ class RunTimeBlock(TransBlock):
 class TransientBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
         super().__init__('transient_block', depth, extension, fuzz_param, output_path)
+        if self.depth > 1:
+            self.transient = True
     
     def gen_random(self, graph):
         return_block = graph[f'return_block_{self.depth}']
-        self.inst_list = self._gen_random(random.randint(3,6))
+        self.inst_list.append(RawInstruction(f"{self.entry}:"))
+        self.inst_list.extend(self._gen_random(graph, random.randint(3,7)))
         self.inst_list.append(RawInstruction(f'j {return_block.entry}'))
 
     def gen_default(self, graph):

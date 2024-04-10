@@ -2934,6 +2934,18 @@
         ],
         "macro": true
     },
+    "LA": {
+        "extension": [
+            "RV_I"
+        ],
+        "category": "LOAD_A",
+        "format": "la {RD}, {LABEL}",
+        "variables": [
+            "RD",
+            "LABEL"
+        ],
+        "macro": true
+    },
     "CEASE": {
         "extension": [
             "ROCC"
