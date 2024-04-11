@@ -118,7 +118,9 @@ class SectionManager:
 
     def _write_sections(self, f, is_variant):
         for section in self.section.values():
-            f.writelines(section.generate_asm(is_variant))
+            asm_list = section.generate_asm(is_variant)
+            # print(asm_list)
+            f.writelines(asm_list)
 
     def _generate_sections(self):
         pass

@@ -124,6 +124,7 @@ class TransManager(SectionManager):
         self._block_construct(main_block_type, 1)
         
         for block_name in self.block_instr_gen_order:
+            print(block_name)
             self.graph[block_name].gen_instr(self.graph)
         
         mtrap_block = ["mtrap_block_1", "secret_protect_block_1"]

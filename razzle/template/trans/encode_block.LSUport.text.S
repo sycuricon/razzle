@@ -1,6 +1,7 @@
     la t1, secret_target
     ld t1, 0(t1)
-    bne t0, t1, encode_fail
+    bne t0, t1, encode_exit
+encode_success:
     la t0, array
     ld t1, 0(t0)
     ld t1, 8(t0)
@@ -15,5 +16,3 @@
     ld t1, 80(t0)
     ld t1, 88(t0)
     ld t1, 96(t0)
-encode_fail:
-    INFO_TEXE_END

@@ -8,28 +8,14 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
-class RandomBlock:
-    def __init__(self, name, extension, transient, graph):
+class BaseBlock:
+    def __init__(self, name, extension, graph, mutate):
         self.name = name
         self.extension = extension
-        self.transient = transient
         self.graph = graph
-        self.gen_func = [
-            RandomBlock._gen_atomic,
-            RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_int_arithmetic,
-            RandomBlock._gen_int_arithmetic,
-            RandomBlock._gen_load_store,
-        ]
-        if transient:
-            self.gen_func.extend(
-                [
-                    RandomBlock._gen_system,
-                    RandomBlock._gen_csr,
-                ]
-            )
-    
+        self.mutate = mutate
+        self.inst_list = []
+
     def _get_data_base(self):
         return self.graph['random_data_block_1'].base_label
     
@@ -118,22 +104,46 @@ class RandomBlock:
         instr.solve()
         return [instr]
 
+    def gen_asm(self):
+        str_list = []
+        str_list.append(f'{self.name}:\n')
+        for inst in self.inst_list:
+            str_list.append(inst.to_asm()+'\n')
+        return str_list
+
+class RandomBlock(BaseBlock):
+    def __init__(self, name, extension, graph, transient):
+        super().__init__(name, extension, graph, True)
+        self.transient = transient
+        self.gen_func = [
+            RandomBlock._gen_atomic,
+            RandomBlock._gen_float_arithmetic,
+            RandomBlock._gen_float_arithmetic,
+            RandomBlock._gen_int_arithmetic,
+            RandomBlock._gen_int_arithmetic,
+            RandomBlock._gen_load_store,
+        ]
+        if transient:
+            self.gen_func.extend(
+                [
+                    RandomBlock._gen_system,
+                    RandomBlock._gen_csr,
+                ]
+            )
+
     def gen_instr(self):
-        self.inst = []
-        self.inst.append(RawInstruction(f'{self.name}:'))
         for _ in range(random.randint(3,6)):
             gen_func = random.choice(self.gen_func)
-            self.inst.extend(gen_func(self))
-            if len(self.inst) > 6:
+            self.inst_list.extend(gen_func(self))
+            if len(self.inst_list) > 6:
                 break
-        return self.inst
 
 class TransBlock:
     def __init__(self, name, depth, extension, fuzz_param, output_path):
         self.name = f'{name}_{depth}'
         self.depth = depth
         self.entry = self.name + "_entry"
-        self.inst_list = []
+        self.inst_block_list = []
         self.data_list = []
         self.extension = extension
         self.strategy = fuzz_param["strategy"]
@@ -143,33 +153,52 @@ class TransBlock:
             os.path.join(output_path, self.name),
         )
 
-    def _load_file_asm(self, file_name, is_raw = True):
-        # file_name=os.path.join(os.path.dirname(os.path.abspath(__file__)),'..',file_name)
+    def _load_inst_file(self, file_name, mutate = False):
+        file_list_format = self._load_file_asm(file_name)
+        self._load_inst_str(file_list_format, mutate)
+    
+    def _load_data_file(self, file_name):
+        file_list_format = self._load_file_asm(file_name)
+        self._load_data_str(file_list_format)
+
+    def _load_file_asm(self, file_name):
         with open(file_name, "rt") as file:
             file_list = file.readlines()
-        if is_raw:
-            inst_list = self._load_raw_asm(file_list)
-        else:
-            inst_list = self._load_str_asm(file_list)
-        return inst_list
+        
+        file_list_format = []
+        for line in file_list:
+            line = line.strip()
+            if line == '':
+                continue
+            if line.startswith('//') or line.startswith('#'):
+                continue
+            file_list_format.append(line)
+        
+        return file_list_format
 
-    def _load_str_asm(self, str_list):
-        inst_list = []
-        for str_element in str_list:
-            str_element = str_element.strip()
-            try:
-                inst = Instruction(str_element)
-            except:
-                inst = RawInstruction(str_element)
-            inst_list.append(inst)
-        return inst_list
+    def _load_inst_str(self, str_list, mutate=False):
+        if str_list[0].endswith(':'):
+            block = BaseBlock(str_list[0][0:-1], self.extension, None, mutate)
+            str_list.pop(0)
+        else:
+            block = BaseBlock(self.entry, self.extension, None, mutate)
+
+        for line in str_list:
+            if line.endswith(':'):
+                self.inst_block_list.append(block)
+                block = BaseBlock(line[0:-1], self.extension, None, mutate)
+                continue
+            
+            if block.mutate:
+                block.inst_list.append(Instruction(line))
+            else:
+                block.inst_list.append(RawInstruction(line))
+
+        self.inst_block_list.append(block)
     
-    def _load_raw_asm(self, str_list):
-        inst_list = []
-        for str_element in str_list:
-            inst = RawInstruction(str_element.strip())
-            inst_list.append(inst)
-        return inst_list
+    def _load_data_str(self, str_list):
+        for line in str_list:
+            self.data_list.append(RawInstruction(line))
 
     def gen_instr(self, graph):
         match self.strategy:
@@ -183,7 +212,8 @@ class TransBlock:
     def _gen_random(self, graph, block_cnt=3):
         block_list = []
         for i in range(block_cnt):
-            block = RandomBlock(f'{self.name}_{i}', self.extension, self.transient, graph)
+            block = RandomBlock(f'{self.name}_{i}', self.extension, graph, self.transient)
+            block.gen_instr()
             block_list.append(block)
 
         start_p = 0
@@ -194,10 +224,7 @@ class TransBlock:
             block_list[end_p -1].out_instr = new_jump_to(block_list[end_p + 1].name)
             start_p = end_p + 1
 
-        inst_list = []
-        for block in block_list:
-            inst_list.extend(block.gen_instr())
-        return inst_list
+        return block_list
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
@@ -211,8 +238,9 @@ class TransBlock:
     def gen_asm(self):
         inst_asm_list = []
         inst_asm_list.append(f"{self.name}:\n")
-        for item in self.inst_list:
-            inst_asm_list.append(item.to_asm() + "\n")
+        for block in self.inst_block_list:
+            inst_asm_list.extend(block.gen_asm())
+
         data_asm_list = []
         data_asm_list.append(f"{self.name}_data:\n")
         for item in self.data_list:

@@ -17,12 +17,12 @@ class InstructionBase:
 
         if asm is not None:
             self._solution = {}
-            vars = re.split(' |,|\(|\)', asm)
+            vars = re.split(' |,|\(|\)|\t', asm)
             while '' in vars:
                 vars.remove('')
             name = vars[0].upper()
             format = re.split(
-                ' |,|{|}|\(|\)', all_instructions[name]['format'])
+                ' |,|{|}|\(|\)|\t', all_instructions[name]['format'])
             while '' in format:
                 format.remove('')
             for i in range(1, len(vars)):

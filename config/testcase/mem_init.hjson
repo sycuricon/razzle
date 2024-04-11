@@ -127,8 +127,6 @@
 
             run_time_block_param: {
                 strategy: default
-                train_loop: 3
-                victim_loop: 1
             }
             delay_block_param: {
                 strategy: default

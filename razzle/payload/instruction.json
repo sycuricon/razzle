@@ -578,6 +578,28 @@
             "CSR"
         ]
     },
+    "CSRR": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrr {RD}, {CSR}",
+        "variables": [
+            "RD",
+            "CSR"
+        ]
+    },
+    "CSRW": {
+        "extension": [
+            "RV_ZICSR"
+        ],
+        "category": "CSR",
+        "format": "csrw {CSR}, {RS1}",
+        "variables": [
+            "RS1",
+            "CSR"
+        ]
+    },
     "CSRRS": {
         "extension": [
             "RV_ZICSR"
