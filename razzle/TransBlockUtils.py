@@ -15,6 +15,8 @@ class BaseBlock:
         self.graph = graph
         self.mutate = mutate
         self.inst_list = []
+        self.previous = []
+        self.succeed = []
 
     def _get_data_base(self):
         return self.graph['random_data_block_1'].base_label
@@ -104,6 +106,14 @@ class BaseBlock:
         instr.solve()
         return [instr]
 
+    def add_previous(self, node):
+        self.previous.append(node)
+        node.succeed.append(self)
+    
+    def add_succeed(self, node):
+        self.succeed.append(node)
+        self.previous.append(self)
+
     def gen_asm(self):
         str_list = []
         str_list.append(f'{self.name}:\n')
@@ -185,7 +195,7 @@ class TransBlock:
 
         for line in str_list:
             if line.endswith(':'):
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
                 block = BaseBlock(line[0:-1], self.extension, None, mutate)
                 continue
             
@@ -194,11 +204,21 @@ class TransBlock:
             else:
                 block.inst_list.append(RawInstruction(line))
 
-        self.inst_block_list.append(block)
+        self._add_inst_block(block)
     
     def _load_data_str(self, str_list):
         for line in str_list:
             self.data_list.append(RawInstruction(line))
+    
+    def _add_inst_block(self, block):
+        if len(self.inst_block_list) != 0:
+            self.inst_block_list[-1].add_succeed(block)
+        self.inst_block_list.append(block)
+    
+    def _add_inst_block_list(self, block_list):
+        if len(self.inst_block_list) != 0:
+            self.inst_block_list[-1].add_succeed(block_list[0])
+        self.inst_block_list.extend(block_list)
 
     def gen_instr(self, graph):
         match self.strategy:
@@ -222,7 +242,18 @@ class TransBlock:
             block_list[start_p].out_instr = new_branch_to(self.extension,block_list[end_p].name)
             block_list[end_p].out_instr = new_jump_to(block_list[start_p + 1].name)
             block_list[end_p -1].out_instr = new_jump_to(block_list[end_p + 1].name)
+
+            block_list[start_p].add_succeed(block_list[end_p])
+            block_list[start_p].add_succeed(block_list[start_p + 1])
+            block_list[end_p].add_succeed(block_list[start_p + 1])
+            for i in range(start_p + 1, end_p - 1):
+                block_list[i].add_succeed(block_list[i+1])
+            block_list[end_p - 1].add_succeed(block_list[end_p + 1])
+
             start_p = end_p + 1
+
+        for i in range(start_p, len(block_list)-1):
+            block_list[i].add_succeed(block_list[i+1])
 
         return block_list
 

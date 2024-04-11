@@ -41,7 +41,7 @@ class SecretProtectBlock(TransBlock):
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
 
     def gen_default(self, graph):
-        self.inst_block_list.append(BaseBlock(self.entry, self.extension, graph, False))
+        self._add_inst_block(BaseBlock(self.entry, self.extension, graph, False))
         mtrap_block = graph[f"mtrap_block_{self.depth}"]
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
@@ -488,16 +488,16 @@ class PredictBlock(TransBlock):
                 self.off_imm = call_inst["IMM"]
                 block.inst_list.append(call_inst)
 
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
             case "return":
                 block = BaseBlock(f'{self.name}_dummy', self.extension, graph, mutate=True)
                 block.inst_list.append(Instruction(f"add ra, {self.dep_reg.lower()}, a0"))
                 block.inst_list.append(Instruction("ret"))
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
 
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
                 block.inst_list.append(Instruction(f"jal zero, {delay_block.entry}"))
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
                 self.off_imm = 0
             case "branch_taken" | "branch_not_taken":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
@@ -534,14 +534,14 @@ class PredictBlock(TransBlock):
 
                 self.branch_kind = ret_inst["NAME"]
                 block.inst_list.append(ret_inst)
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
             case "except":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
             case "load":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
                 block.inst_list.append(Instruction(f"add t1, a0, {self.dep_reg.lower()}"))
                 block.inst_list.append(Instruction(f"sd zero, 0(t1)"))
-                self.inst_block_list.append(block)
+                self._add_inst_block(block)
             case _:
                 raise "Error: predict_kind not implemented!"
 
@@ -768,7 +768,7 @@ class TransientBlock(TransBlock):
     
     def gen_random(self, graph):
         self._gen_block_begin(graph)
-        self.inst_block_list.extend(self._gen_random(graph, random.randint(3,5)))
+        self._add_inst_block_list(self._gen_random(graph, random.randint(3,5)))
         self._gen_block_end(graph)
 
     def gen_default(self, graph):
