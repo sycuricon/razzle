@@ -9,7 +9,7 @@ class ChannelSection(Section):
         self.global_label = ["trapoline", "array"]
         self.image_value = image_value
 
-    def _generate_body(self, is_variant):
+    def _generate_body(self):
         write_line = []
         write_line.extend(Asmer.label_inst("array"))
         write_line.extend(Asmer.label_inst("trapoline"))

@@ -40,14 +40,14 @@ class Section:
     def _generate_header(self):
         return Asmer.section_inst(self.name, self.flag)
 
-    def _generate_body(self, is_variant):
+    def _generate_body(self):
         return []
 
-    def generate_asm(self, is_variant):
+    def generate_asm(self):
         write_lines = []
         write_lines.extend(self._generate_global())
         write_lines.extend(self._generate_header())
-        write_lines.extend(self._generate_body(is_variant))
+        write_lines.extend(self._generate_body())
         return write_lines
 
     def get_section_info(self):
@@ -107,8 +107,6 @@ class SectionManager:
                 template_file.append(file)
 
         self.dut_file_list = template_file
-        self.vnt_file_list = template_file.copy()
-
 
     def get_section_list(self):
         section_info_list = []
@@ -116,31 +114,30 @@ class SectionManager:
             section_info_list.append(section.get_section_info())
         return section_info_list
 
-    def _write_sections(self, f, is_variant):
+    def _write_sections(self, f):
         for section in self.section.values():
-            asm_list = section.generate_asm(is_variant)
+            asm_list = section.generate_asm()
             # print(asm_list)
             f.writelines(asm_list)
 
-    def _generate_sections(self):
+    def _generate_sections(self, file):
         pass
 
     def _distribute_address(self):
         pass
 
-    def _write_headers(self, f, is_variant):
+    def _write_headers(self, file):
         pass
 
     def _write_file(self, path, name):
         filename = os.path.join(path, name)
         with open(filename, "wt") as f:
-            self._write_headers(f, False)
-            self._write_sections(f, False)
+            self._write_headers(f)
+            self._write_sections(f)
         self.dut_file_list.append(f"$OUTPUT_PATH/{name}")
-        self.vnt_file_list.append(f"$OUTPUT_PATH/{name}")
 
     def file_generate(self, path, name):
         self._generate_sections()
         self._distribute_address()
         self._write_file(path, name)
-        return [self.dut_file_list, self.vnt_file_list]
+        return self.dut_file_list

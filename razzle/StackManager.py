@@ -8,7 +8,7 @@ class StackSection(Section):
         self.length = length
         self.global_label = ["stack_bottom", "stack_top"]
 
-    def _generate_body(self, is_variant):
+    def _generate_body(self):
         write_line = []
         write_line.extend(Asmer.label_inst("stack_top"))
         write_line.extend(Asmer.space_inst(self.length))

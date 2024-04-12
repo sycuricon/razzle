@@ -13,7 +13,7 @@ class FuzzSection(Section):
         self.inst_list.extend(list)
         self.inst_list.append("\n")
 
-    def _generate_body(self, is_variant):
+    def _generate_body(self):
         return self.inst_list
 
 
@@ -238,6 +238,6 @@ class TransManager(SectionManager):
             length,
         )
 
-    def _write_headers(self, f, is_variant):
+    def _write_headers(self, f):
         f.write(f'#include "parafuzz.h"\n')
         f.write(f'#include "fuzzing.h"\n')

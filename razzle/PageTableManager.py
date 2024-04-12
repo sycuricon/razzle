@@ -23,7 +23,7 @@ class PageTablePage:
         self.stage_array[entry_num] = stage
         self.vaddr_array[entry_num] = vaddr
 
-    def generate_asm(self, is_variant):
+    def generate_asm(self):
         write_lines = []
         empty_entry = 0
         for i in range(self.entry_num):
@@ -60,11 +60,11 @@ class PageTableSection(Section):
         self.pg_level = pg_level
         self.page_table = page_table
 
-    def _generate_body(self, is_variant):
+    def _generate_body(self):
         write_line = []
         write_line.extend(Asmer.label_inst("root_page_table"))
         for page in self.page_table:
-            write_line.extend(page.generate_asm(is_variant))
+            write_line.extend(page.generate_asm())
         return write_line
 
 

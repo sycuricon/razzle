@@ -51,11 +51,9 @@ class DistributeManager:
         self.loader = LoaderManager(self.virtual)
 
         self.file_list = []
-        self.var_file_list = []
 
     def _collect_compile_file(self, file_list):
-        self.file_list.extend(file_list[0])
-        self.var_file_list.extend(file_list[1])
+        self.file_list.extend(file_list)
 
     def generate_test(self):
         page_table_name = "page_table.S"
@@ -97,24 +95,11 @@ class DistributeManager:
         self.baker.add_cmd(
             gen_elf.save_cmd([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench"])
         )
-        self.baker.add_cmd(
-            gen_elf.save_cmd(
-                [*self.var_file_list, "-o", f"$OUTPUT_PATH/Testbench.variant"]
-            )
-        )
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
         self.baker.add_cmd(
             gen_bin.save_cmd(
                 [f"$OUTPUT_PATH/Testbench", f"$OUTPUT_PATH/Testbench.bin"]
-            )
-        )
-        self.baker.add_cmd(
-            gen_bin.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench.variant",
-                    f"$OUTPUT_PATH/Testbench.variant.bin",
-                ]
             )
         )
 
@@ -124,14 +109,6 @@ class DistributeManager:
                 [
                     f"$OUTPUT_PATH/Testbench.bin",
                     f"> $OUTPUT_PATH/Testbench.hex",
-                ]
-            )
-        )
-        self.baker.add_cmd(
-            gen_hex.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench.variant.bin",
-                    f"> $OUTPUT_PATH/Testbench.variant.hex",
                 ]
             )
         )
