@@ -280,9 +280,9 @@ class TransBlock:
         start_p = 0
         while(start_p + 2 < block_cnt - 1):
             end_p = random.randint(start_p + 2, block_cnt -2)
-            block_list[start_p].out_instr = new_branch_to(self.extension,block_list[end_p].name)
-            block_list[end_p].out_instr = new_jump_to(block_list[start_p + 1].name)
-            block_list[end_p -1].out_instr = new_jump_to(block_list[end_p + 1].name)
+            block_list[start_p].inst_list.extend(new_branch_to(self.extension,block_list[end_p].name))
+            block_list[end_p].inst_list.extend(new_jump_to(block_list[start_p + 1].name))
+            block_list[end_p -1].inst_list.extend(new_jump_to(block_list[end_p + 1].name))
 
             block_list[start_p].add_succeed(block_list[end_p])
             block_list[start_p].add_succeed(block_list[start_p + 1])
