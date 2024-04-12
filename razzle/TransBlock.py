@@ -257,11 +257,17 @@ class LoadInitBlock(TransBlock):
 
         float_init_list = []
         GPR_init_list = []
+        has_t0 = False
         for reg in need_inited:
+            if reg == 'T0':
+                has_t0 = True
+                continue
             if reg.startswith('F'):
                 float_init_list.append(reg)
             else:
                 GPR_init_list.append(reg)
+        if has_t0:
+            GPR_init_list.append('T0')
         
         inst_list = [
             f"la t0, {self.name}_delay_data_table"
