@@ -671,11 +671,12 @@ class RunTimeBlock(TransBlock):
         delay_block = graph[f"delay_block_{self.depth}"]
         predict_block = graph[f"predict_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
+        load_init_block = graph[f'load_init_block_{self.depth}']
         if predict_block.predict_kind != "return":
             train_entry = predict_block.entry
-            victim_entry = delay_block.entry
+            victim_entry = load_init_block.entry
         else:
-            train_entry = delay_block.entry
+            train_entry = load_init_block.entry
             victim_entry = predict_block.entry
         
         if self.depth == graph["depth"]:

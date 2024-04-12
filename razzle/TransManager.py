@@ -240,3 +240,4 @@ class TransManager(SectionManager):
 
     def _write_headers(self, f, is_variant):
         f.write(f'#include "parafuzz.h"\n')
+        f.write(f'#include "fuzzing.h"\n')
