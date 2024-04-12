@@ -186,7 +186,7 @@ class RandomBlock(BaseBlock):
         for _ in range(random.randint(3,6)):
             gen_func = random.choice(self.gen_func)
             self.inst_list.extend(gen_func(self))
-            if len(self.inst_list) > 6:
+            if len(self.inst_list) >= 6:
                 break
 
 class TransBlock:

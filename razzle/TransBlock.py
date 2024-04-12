@@ -277,7 +277,7 @@ class LoadInitBlock(TransBlock):
             inst_list.append(f"fld {freg.lower()}, {table_index*8}(t0)")
             table_index += 1
         for reg in GPR_init_list:
-            inst_list.append(f"ld {reg.lower()}, {(i+len(float_init_list))*8}(t0)")
+            inst_list.append(f"ld {reg.lower()}, {table_index*8}(t0)")
             table_index += 1
 
         data_list = [
@@ -629,6 +629,7 @@ class RunTimeBlock(TransBlock):
 
                 if predict_block.predict_kind == "branch_not_taken":
                     train_param, victim_param = victim_param, train_param
+                # print(predict_block.branch_kind, delay_imm, train_param, victim_param)
             case "except":
                 train_param = 0
                 victim_param = 0
