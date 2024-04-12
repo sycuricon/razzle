@@ -117,6 +117,9 @@
             exit_block_param: {
                 strategy: default
             }
+            load_init_block_param: {
+                strategy: default
+            }
             return_block_param: {
                 strategy: default
             }

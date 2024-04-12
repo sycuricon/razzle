@@ -14,9 +14,14 @@ class BaseBlock:
         self.extension = extension
         self.graph = graph
         self.mutate = mutate
+        
         self.inst_list = []
         self.previous = []
         self.succeed = []
+
+        self.previous_inited = set()
+        self.need_inited = set()
+        self.succeed_inited = set()
 
     def _get_data_base(self):
         return self.graph['random_data_block_1'].base_label
@@ -106,13 +111,49 @@ class BaseBlock:
         instr.solve()
         return [instr]
 
+    def compute_succeed_inited(self):
+        if not self.mutate:
+            return
+        dest = ['RD', 'FRD']
+        src  = ['RS1', 'RS2', 'FRS1', 'FRS2', 'FRS3']
+        for inst in self.inst_list:
+            for field in src:
+                if inst.has(field):
+                    reg = inst[field]
+                    if reg not in self.succeed_inited:
+                        self.need_inited.add(reg)
+                    self.succeed_inited.add(reg)
+            
+            for field in dest:
+                if inst.has(field):
+                    self.succeed_inited.add(inst[field])
+            
+
+    def compute_need_inited(self):
+        iter_valid = False
+
+        previous_inited = set()
+        if len(self.previous) != 0:
+            previous_inited = self.previous[0].succeed_inited
+            for block in self.previous[1:]:
+                previous_inited.intersection_update(block.succeed_inited)
+
+        if len(self.previous_inited) < len(previous_inited):
+            iter_valid = True
+            self.previous_inited = previous_inited
+            self.succeed_inited.update(previous_inited)
+            if self.mutate:
+                self.need_inited.difference_update(self.previous_inited)
+        
+        return iter_valid
+
     def add_previous(self, node):
         self.previous.append(node)
         node.succeed.append(self)
     
     def add_succeed(self, node):
         self.succeed.append(node)
-        self.previous.append(self)
+        node.previous.append(self)
 
     def gen_asm(self):
         str_list = []
@@ -256,6 +297,25 @@ class TransBlock:
             block_list[i].add_succeed(block_list[i+1])
 
         return block_list
+    
+    def _compute_need_inited(self):
+        for block in self.inst_block_list:
+            block.compute_succeed_inited()
+        
+        iter_valid = True
+        while iter_valid:
+            iter_valid = False
+            for block in self.inst_block_list:
+                iter_valid = iter_valid or block.compute_need_inited() 
+
+        self.need_inited = set()
+        for block in self.inst_block_list:
+            self.need_inited.update(block.need_inited)
+        self.succeed_inited = self.inst_block_list[-1].succeed_inited
+    
+    def _inited_posted_process(self, previous_inited):
+        self.need_inited = self.need_inited - previous_inited
+        self.succeed_inited.update(previous_inited)
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"

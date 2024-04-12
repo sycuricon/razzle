@@ -231,6 +231,69 @@ class DecodeBlock(TransBlock):
             
         self._gen_block_end(graph)
 
+class LoadInitBlock(TransBlock):
+    def __init__(self, depth, extension, fuzz_param, output_path):
+        super().__init__('load_init_block', depth, extension, fuzz_param, output_path)
+        assert (
+            self.strategy == "default"
+        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+    
+    def gen_default(self, graph):
+        block_list = [graph[f'delay_block_{self.depth}'], graph[f'predict_block_{self.depth}']]
+        if self.depth == graph['depth']:
+            block_list.extend([graph[f'access_secret_block_{self.depth}'],graph[f'encode_block_{self.depth}']])
+        else:
+            block_list.extend([graph[f'transient_block_{self.depth}']])
+        
+        for block in block_list:
+            block._compute_need_inited()
+        for i in range(1, len(block_list)):
+            block_list[i]._inited_posted_process(block_list[i-1].succeed_inited)
+        
+        need_inited = set()
+        for block in block_list:
+            need_inited.update(block.need_inited)
+        need_inited.difference_update({'A0'})
+
+        float_init_list = []
+        GPR_init_list = []
+        for reg in need_inited:
+            if reg.startswith('F'):
+                float_init_list.append(reg)
+            else:
+                GPR_init_list.append(reg)
+        
+        inst_list = [
+            f"la t0, {self.name}_delay_data_table"
+        ]
+        table_index = 0
+        for freg in float_init_list:
+            inst_list.append(f"fld {freg.lower()}, {table_index*8}(t0)")
+            table_index += 1
+        for reg in GPR_init_list:
+            inst_list.append(f"ld {reg.lower()}, {(i+len(float_init_list))*8}(t0)")
+            table_index += 1
+
+        data_list = [
+            f"{self.name}_delay_data_table:"
+        ]
+        for _ in range(len(need_inited)):
+            data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+
+        nop_line = 8 + 8 - (len(inst_list)) % 8
+        for i in range(nop_line):
+            inst_list.append("nop")
+
+        self._load_inst_str(inst_list)
+        self._load_data_str(data_list)
+
+        delay_block = graph[f'delay_block_{self.depth}']
+        predict_block = graph[f'predict_block_{self.depth}']
+        dump_result = inst_simlutor(self.baker, [self.inst_block_list, delay_block.inst_block_list],\
+                                     [self.data_list, delay_block.data_list])
+        delay_block.result_imm = dump_result[delay_block.result_reg]
+        predict_block.dep_val = delay_block.result_imm
+
 class DecodeCallBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
         super().__init__('decode_call_block', depth, extension, fuzz_param, output_path)
@@ -262,15 +325,16 @@ class DelayBlock(TransBlock):
         return dep_list
 
     def _gen_inst_list(self, dep_list):
+        block = BaseBlock(f'{self.name}_body', self.extension, None, True)
 
         for i, src in enumerate(dep_list[0:-1]):
             dest = dep_list[i + 1]
             if src in self.GPR_list and dest in self.FLOAT_list:
-                self.inst_list.append(
+                block.inst_list.append(
                     Instruction(f"fcvt.s.lu   {dest.lower()}, {src.lower()}")
                 )
             elif src in self.FLOAT_list and dest in self.GPR_list:
-                self.inst_list.append(
+                block.inst_list.append(
                     Instruction(f"fcvt.lu.s   {dest.lower()}, {src.lower()}")
                 )
             elif src in self.FLOAT_list and dest in self.FLOAT_list:
@@ -308,7 +372,7 @@ class DelayBlock(TransBlock):
                         instr[random.choice(freg_list)] = src
 
                     if instr.has("FRD"):
-                        self.inst_list.append(instr)
+                        block.inst_list.append(instr)
                         break
 
             elif src in self.GPR_list and dest in self.GPR_list:
@@ -344,67 +408,17 @@ class DelayBlock(TransBlock):
                         instr["RS2"] = random.choice(self.GPR_list)
 
                     if instr.has("RD"):
-                        self.inst_list.append(instr)
+                        block.inst_list.append(instr)
                         break
-
-    def _gen_init_inst(self, dep_list):
-        float_init_list = set()
-        float_inited_list = set()
-        GPR_init_list = set()
-        GPR_inited_list = set()
-        for dest_reg, inst in zip(dep_list, self.inst_list):
-            # print(inst)
-
-            if inst.has("FRS1"):
-                if inst["FRS1"] not in float_inited_list:
-                    float_init_list.add(inst["FRS1"])
-            if inst.has("FRS2"):
-                if inst["FRS2"] not in float_inited_list:
-                    float_init_list.add(inst["FRS2"])
-            if inst.has("FRS3"):
-                if inst["FRS3"] not in float_inited_list:
-                    float_init_list.add(inst["FRS3"])
-            if inst.has("RS1"):
-                if inst["RS1"] not in GPR_inited_list:
-                    GPR_init_list.add(inst["RS1"])
-            if inst.has("RS2"):
-                if inst["RS2"] not in GPR_inited_list:
-                    GPR_init_list.add(inst["RS2"])
-
-            if dest_reg[0] == "F":
-                float_inited_list.add(dest_reg)
-            else:
-                GPR_inited_list.add(dest_reg)
-
-        tmp_inst_list = []
-        tmp_inst_list.append(RawInstruction(f"{self.entry}:"))
-        tmp_inst_list.append(RawInstruction(f"la t1, {self.name}_delay_data_table"))
-        self.data_list.append(RawInstruction(f"{self.name}_delay_data_table:"))
-        for i, freg in enumerate(float_init_list):
-            self.data_list.append(RawInstruction(f".dword {random.randint(0, 2**64)}"))
-            tmp_inst_list.append(RawInstruction(f"ld t0, {i*8}(t1)"))
-            tmp_inst_list.append(RawInstruction(f"fcvt.s.lu   {freg.lower()}, t0"))
-        for i, reg in enumerate(GPR_init_list):
-            self.data_list.append(RawInstruction(f".dword {random.randint(0, 2**64)}"))
-            tmp_inst_list.append(
-                RawInstruction(f"ld {reg.lower()}, {(i+len(float_init_list))*8}(t1)")
-            )
-
-        nop_line = 8 + 8 - (len(tmp_inst_list)) % 8
-        for i in range(nop_line):
-            tmp_inst_list.append(RawInstruction("nop"))
-
-        tmp_inst_list.append(RawInstruction("INFO_DELAY_START"))
-        self.inst_list = tmp_inst_list + self.inst_list
-        self.inst_list.append(RawInstruction("INFO_DELAY_END"))
+        
+        self._add_inst_block(block)
 
     def gen_strategy(self, graph):
         dep_list = self._gen_dep_list()
+        self._gen_block_begin()
         self._gen_inst_list(dep_list)
-        self._gen_init_inst(dep_list)
-        dump_reg = inst_simlutor(self.baker, self.inst_list, self.data_list)
+        self._gen_block_end()
         self.result_reg = dep_list[-1]
-        self.result_imm = dump_reg[self.result_reg]
     
     def _gen_block_begin(self, graph):
         inst_begin = [
@@ -448,7 +462,7 @@ class DelayBlock(TransBlock):
         self._load_data_str(data_list)
 
         self.result_reg = "t2".upper()
-        self.result_imm = 0
+        # self.result_imm = 0
 
 
 class PredictBlock(TransBlock):
@@ -464,7 +478,6 @@ class PredictBlock(TransBlock):
 
         delay_block = graph[f"delay_block_{self.depth}"]
         self.dep_reg = delay_block.result_reg
-        self.dep_val = delay_block.result_imm
         transient_block = graph[f"transient_block_{self.depth}"]\
             if self.depth != graph["depth"] else graph[f"access_secret_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
@@ -502,6 +515,20 @@ class PredictBlock(TransBlock):
             case "branch_taken" | "branch_not_taken":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
 
+                off_inst = Instruction()
+                off_inst.set_name_constraint(['ADDI'])
+                off_inst.set_extension_constraint(["RV_I"])
+                def delay_c_param(RD, RS1):
+                    return (
+                        RD == self.dep_reg
+                        and RS1 == self.dep_reg
+                    )
+                off_inst.add_constraint(delay_c_param, ["RD", "RS1"])
+                off_inst.solve()
+                block.inst_list.append(off_inst)
+                self.off_imm = off_inst['IMM']
+
+
                 ret_inst = Instruction()
                 ret_inst.set_category_constraint(["BRANCH"])
                 ret_inst.set_extension_constraint(["RV_I"])
@@ -510,22 +537,9 @@ class PredictBlock(TransBlock):
                 else:
                     ret_inst.set_label_constraint([transient_block.entry])
 
-                def c_param(NAME, RS1, RS2):
+                def c_param(RS1, RS2):
                     return (
-                        (
-                            (
-                                NAME in ["BLT", "BGE"]
-                                and Unsigned2Signed(self.dep_val) != -(2 ** (64 - 1))
-                                and Unsigned2Signed(self.dep_val) != 2 ** (64 - 1) - 1
-                            )
-                            or (
-                                NAME in ["BLTU", "BGEU"]
-                                and self.dep_val != 0
-                                and self.dep_val != 2**64 - 1
-                            )
-                            or (NAME in ["BEQ", "BNE"])
-                        )
-                        and RS1 == "A0"
+                        RS1 == "A0"
                         and RS2 == self.dep_reg
                     )
 
@@ -544,7 +558,6 @@ class PredictBlock(TransBlock):
                 self._add_inst_block(block)
             case _:
                 raise "Error: predict_kind not implemented!"
-
 
 class RunTimeBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
@@ -569,7 +582,7 @@ class RunTimeBlock(TransBlock):
                 train_param = f"{transient_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
                 victim_param = f"{return_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
             case "branch_taken" | "branch_not_taken":
-                delay_imm = delay_block.result_imm
+                delay_imm = delay_block.result_imm + predict_block.off_imm
                 match (predict_block.branch_kind):
                     case "BEQ":
                         train_param = delay_imm + 1 if delay_imm == 0 else delay_imm - 1
@@ -776,7 +789,7 @@ class TransientBlock(TransBlock):
         self._gen_block_end(graph)
 
 
-def inst_simlutor(baker, inst_list, data_list):
+def inst_simlutor(baker, inst_block_list_list, data_list_list):
     if not os.path.exists(baker.output_path):
         os.makedirs(baker.output_path)
 
@@ -788,13 +801,15 @@ def inst_simlutor(baker, inst_list, data_list):
         file.write(".section .text\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")
-        for inst in inst_list:
-            file.write(inst.to_asm())
-            file.write("\n")
+        for inst_block_list in inst_block_list_list:
+            for block in inst_block_list:
+                file.writelines(block.gen_asm())
+                file.write("\n")
         file.write(".section .data\n")
-        for data in data_list:
-            file.write(data.to_asm())
-            file.write("\n")
+        for data_list in data_list_list:
+            for data in data_list:
+                file.write(data.to_asm())
+                file.write("\n")
 
     gen_elf = ShellCommand(
         "riscv64-unknown-elf-gcc",

@@ -52,6 +52,7 @@ class TransManager(SectionManager):
             "exit_block": ExitBlock,
             "decode_call_block": DecodeCallBlock,
             "decode_block": DecodeBlock,
+            "load_init_block": LoadInitBlock,
             "delay_block": DelayBlock,
             "predict_block": PredictBlock,
             "run_time_block": RunTimeBlock,
@@ -89,6 +90,7 @@ class TransManager(SectionManager):
 
         train_vicitm_block_type = {
             "run_time":["run_time_block"],
+            "load_init":["load_init_block"],
             "trigger":["delay_block", "predict_block"],
             "transient":["transient_block"],
             "victim":["access_secret_block","encode_block"],
@@ -109,10 +111,16 @@ class TransManager(SectionManager):
             else:
                 train_block_type.extend(transient_type)
                 train_block_type.extend(train_vicitm_block_type["return"])
+            train_block_type.extend(train_vicitm_block_type["load_init"])
             train_block_type.extend(train_vicitm_block_type["run_time"])
             
             block_name_array = self._block_construct(train_block_type, depth)
-            train_block_array.insert(0, (block_name_array[-1],block_name_array[0:-1]))
+            run_time_block = block_name_array[-1]
+            block_name_array.pop()
+            load_init_block = block_name_array[-1]
+            block_name_array.pop()
+            block_name_array.insert(0, load_init_block)
+            train_block_array.insert(0, (run_time_block,block_name_array))
 
         main_block_type = [
             "init_block",

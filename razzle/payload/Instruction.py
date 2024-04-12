@@ -28,7 +28,10 @@ class InstructionBase:
             for i in range(1, len(vars)):
                 for variable in all_instructions[name]['variables']:
                     if variable_name_remap[variable] == format[i]:
-                        self._solution[variable] = vars[i]
+                        if format[i] != 'LABEL' and format[i] != 'IMM':
+                            self._solution[variable] = vars[i].upper()
+                        else:
+                            self._solution[variable] = vars[i]
             self._solution['NAME'] = name
 
     def __setitem__(self, item, value):
