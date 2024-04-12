@@ -415,9 +415,9 @@ class DelayBlock(TransBlock):
 
     def gen_strategy(self, graph):
         dep_list = self._gen_dep_list()
-        self._gen_block_begin()
+        self._gen_block_begin(graph)
         self._gen_inst_list(dep_list)
-        self._gen_block_end()
+        self._gen_block_end(graph)
         self.result_reg = dep_list[-1]
     
     def _gen_block_begin(self, graph):
@@ -543,7 +543,7 @@ class PredictBlock(TransBlock):
                         and RS2 == self.dep_reg
                     )
 
-                ret_inst.add_constraint(c_param, ["NAME", "RS1", "RS2"])
+                ret_inst.add_constraint(c_param, ["RS1", "RS2"])
                 ret_inst.solve()
 
                 self.branch_kind = ret_inst["NAME"]
@@ -582,7 +582,7 @@ class RunTimeBlock(TransBlock):
                 train_param = f"{transient_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
                 victim_param = f"{return_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}"
             case "branch_taken" | "branch_not_taken":
-                delay_imm = delay_block.result_imm + predict_block.off_imm
+                delay_imm = (delay_block.result_imm + predict_block.off_imm) % 2**64
                 match (predict_block.branch_kind):
                     case "BEQ":
                         train_param = delay_imm + 1 if delay_imm == 0 else delay_imm - 1
@@ -609,10 +609,12 @@ class RunTimeBlock(TransBlock):
                         train_param = random.randint(-(2 ** (64 - 1)), delay_imm)
                         victim_param = random.randint(delay_imm, 2 ** (64 - 1))
                     case "BLTU":
+                        delay_imm = Signed2Unsigned(delay_imm)
                         assert delay_imm != 0 and delay_imm != 2**64 - 1
                         train_param = random.randint(delay_imm, 2**64)
                         victim_param = random.randint(0, delay_imm)
                     case "BGEU":
+                        delay_imm = Signed2Unsigned(delay_imm)
                         assert delay_imm != 0 and delay_imm != 2**64 - 1
                         train_param = random.randint(0, delay_imm)
                         victim_param = random.randint(delay_imm, 2**64)
