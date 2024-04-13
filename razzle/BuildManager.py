@@ -21,6 +21,7 @@ class BuildManager:
         self.shell = shell
         self.output_path = output_path
         self.file_name = os.path.join(output_path, "build.sh")
+        self.reset_time = 0
         self.env_var = env_var
         self.build_cmds = []
 
@@ -46,6 +47,8 @@ class BuildManager:
     
     def reset(self):
         self.build_cmds = []
+        self.reset_time += 1
+        self.file_name = os.path.join(self.output_path, f"build_{self.reset_time}.sh")
 
     def run(self, cmd=None):
         if cmd is not None:
