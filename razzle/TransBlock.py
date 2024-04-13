@@ -809,12 +809,14 @@ def inst_simlutor(baker, inst_block_list_list, data_list_list):
         file.write('#include "encoding.h"\n')
         file.write('#include "parafuzz.h"\n')
         file.write(".section .text\n")
+        file.write("text_sim_begin:\n")
         file.write(f"li t0, 0x8000000a00007800\n")
         file.write("csrw mstatus, t0\n")
         for inst_block_list in inst_block_list_list:
             for block in inst_block_list:
                 file.writelines(block.gen_asm())
                 file.write("\n")
+        file.write("text_sim_end:\n")
         file.write(".section .data\n")
         for data_list in data_list_list:
             for data in data_list:
@@ -824,7 +826,7 @@ def inst_simlutor(baker, inst_block_list_list, data_list_list):
     gen_elf = ShellCommand(
         "riscv64-unknown-elf-gcc",
         [
-            "-march=rv64g_zicsr",
+            "-march=rv64gc_zicsr",
             "-mabi=lp64f",
             "-mcmodel=medany",
             "-nostdlib",
