@@ -80,7 +80,7 @@ class DistributeManager:
         gen_elf = ShellCommand(
             "riscv64-unknown-elf-gcc",
             [
-                "-march=rv64g_zicsr",
+                "-march=rv64gc_zicsr",
                 "-mabi=lp64f",
                 "-mcmodel=medany",
                 "-nostdlib",
