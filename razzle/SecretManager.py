@@ -13,6 +13,7 @@ class SecretSection(Section):
         write_line = []
         write_line.extend(Asmer.label_inst("secret"))
         write_line.extend(Asmer.byte_inst(self.secret))
+
         return write_line
 
 

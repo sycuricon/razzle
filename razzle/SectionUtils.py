@@ -48,7 +48,7 @@ class Asmer:
         ]
 
     def byte_inst(byte_list):
-        return ["\t.byte " + ",".join(list(map(str, byte_list)))]
+        return ["\t.byte " + ",".join(list(map(str, byte_list))) + "\n"]
 
 def isUnsigned(imm):
     return 0 <= imm and imm < 2**64

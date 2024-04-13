@@ -31,3 +31,5 @@ if __name__ == "__main__":
     dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz)
     dist.generate_test()
     dist.run()
+    dist.generate_variant()
+    dist.run()

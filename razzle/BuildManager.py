@@ -43,6 +43,9 @@ class BuildManager:
     
     def add_env(self, env, val):
         self.env_var[env] = val
+    
+    def reset(self):
+        self.build_cmds = []
 
     def run(self, cmd=None):
         if cmd is not None:
