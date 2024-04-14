@@ -35,7 +35,6 @@ class TransManager(SectionManager):
             "RV64_M",
             "RV_C",
             "RV64_C",
-            "RV32_C_F",
             "RV_C_D",
         ]
         self.block_param = config["block_param"]
