@@ -161,7 +161,7 @@ class TransManager(SectionManager):
         )
         train_section_array = []
         for i in range(self.transient_depth):
-            section_name = f'.text_train_{i}'
+            section_name = f'.text_train_{i+1}'
             train_section = self.section[section_name] = FuzzSection(
                 section_name, Flag.U | Flag.X | Flag.R
             )
@@ -235,7 +235,7 @@ class TransManager(SectionManager):
         for i in range(self.transient_depth):
             offset += length
             length = Page.size
-            self.section[f'.text_train_{i}'].get_bound(
+            self.section[f'.text_train_{i+1}'].get_bound(
                 self.virtual_memory_bound[0][1] + offset,
                 self.memory_bound[0][1] + offset,
                 length,

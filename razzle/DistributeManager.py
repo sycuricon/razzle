@@ -144,12 +144,15 @@ class DistributeManager:
         return symbol_table
 
     def generate_variant(self):
+        bin_dist = []
+
+        mem_begin = 0x80000000
+        mem_end   = 0x80040000
+
         symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
+
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
         file_variant = os.path.join(self.output_path, 'Testbench.variant.bin')
-        file_origin_train = os.path.join(self.output_path, 'Testbench.train.bin')
-        file_variant_train = os.path.join(self.output_path, 'Testbench.variant.train.bin')
-
         with open(file_origin, "rb") as file:
             origin_byte_array = bytearray(file.read())
         
@@ -157,27 +160,85 @@ class DistributeManager:
             address_base = 0
         else:
             address_base = 0x80000000
+        
+        if self.virtual:
+            address_offset = 0x80000000
+        else:
+            address_offset = 0
+
+        # init, secret, channel, mtrap, strap, data, random_data
+        # origin_common
+        # variant_common
+        file_origin_common  = os.path.join(self.output_path, 'origin_common.bin')
+        file_variant_common = os.path.join(self.output_path, 'variant_common.bin')
+
+        common_begin = 0
+        common_end   = symbol_table['_random_data_end'] - address_base
+        common_byte_array = origin_byte_array[common_begin:common_end]
+        with open(file_origin_common, "wb") as file:
+            file.write(common_byte_array)
+
         secret_begin = symbol_table['_secret_start'] - address_base
         secret_end   = symbol_table['_secret_end'] - address_base
-        secret_value = origin_byte_array[secret_begin:secret_end]
-
-        # variant
         origin_byte_array[secret_begin:secret_end] = bytes([i for i in range(0, secret_end - secret_begin)])
         with open(file_variant, "wb") as file:
             file.write(origin_byte_array)
-        
-        # variant_train
-        for i in range(1, self.config['fuzz']['transient_depth']):
-            transient_begin = symbol_table[f'transient_block_{i}_entry'] - address_base
-            transient_end   = symbol_table[f'transient_block_{i}_exit'] - address_base
-            origin_byte_array[transient_begin:transient_end] = bytes([0x01, 0x00] * ((transient_end - transient_begin)//2))
-        with open(file_variant_train, "wb") as file:
-            file.write(origin_byte_array)
+        common_byte_array = origin_byte_array[common_begin:common_end]
+        with open(file_variant_common, "wb") as file:
+            file.write(common_byte_array)
 
-        # origin_train
-        origin_byte_array[secret_begin:secret_end] = secret_value
-        with open(file_origin_train, "wb") as file:
+        with open(file_variant, "wb") as file:
             file.write(origin_byte_array)
+        
+        bin_dist.append((mem_begin, [file_origin_common, file_variant_common]))
+
+        # text_common
+        file_text_common = os.path.join(self.output_path, 'text_common.bin')
+        text_begin = symbol_table['_text_start'] - address_base
+        text_end   = symbol_table['_text_end'] - address_base
+        text_common_byte_array = origin_byte_array[text_begin:text_end]
+        with open(file_text_common, "wb") as file:
+            file.write(text_common_byte_array)
+        
+        bin_dist.append((text_begin + address_offset, [file_text_common]))
+
+        # train_0, train_nop_0
+        depth = self.config['fuzz']['transient_depth']
+        for i in range(1, depth+1):
+            file_text_train = os.path.join(self.output_path, f'text_train_{i}.bin')
+            file_text_train_nop = os.path.join(self.output_path, f'text_train_nop_{i}.bin')
+            text_train_begin = symbol_table[f'_text_train_{i}_start'] - address_base
+            text_train_end   = symbol_table[f'_text_train_{i}_end'] - address_base
+            text_train_byte_array = origin_byte_array[text_train_begin:text_train_end]
+            with open(file_text_train, "wb") as file:
+                file.write(text_train_byte_array)
+            if i == depth:
+                transient_begin = symbol_table['begin_access_secret'] - address_base
+                transient_end = symbol_table['encode_exit'] - address_base
+            else:
+                transient_begin = symbol_table[f'transient_block_{i}_entry'] - address_base
+                transient_end = symbol_table[f'transient_block_{i}_exit'] - address_base
+            transient_begin -= text_train_begin
+            transient_end   -= text_train_begin
+            text_train_byte_array[transient_begin:transient_end] = bytes([0x01, 0x00] * ((transient_end - transient_begin)//2))
+            with open(file_text_train_nop, "wb") as file:
+                file.write(text_train_byte_array)
+            
+            bin_dist.append((text_train_begin + address_offset, [file_text_train, file_text_train_nop]))
+
+        file_stack = os.path.join(self.output_path, f'stack.bin')
+        with open(file_stack, "wb") as file:
+                file.write(bytes([0x00]))
+        bin_dist.append(((text_train_end + address_offset + Page.size)&~0xfff, [file_stack]))
+        bin_dist.append((mem_end, (None)))
+
+        file_bin_dist = os.path.join(self.output_path, f'bin_dist')
+        with open(file_bin_dist, "wt") as file:
+            file.write(f'{hex(mem_begin)} {hex(mem_end)}\n')
+            for i, (addr_begin, file_list) in enumerate(bin_dist):
+                if file_list == None:
+                    break
+                file.write(f'{hex(addr_begin)} {hex(bin_dist[i+1][0])} {" ".join(file_list)}\n')
 
         self.baker.reset()
         gen_hex = ShellCommand("od", ["-v", "-An", "-tx8"])
@@ -196,24 +257,6 @@ class DistributeManager:
                 [
                     f"$OUTPUT_PATH/Testbench.variant.bin",
                     f"> $OUTPUT_PATH/Testbench.variant.hex",
-                ]
-            )
-        )
-
-        self.baker.add_cmd(
-            gen_hex.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench.train.bin",
-                    f"> $OUTPUT_PATH/Testbench.train.hex",
-                ]
-            )
-        )
-
-        self.baker.add_cmd(
-            gen_hex.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench.variant.train.bin",
-                    f"> $OUTPUT_PATH/Testbench.variant.train.hex",
                 ]
             )
         )
