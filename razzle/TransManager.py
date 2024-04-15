@@ -16,7 +16,6 @@ class FuzzSection(Section):
     def _generate_body(self):
         return self.inst_list
 
-
 class TransManager(SectionManager):
     def __init__(self, config, victim_privilege, virtual, output_path):
         super().__init__(config)
@@ -53,7 +52,6 @@ class TransManager(SectionManager):
             "strap_block": STrapBlock,
             "secret_protect_block": SecretProtectBlock,
             "exit_block": ExitBlock,
-            "decode_call_block": DecodeCallBlock,
             "decode_block": DecodeBlock,
             "load_init_block": LoadInitBlock,
             "delay_block": DelayBlock,
@@ -83,9 +81,9 @@ class TransManager(SectionManager):
         self.block_instr_gen_order = []
 
         system_block_type = [
+            "secret_protect_block",
             "mtrap_block",
             "strap_block",
-            "secret_protect_block",
             "random_data_block",
         ]
 
@@ -127,9 +125,8 @@ class TransManager(SectionManager):
 
         main_block_type = [
             "init_block",
-            "decode_call_block",
-            "exit_block",
             "decode_block",
+            "exit_block",
         ]
 
         self._block_construct(main_block_type, 1)
@@ -140,34 +137,35 @@ class TransManager(SectionManager):
         
         mtrap_block = ["mtrap_block_1", "secret_protect_block_1"]
         strap_block = ["strap_block_1"]
-        poc_block = ["decode_block_1"]
         random_data_block = ["random_data_block_1"]
         
-        payload_block = ["init_block_1"]
+        main_block = ["init_block_1"]
         for train_block in train_block_array:
-            payload_block.append(train_block[0])
-        payload_block.extend(["decode_call_block_1","exit_block_1"])
-        for train_block in train_block_array:
-            payload_block.extend(train_block[1])
+            main_block.append(train_block[0])
+        main_block.extend(["decode_block_1","exit_block_1"])
 
-        text_section = self.section[".text"] = FuzzSection(
-            ".text", Flag.U | Flag.X | Flag.R
-        )
-        data_section = self.section[".data"] = FuzzSection(
-            ".data", Flag.U | Flag.W | Flag.R
-        )
         mtrap_section = self.section[".mtrap"] = FuzzSection(
             ".mtrap", Flag.X | Flag.R | Flag.W
         )
         strap_section = self.section[".strap"] = FuzzSection(
             ".strap", Flag.X | Flag.R | Flag.W
         )
-        poc_section = self.section[".poc"] = FuzzSection(
-            ".poc", Flag.U | Flag.X | Flag.R
+        data_section = self.section[".data"] = FuzzSection(
+            ".data", Flag.U | Flag.W | Flag.R
         )
         random_data_section = self.section[".random_data"] = FuzzSection(
             ".random_data", Flag.U | Flag.W | Flag.R
         )
+        text_section = self.section[".text"] = FuzzSection(
+            ".text", Flag.U | Flag.X | Flag.R
+        )
+        train_section_array = []
+        for i in range(self.transient_depth):
+            section_name = f'.text_train_{i}'
+            train_section = self.section[section_name] = FuzzSection(
+                section_name, Flag.U | Flag.X | Flag.R
+            )
+            train_section_array.append(train_section)
 
         def set_section(text_section, data_section, block_list):
             for block_index in block_list:
@@ -178,9 +176,10 @@ class TransManager(SectionManager):
 
         set_section(mtrap_section, mtrap_section, mtrap_block)
         set_section(strap_section, strap_section, strap_block)
-        set_section(poc_section, poc_section, poc_block)
-        set_section(text_section, data_section, payload_block)
+        set_section(text_section, data_section, main_block)
         set_section(text_section, random_data_section, random_data_block)
+        for i in range(self.transient_depth):
+            set_section(train_section_array[i], data_section, train_block_array[i][1])
 
         mtrap_section.add_global_label(
             [
@@ -211,14 +210,6 @@ class TransManager(SectionManager):
 
         offset += length
         length = Page.size
-        self.section[".text"].get_bound(
-            self.virtual_memory_bound[0][0] + offset,
-            self.memory_bound[0][0] + offset,
-            length,
-        )
-
-        offset += length
-        length = Page.size
         self.section[".data"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
@@ -235,11 +226,20 @@ class TransManager(SectionManager):
 
         offset = 0
         length = Page.size
-        self.section[".poc"].get_bound(
-            self.virtual_memory_bound[1][0] + offset,
-            self.memory_bound[1][0] + offset,
+        self.section[".text"].get_bound(
+            self.virtual_memory_bound[0][1] + offset,
+            self.memory_bound[0][1] + offset,
             length,
         )
+
+        for i in range(self.transient_depth):
+            offset += length
+            length = Page.size
+            self.section[f'.text_train_{i}'].get_bound(
+                self.virtual_memory_bound[0][1] + offset,
+                self.memory_bound[0][1] + offset,
+                length,
+            )
 
     def _write_headers(self, f):
         f.write(f'#include "parafuzz.h"\n')

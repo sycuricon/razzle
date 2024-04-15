@@ -98,7 +98,7 @@
             0x0000000000009000
             0x0000000000020000
             0x0000000000020000
-            0x000000000003F000
+            0x000000000003E000
         ]
         transient_depth: 3
         block_param: {
@@ -151,9 +151,6 @@
                 strategy: default
                 leak_kind: cache
             }
-            decode_call_block_param: {
-                strategy: default
-            }
             decode_block_param: {
                 strategy: default
             }
@@ -175,11 +172,11 @@
     }
     stack: {
         bound: [
-            0x8003F000
+            0x8003E000
             0x80040000
         ]
         virtual_bound: [
-            0x000000000003F000
+            0x000000000003E000
             0x0000000000040000
         ]
     }

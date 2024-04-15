@@ -212,7 +212,6 @@ class DecodeBlock(TransBlock):
         inst_end = [
             'decode_exit:',
             'INFO_LEAK_END',
-            'ret',
         ]
         self._load_inst_str(inst_end)
 
@@ -299,16 +298,6 @@ class LoadInitBlock(TransBlock):
                                      [self.data_list, delay_block.data_list])
         delay_block.result_imm = dump_result[delay_block.result_reg]
         predict_block.dep_val = delay_block.result_imm
-
-class DecodeCallBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('decode_call_block', depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_call_block.text.S"))
 
 class DelayBlock(TransBlock):
     def __init__(self, depth, extension, fuzz_param, output_path):
