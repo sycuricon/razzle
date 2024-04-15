@@ -221,7 +221,7 @@ class TransBlock:
             line = line.strip()
             if line == '':
                 continue
-            if line.startswith('//') or line.startswith('#'):
+            if line.startswith('//'):
                 continue
             file_list_format.append(line)
         

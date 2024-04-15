@@ -17,9 +17,11 @@ dump_mtrap_info:
     csrw 0x800, t0
 set_mtrap_return_entry:
     la t0, trap_return_entry
+#ifdef __VIRTUAL__
     li t1, 0x80000000
-    add t1, t0, t1
-    ld t0, 0(t1) 
+    add t0, t0, t1
+#endif
+    ld t0, 0(t0) 
     csrw mepc, t0
 mtrap_exit:
     ld t0, 0(sp)

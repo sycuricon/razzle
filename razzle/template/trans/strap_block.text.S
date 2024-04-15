@@ -16,6 +16,10 @@ dump_strap_info:
     csrw 0x800, t0
 set_strap_return_entry:
     la t0, trap_return_entry
+#ifdef __VIRTUAL__
+    li t1, 0xFFFFFFFFFFF00000
+    add t0, t0, t1
+#endif
     ld t0, 0(t0) 
     csrw sepc, t0
 strap_exit:

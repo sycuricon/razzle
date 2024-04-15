@@ -244,3 +244,5 @@ class TransManager(SectionManager):
     def _write_headers(self, f):
         f.write(f'#include "parafuzz.h"\n')
         f.write(f'#include "fuzzing.h"\n')
+        if self.virtual:
+            f.write('#define __VIRTUAL__\n')
