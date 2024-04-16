@@ -3,3 +3,5 @@ protect_S_mode:
     ld t1, 0(t0)
     andi t1, t1, ~(1<<4)
     sd t1, 0(t0)
+    sfence.vma
+
