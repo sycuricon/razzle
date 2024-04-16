@@ -68,7 +68,7 @@ class TransManager(SectionManager):
         block_name_array = []
         for block_type in block_type_array:
             block_name = f'{block_type}_{depth}'
-            block = self.block_construct[block_type](depth ,self.extension, self.block_param[block_type + "_param"], self.output_path)
+            block = self.block_construct[block_type](depth, self.transient_depth, self.extension, self.block_param[block_type + "_param"], self.output_path)
             self.graph[block_name] = block
             self.block_instr_gen_order.append(block_name)
             block_name_array.append(block_name)
@@ -76,7 +76,6 @@ class TransManager(SectionManager):
 
     def _generate_sections(self):
         self.graph = {}
-        self.graph["depth"] = self.transient_depth
         
         self.block_instr_gen_order = []
 
@@ -89,38 +88,29 @@ class TransManager(SectionManager):
 
         self._block_construct(system_block_type, 1)
 
-        train_vicitm_block_type = {
-            "run_time":["run_time_block"],
-            "load_init":["load_init_block"],
-            "trigger":["delay_block", "predict_block"],
-            "transient":["transient_block"],
-            "victim":["access_secret_block","encode_block"],
-            "return":["return_block"],
-        }
-
         train_block_array = []
         for depth in range(self.transient_depth,0,-1):
-            train_block_type = []
-            train_block_type.extend(train_vicitm_block_type['trigger'])
+            block_name_array = []
+            train_block_type = ["delay_block", "predict_block"]
+            block_name_array.extend(self._block_construct(train_block_type, depth))
+
             if depth == self.transient_depth:
-                transient_type = train_vicitm_block_type["victim"]
+                transient_type = ["access_secret_block","encode_block"]
             else:
-                transient_type = train_vicitm_block_type["transient"]
-            if self.block_param["predict_block_param"]["predict_kind"] == "branch_not_taken":
-                train_block_type.extend(train_vicitm_block_type["return"])
+                transient_type = ["transient_block"]
+            if self.graph[block_name_array[-1]].predict_kind == 'branch_not_taken':
+                train_block_type = ["return_block"]
                 train_block_type.extend(transient_type)
             else:
-                train_block_type.extend(transient_type)
-                train_block_type.extend(train_vicitm_block_type["return"])
-            train_block_type.extend(train_vicitm_block_type["load_init"])
-            train_block_type.extend(train_vicitm_block_type["run_time"])
-            
-            block_name_array = self._block_construct(train_block_type, depth)
-            run_time_block = block_name_array[-1]
-            block_name_array.pop()
-            load_init_block = block_name_array[-1]
-            block_name_array.pop()
-            block_name_array.insert(0, load_init_block)
+                train_block_type = transient_type
+                train_block_type.append("return_block")
+            block_name_array.extend(self._block_construct(train_block_type, depth))
+
+            train_block_type = ["load_init_block"]
+            block_name_array.insert(0, self._block_construct(train_block_type, depth)[0])
+
+            run_time_block = self._block_construct(['run_time_block'], depth)[0]
+
             train_block_array.insert(0, (run_time_block,block_name_array))
 
         main_block_type = [
@@ -169,6 +159,7 @@ class TransManager(SectionManager):
 
         def set_section(text_section, data_section, block_list):
             for block_index in block_list:
+                print(block_index)
                 block = self.graph[block_index]
                 inst_list, data_list = block.gen_asm()
                 text_section.add_inst_list(inst_list)

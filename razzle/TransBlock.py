@@ -10,8 +10,8 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class InitBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('init_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('init_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -21,8 +21,8 @@ class InitBlock(TransBlock):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.data.S"))
 
 class MTrapBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('mtrap_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('mtrap_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -32,8 +32,8 @@ class MTrapBlock(TransBlock):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.data.S"))
 
 class SecretProtectBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('secret_protect_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('secret_protect_block', depth, max_depth, extension, fuzz_param, output_path)
         self.victim_privilege = fuzz_param["victim_privilege"]
         self.virtual = fuzz_param["virtual"]
         assert (
@@ -63,8 +63,8 @@ class SecretProtectBlock(TransBlock):
 
 
 class STrapBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('strap_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('strap_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -75,8 +75,8 @@ class STrapBlock(TransBlock):
 
 
 class ReturnBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('return_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('return_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -96,8 +96,8 @@ class ReturnBlock(TransBlock):
         self._load_data_str(data_list)
 
 class ExitBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('exit_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('exit_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -107,8 +107,8 @@ class ExitBlock(TransBlock):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('access_secret_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('access_secret_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -139,8 +139,8 @@ class AccessSecretBlock(TransBlock):
         self._load_data_str(data_list)
 
 class RandomDataBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('random_data_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('random_data_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -164,8 +164,8 @@ class RandomDataBlock(TransBlock):
             random_data_line(0x800)
 
 class EncodeBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('encode_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('encode_block', depth, max_depth, extension, fuzz_param, output_path)
         self.leak_kind = fuzz_param["leak_kind"]
         assert self.leak_kind in [
             "cache",
@@ -196,8 +196,8 @@ class EncodeBlock(TransBlock):
         self._gen_block_end(graph)
 
 class DecodeBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('decode_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('decode_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
@@ -219,7 +219,7 @@ class DecodeBlock(TransBlock):
         
         self._gen_block_begin(graph)
 
-        encode_block = graph[f"encode_block_{graph['depth']}"]
+        encode_block = graph[f"encode_block_{self.max_depth}"]
         match (encode_block.leak_kind):
             case "cache":
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), mutate=True)
@@ -231,15 +231,16 @@ class DecodeBlock(TransBlock):
         self._gen_block_end(graph)
 
 class LoadInitBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('load_init_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('load_init_block', depth, max_depth, extension, fuzz_param, output_path)
         assert (
             self.strategy == "default"
         ), f"strategy of {self.name} must be default rather than {self.strategy}"
-    
+        self.load_init_entry = f'{self.name}_train_init_entry'
+
     def gen_default(self, graph):
         block_list = [graph[f'delay_block_{self.depth}'], graph[f'predict_block_{self.depth}']]
-        if self.depth == graph['depth']:
+        if self.depth == self.max_depth:
             block_list.extend([graph[f'access_secret_block_{self.depth}'],graph[f'encode_block_{self.depth}']])
         else:
             block_list.extend([graph[f'transient_block_{self.depth}']])
@@ -269,7 +270,11 @@ class LoadInitBlock(TransBlock):
             GPR_init_list.append('T0')
         
         inst_list = [
-            f"la t0, {self.name}_delay_data_table"
+            "auipc t0, 0",
+            "add ra, t0, zero",
+            "jalr x0, 12(ra)",
+            f"{self.load_init_entry}:",
+            f"la t0, {self.name}_delay_data_table",
         ]
         table_index = 0
         for freg in float_init_list:
@@ -300,8 +305,8 @@ class LoadInitBlock(TransBlock):
         predict_block.dep_val = delay_block.result_imm
 
 class DelayBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('delay_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('delay_block', depth, max_depth, extension, fuzz_param, output_path)
         self.float_rate = fuzz_param["float_rate"]
         self.delay_len = fuzz_param["delay_len"]
 
@@ -461,28 +466,47 @@ class DelayBlock(TransBlock):
 
 
 class PredictBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('predict', depth, extension, fuzz_param, output_path)
-        self.predict_kind = fuzz_param["predict_kind"]
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('predict_block', depth, max_depth, extension, fuzz_param, output_path)
+        self.transient_entry = f'{self.name}_transient_entry'
+
+        self.boot_victim = ['load', 'except', 'return']
+        # self.boot_victim = ['load', 'except', 'branch_not_taken', 'branch_taken', 'call', 'return']
+        self.boot_train  = ['except', 'return']
+        # self.boot_train  = ['except', 'branch_not_taken', 'branch_taken', 'call', 'return']
+        self.chain_victim = ['branch_not_taken', 'branch_taken', 'call', 'return']
+        self.chain_train  = ['branch_not_taken', 'branch_taken', 'call', 'return']
+        
+        if self.victim and self.boot:
+            predict_pool = self.boot_victim
+        elif not self.victim and self.boot:
+            predict_pool = self.boot_train
+        elif self.victim and not self.boot:
+            predict_pool = self.chain_victim
+        else:
+            predict_pool = self.chain_train   
+        
+        self.predict_kind = random.choice(predict_pool)
 
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
 
     def gen_default(self, graph):
-        # self.inst_list.append(RawInstruction(f'xor {self.result_reg.lower()}, {self.result_reg.lower()}, {self.result_reg.lower()}'))
-
         delay_block = graph[f"delay_block_{self.depth}"]
+        load_init_block = graph[f'load_init_block_{self.depth}'] 
         self.dep_reg = delay_block.result_reg
         transient_block = graph[f"transient_block_{self.depth}"]\
-            if self.depth != graph["depth"] else graph[f"access_secret_block_{self.depth}"]
+            if self.depth != self.max_depth else graph[f"access_secret_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
 
         match (self.predict_kind):
             case "call":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
-
                 delay_link_inst = Instruction(f"add t0, {self.dep_reg.lower()}, a0")
                 block.inst_list.append(delay_link_inst)
+                self._add_inst_block(block)
+
+                block = BaseBlock(self.transient_entry, self.extension, graph, mutate=True)
                 call_inst = Instruction()
                 call_inst.set_name_constraint(["JALR"])
                 call_inst.set_category_constraint(["JUMP"])
@@ -498,15 +522,33 @@ class PredictBlock(TransBlock):
 
                 self._add_inst_block(block)
             case "return":
-                block = BaseBlock(f'{self.name}_dummy', self.extension, graph, mutate=True)
-                block.inst_list.append(Instruction(f"add ra, {self.dep_reg.lower()}, a0"))
-                block.inst_list.append(Instruction("ret"))
-                self._add_inst_block(block)
+                if self.boot:
+                    block = BaseBlock(f'{self.name}_dummy', self.extension, graph, mutate=True)
+                    block.inst_list.append(Instruction(f"add ra, {self.dep_reg.lower()}, a0"))
+                    block.inst_list.append(Instruction("jalr zero, 0(ra)"))
+                    self._add_inst_block(block)
 
-                block = BaseBlock(self.entry, self.extension, graph, mutate=True)
-                block.inst_list.append(Instruction(f"jal zero, {delay_block.entry}"))
-                self._add_inst_block(block)
-                self.off_imm = 0
+                    block = BaseBlock(self.entry, self.extension, graph, mutate=True)
+                    block.inst_list.append(Instruction(f"jal ra, {load_init_block.load_init_entry}"))
+                    self._add_inst_block(block)
+                    self.off_imm = 0
+                else:
+                    block = BaseBlock(self.entry, self.extension, graph, mutate=True)
+                    block.inst_list.append(Instruction(f"add ra, {self.dep_reg.lower()}, a0"))
+                    block.inst_list.append(Instruction("jalr zero, 0(ra)"))
+                    self._add_inst_block(block)
+
+                    inst_list = [
+                        f'{self.transient_entry}:',
+                        'auipc t0, 0',
+                        'add ra, t0, x0',
+                        'jalr x0, 12(ra)',
+                        'jalr x0, 16(ra)',
+                        'jalr ra, 16(t0)',
+                    ]
+
+                    self._load_inst_str(inst_list, mutate=True)
+                    self.off_imm = 0
             case "branch_taken" | "branch_not_taken":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
 
@@ -522,8 +564,9 @@ class PredictBlock(TransBlock):
                 off_inst.solve()
                 block.inst_list.append(off_inst)
                 self.off_imm = off_inst['IMM']
+                self._add_inst_block(block)
 
-
+                block = BaseBlock(self.transient_entry, self.extension, graph, mutate=True)
                 ret_inst = Instruction()
                 ret_inst.set_category_constraint(["BRANCH"])
                 ret_inst.set_extension_constraint(["RV_I"])
@@ -545,7 +588,15 @@ class PredictBlock(TransBlock):
                 block.inst_list.append(ret_inst)
                 self._add_inst_block(block)
             case "except":
-                block = BaseBlock(self.entry, self.extension, graph, mutate=True)
+                inst_list = []
+                if not self.victim:
+                    inst_list.extend(
+                        [
+                            'la t0, secret',
+                            'ld t0, 1000(t0)'
+                        ]
+                    )
+                self._load_inst_str(inst_list, mutate=True)  
             case "load":
                 block = BaseBlock(self.entry, self.extension, graph, mutate=True)
                 block.inst_list.append(Instruction(f"add t1, a0, {self.dep_reg.lower()}"))
@@ -555,20 +606,13 @@ class PredictBlock(TransBlock):
                 raise "Error: predict_kind not implemented!"
 
 class RunTimeBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('run_time_block', depth, extension, fuzz_param, output_path)
-        # self.train_loop = fuzz_param["train_loop"]
-        # self.victim_loop = fuzz_param["victim_loop"]
-        if depth == 1:
-            self.train_loop = 3
-        else:
-            self.train_loop = 0
-        self.victim_loop = 2
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('run_time_block', depth, max_depth, extension, fuzz_param, output_path)
 
     def _gen_predict_param(self, graph):
         predict_block = graph[f"predict_block_{self.depth}"]
         transient_block = graph[f"transient_block_{self.depth}"]\
-            if self.depth != graph["depth"] else graph[f"access_secret_block_{self.depth}"]
+            if self.depth != self.max_depth else graph[f"access_secret_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
         delay_block = graph[f"delay_block_{self.depth}"]
 
@@ -670,14 +714,14 @@ class RunTimeBlock(TransBlock):
         predict_block = graph[f"predict_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
         load_init_block = graph[f'load_init_block_{self.depth}']
-        if predict_block.predict_kind != "return":
-            train_entry = predict_block.entry
-            victim_entry = load_init_block.entry
-        else:
+        if predict_block.predict_kind == "return" and predict_block.boot:
             train_entry = load_init_block.entry
             victim_entry = predict_block.entry
+        else:
+            train_entry = predict_block.entry
+            victim_entry = load_init_block.entry
         
-        if self.depth == graph["depth"]:
+        if self.depth == self.max_depth:
             access_secret_block = graph[f"access_secret_block_{self.depth}"]
 
         inst_str_list = []
@@ -698,7 +742,7 @@ class RunTimeBlock(TransBlock):
             inst_str_list.append(f"ld {delay_block.result_reg.lower()}, {i*8*table_width+8}(t0)")
 
             # offset param, stored in train_offset_table
-            if self.depth == graph["depth"]:
+            if self.depth == self.max_depth:
                 inst_str_list.append(f"la t0, {self.name}_train_offset_table")
                 inst_str_list.append(f"ld t1, {i*8}(t0)")
                 inst_str_list.append(f"la t0, {access_secret_block.name}_target_offset")
@@ -719,7 +763,7 @@ class RunTimeBlock(TransBlock):
             inst_str_list.append(f"la t0, {self.name}_victim_param_table")
             inst_str_list.append(f"ld a0, {i*8*table_width}(t0)")
 
-            if self.depth == graph["depth"]:
+            if self.depth == self.max_depth:
                 inst_str_list.append(f"la t0, {self.name}_victim_offset_table")
                 inst_str_list.append(f"ld t1, {i*8}(t0)")
                 inst_str_list.append(f"la t0, {access_secret_block.name}_target_offset")
@@ -733,16 +777,17 @@ class RunTimeBlock(TransBlock):
         self._load_inst_str(inst_str_list)
 
     def gen_default(self, graph):
-        
-        if self.train_loop > 0:
-            predict_block = graph[f"predict_block_{self.depth}"]
-            match(predict_block.predict_kind):
-                case "call" | "branch_taken" | "branch_not_taken":
-                    self.train_loop = 3
-                case "return" | "except" | "load":
-                    self.train_loop = 0
-                case _:
-                    raise "Error: predict_kind not implemented!"
+        predict_block = graph[f"predict_block_{self.depth}"]
+        self.victim_loop = 1
+        match(predict_block.predict_kind):
+            case 'load' | 'except' | 'return':
+                self.train_loop = 0
+            case 'branch_not_taken' | 'branch_taken':
+                self.train_loop = 2 if predict_block.boot else 1
+            case 'call':
+                self.train_loop = 1
+            case _:
+                raise "Error: predict_kind not implemented!"
 
         victim_predict_param, train_predict_param = self._gen_predict_param(graph)
         train_offset_param = 0
@@ -758,8 +803,8 @@ class RunTimeBlock(TransBlock):
         self._gen_inst_list(graph)
 
 class TransientBlock(TransBlock):
-    def __init__(self, depth, extension, fuzz_param, output_path):
-        super().__init__('transient_block', depth, extension, fuzz_param, output_path)
+    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
+        super().__init__('transient_block', depth, max_depth, extension, fuzz_param, output_path)
         if self.depth > 1:
             self.transient = True
     
@@ -784,7 +829,39 @@ class TransientBlock(TransBlock):
         self._gen_block_end(graph)
 
     def gen_default(self, graph):
+        predict_block = graph[f'predict_block_{self.depth + 1}']
+        delay_block   = graph[f'delay_block_{self.depth + 1}']
+        transient_block = graph[f'transient_block_{self.depth + 1}']\
+            if self.depth + 1 < self.max_depth else\
+            graph[f'access_secret_block_{self.depth + 1}']
+        
         self._gen_block_begin(graph)
+        block = BaseBlock(f'{self.name}_transient_train', self.extension, graph, mutate=True)
+        match(predict_block.predict_kind):
+            case 'branch_not_taken' | 'branch_taken':
+                value1 = 0
+                match(predict_block.branch_kind):
+                    case 'BEQ' | 'BGE' | 'BGEU':
+                        value2 = 0 if predict_block.predict_kind == 'branch_not_taken' else 1
+                    case 'BNE' | 'BLT' | 'BLTU':
+                        value2 = 1 if predict_block.predict_kind == 'branch_not_taken' else 0
+                    case _:
+                        raise f"Error: branch_kind {predict_block.branch_kind} not implemented!"
+                block.inst_list.append(f'li a0, {value1}')
+                block.inst_list.append(f'li {predict_block.dep_reg}, {value2}')
+            case 'call':
+                train_param = f'{transient_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}'
+                self._load_data_str([
+                    f'{self.name}_call_data:'
+                    f'.dword {train_param}',
+                ])
+                block.inst_list.append(Instruction(f'la a0, {self.name}_call_data'))
+                block.inst_list.append(Instruction(f'ld a0, 0(a0)'))
+            case 'return':
+                pass
+            case _:
+                raise 'Error: predict_kind not implemented!'
+        block.inst_list.append(Instruction(f'beq zero, zero {predict_block.transient_entry}'))
         self._gen_block_end(graph)
 
 

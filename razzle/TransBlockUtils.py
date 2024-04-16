@@ -190,9 +190,12 @@ class RandomBlock(BaseBlock):
                 break
 
 class TransBlock:
-    def __init__(self, name, depth, extension, fuzz_param, output_path):
+    def __init__(self, name, depth, max_depth, extension, fuzz_param, output_path):
         self.name = f'{name}_{depth}'
         self.depth = depth
+        self.max_depth = max_depth
+        self.boot = depth == 1
+        self.victim = depth == max_depth
         self.entry = self.name + "_entry"
         self.inst_block_list = []
         self.data_list = []
