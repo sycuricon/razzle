@@ -470,8 +470,7 @@ class PredictBlock(TransBlock):
         super().__init__('predict_block', depth, max_depth, extension, fuzz_param, output_path)
         self.transient_entry = f'{self.name}_transient_entry'
 
-        self.boot_victim = ['load', 'except', 'return']
-        # self.boot_victim = ['load', 'except', 'branch_not_taken', 'branch_taken', 'call', 'return']
+        self.boot_victim = ['load', 'except', 'branch_not_taken', 'branch_taken', 'call', 'return']
         self.boot_train  = ['except', 'return']
         # self.boot_train  = ['except', 'branch_not_taken', 'branch_taken', 'call', 'return']
         self.chain_victim = ['branch_not_taken', 'branch_taken', 'call', 'return']
