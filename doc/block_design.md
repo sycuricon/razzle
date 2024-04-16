@@ -223,7 +223,7 @@ predict_block_transient_entry:
 | predict_place | load | except | branch | call | return |
 |:-------------:|:----:|:------:|:------:|:----:|:------:|
 | boot-train    |  no  |  yes   | swap   | swap | yes    |
-| boot-victim   |  yes |  yes   | swap   | swap | yes    |
+| boot-victim   |  yes |  yes   | yes    | yes  | yes    |
 | chain-train   |  no  |  no    | yes    | yes  | yes    |
 | chain-victim  |  no  |  no    | yes    | yes  | yes    |
 
@@ -232,7 +232,7 @@ predict_block_transient_entry:
 | load          |      0     |       1     |      no     |      no      |
 | except        |      0     |       1     |      no     |      no      |
 | branch        |      2     |       1     |      1      |      1       |
-| call          |      1     |       1     |      1      |      1       |
+| call          |      1     |       1     |      0      |      1       |
 | return        |      0     |       1     |      0      |      1       |
 
 

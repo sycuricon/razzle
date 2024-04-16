@@ -784,7 +784,7 @@ class RunTimeBlock(TransBlock):
             case 'branch_not_taken' | 'branch_taken':
                 self.train_loop = 2 if predict_block.boot else 1
             case 'call':
-                self.train_loop = 1
+                self.train_loop = 1 if predict_block.boot else 0
             case _:
                 raise "Error: predict_kind not implemented!"
 
