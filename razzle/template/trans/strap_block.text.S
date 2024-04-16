@@ -1,6 +1,7 @@
     csrrw sp, sscratch, sp
     addi sp, sp, -8
     sd t0, 0(sp)
+#ifdef __TRAP_DEBUG__
 dump_strap_info:
     ld t0, strap_ptr_mode
     csrw 0x800, t0
@@ -14,6 +15,7 @@ dump_strap_info:
     csrw 0x800, t0
     li t0, '\n'
     csrw 0x800, t0
+#endif
 set_strap_return_entry:
     la t0, trap_return_entry
 #ifdef __VIRTUAL__

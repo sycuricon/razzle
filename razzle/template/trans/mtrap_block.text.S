@@ -2,6 +2,7 @@
     addi sp, sp, -16
     sd t0, 0(sp)
     sd t1, 8(sp)
+#ifdef __TRAP_DEBUG__
 dump_mtrap_info:
     ld t0, mtrap_ptr_mode
     csrw 0x800, t0
@@ -15,6 +16,7 @@ dump_mtrap_info:
     csrw 0x800, t0
     li t0, '\n'
     csrw 0x800, t0
+#endif
 set_mtrap_return_entry:
     la t0, trap_return_entry
 #ifdef __VIRTUAL__

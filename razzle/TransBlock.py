@@ -612,7 +612,6 @@ class RunTimeBlock(TransBlock):
 
     def _gen_predict_param(self, graph):
         predict_block = graph[f"predict_block_{self.depth}"]
-        access_secret_block = graph[f"access_secret_block_{self.depth}"]
         transient_block = graph[f"transient_block_{self.depth}"]\
             if self.depth != self.max_depth else graph[f"access_secret_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
@@ -669,8 +668,8 @@ class RunTimeBlock(TransBlock):
                 train_param = 0
                 victim_param = 0
             case "load":
-                train_param = f"{access_secret_block.name}_target_offset - {delay_block.result_imm}"
-                victim_param = f"{access_secret_block.name}_target_offset - {delay_block.result_imm}"
+                train_param = f"{transient_block.name}_target_offset - {delay_block.result_imm}"
+                victim_param = f"{transient_block.name}_target_offset - {delay_block.result_imm}"
             case _:
                 raise "Error: predict_kind not implemented!"
         return victim_param, train_param
@@ -863,6 +862,7 @@ class TransientBlock(TransBlock):
                 pass
             case _:
                 raise 'Error: predict_kind not implemented!'
+        self._add_inst_block(block)
         block.inst_list.append(Instruction(f'beq zero, zero {predict_block.transient_entry}'))
         self._gen_block_end(graph)
 
