@@ -587,7 +587,9 @@ class PredictBlock(TransBlock):
                 block.inst_list.append(ret_inst)
                 self._add_inst_block(block)
             case "except":
-                inst_list = []
+                inst_list = [
+                    f'{self.entry}:',
+                ]
                 if not self.victim:
                     inst_list.extend(
                         [
@@ -610,6 +612,7 @@ class RunTimeBlock(TransBlock):
 
     def _gen_predict_param(self, graph):
         predict_block = graph[f"predict_block_{self.depth}"]
+        access_secret_block = graph[f"access_secret_block_{self.depth}"]
         transient_block = graph[f"transient_block_{self.depth}"]\
             if self.depth != self.max_depth else graph[f"access_secret_block_{self.depth}"]
         return_block = graph[f"return_block_{self.depth}"]
@@ -666,8 +669,8 @@ class RunTimeBlock(TransBlock):
                 train_param = 0
                 victim_param = 0
             case "load":
-                train_param = f"target_offset - {delay_block.result_imm}"
-                victim_param = f"target_offset - {delay_block.result_imm}"
+                train_param = f"{access_secret_block.name}_target_offset - {delay_block.result_imm}"
+                victim_param = f"{access_secret_block.name}_target_offset - {delay_block.result_imm}"
             case _:
                 raise "Error: predict_kind not implemented!"
         return victim_param, train_param
@@ -749,7 +752,7 @@ class RunTimeBlock(TransBlock):
 
             # call function
             inst_str_list.append("INFO_TRAIN_START")
-            inst_str_list.append(f"j {train_entry}")
+            inst_str_list.append(f"call {train_entry}")
             inst_str_list.append(f"{self.name}_train_{i}_end:")
             inst_str_list.append("INFO_TRAIN_END")
 
@@ -769,7 +772,7 @@ class RunTimeBlock(TransBlock):
                 inst_str_list.append("sd t1, 0(t0)")
 
             inst_str_list.append("INFO_VCTM_START")
-            inst_str_list.append(f"j {victim_entry}")
+            inst_str_list.append(f"call {victim_entry}")
             inst_str_list.append(f"{self.name}_victim_{i}_end:")
             inst_str_list.append("INFO_VCTM_END")
         

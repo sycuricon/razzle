@@ -334,6 +334,7 @@ class TransBlock:
         inst_asm_list.append(f"{self.name}:\n")
         for block in self.inst_block_list:
             inst_asm_list.extend(block.gen_asm())
+            inst_asm_list.append('\n')
 
         data_asm_list = []
         data_asm_list.append(f"{self.name}_data:\n")
