@@ -471,7 +471,7 @@ class PredictBlock(TransBlock):
         self.transient_entry = f'{self.name}_transient_entry'
 
         self.boot_victim = ['load', 'except', 'branch_not_taken', 'branch_taken', 'call', 'return']
-        self.boot_train  = ['except', 'return']
+        self.boot_train  = ['return', 'except']
         # self.boot_train  = ['except', 'branch_not_taken', 'branch_taken', 'call', 'return']
         self.chain_victim = ['branch_not_taken', 'branch_taken', 'call', 'return']
         self.chain_train  = ['branch_not_taken', 'branch_taken', 'call', 'return']
@@ -486,7 +486,7 @@ class PredictBlock(TransBlock):
             predict_pool = self.chain_train   
         
         self.predict_kind = random.choice(predict_pool)
-
+        
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
 
@@ -848,22 +848,18 @@ class TransientBlock(TransBlock):
                         value2 = 1 if predict_block.predict_kind == 'branch_not_taken' else 0
                     case _:
                         raise f"Error: branch_kind {predict_block.branch_kind} not implemented!"
-                block.inst_list.append(f'li a0, {value1}')
-                block.inst_list.append(f'li {predict_block.dep_reg}, {value2}')
+                block.inst_list.append(Instruction(f'li a0, {value1}'))
+                block.inst_list.append(Instruction(f'li {predict_block.dep_reg}, {value2}'))
             case 'call':
-                train_param = f'{transient_block.entry} - {delay_block.result_imm} - {predict_block.off_imm}'
-                self._load_data_str([
-                    f'{self.name}_call_data:'
-                    f'.dword {train_param}',
-                ])
-                block.inst_list.append(Instruction(f'la a0, {self.name}_call_data'))
-                block.inst_list.append(Instruction(f'ld a0, 0(a0)'))
+                offset = - delay_block.result_imm - predict_block.off_imm
+                block.inst_list.append(Instruction(f'la a0, {transient_block.entry}'))
+                block.inst_list.append(Instruction(f'addi a0, a0, {offset}'))
             case 'return':
                 pass
             case _:
                 raise 'Error: predict_kind not implemented!'
         self._add_inst_block(block)
-        block.inst_list.append(Instruction(f'beq zero, zero {predict_block.transient_entry}'))
+        block.inst_list.append(Instruction(f'jal zero, {predict_block.transient_entry}'))
         self._gen_block_end(graph)
 
 
