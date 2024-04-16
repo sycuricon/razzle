@@ -168,4 +168,72 @@ branch_not_taken 情况下，初始化为 10，默认 taken，不 train 就可�
 * 指令数量越多对窗口延迟的影响越大，越能导致后续状态的发散
 * 发散程度是有上限的
 
+## predict 设计
+victim
+
+当且仅当第一次 + victim
+load -- no train
+predict_block_entry:
+    addi a0, a0, t2
+    sd zero, 0(a0)
+
+当且仅当第一次 + victim
+except -- no train
+predict_block_entry:
+    pass
+
+当且仅当第一次 + train
+except -- no train
+predict_block_entry:
+    ld t0, 0(zero)
+
+第一次和之后的所有都可以
+branch -- 3 train and can 2 trigger
+predict_block_entry:
+    addi t2, t2, imm
+predict_block_transient_entry:
+    bne t2, a0, label
+
+call -- 1 train and can 1 trigger
+predict_block_entry:
+    add a0, t2, a0
+predict_block_transient_entry:
+    jalr ra, imm(a0)
+
+当且仅当第一次
+return -- 1 train and can 1 trigger
+    add a0, t2, a0
+    jalr zero, imm(a0)
+predict_block_entry:
+    call load_init_block_entry
+
+第二次之后
+predict_block_entry:
+    add a0, t2, a0
+    jalr zero, imm(a0)
+predict_block_transient_entry:
+    auipc t0, 0
+    add ra, t0, x0
+    jalr x0, 12(ra)
+    jalr x0, 16(ra)
+    jalr ra, 16(t0)
+
+## 表格
+
+| predict_place | load | except | branch | call | return |
+|:-------------:|:----:|:------:|:------:|:----:|:------:|
+| boot-train    |  no  |  yes   | swap   | swap | yes    |
+| boot-victim   |  yes |  yes   | swap   | swap | yes    |
+| chain-train   |  no  |  no    | yes    | yes  | yes    |
+| chain-victim  |  no  |  no    | yes    | yes  | yes    |
+
+| predict_kind  | boot-train | boot-victim | chain-train | chain-victim |
+|:-------------:|:----------:|:-----------:|:-----------:|:------------:|
+| load          |      0     |       1     |      no     |      no      |
+| except        |      0     |       1     |      no     |      no      |
+| branch        |      2     |       1     |      1      |      1       |
+| call          |      1     |       1     |      1      |      1       |
+| return        |      0     |       1     |      0      |      1       |
+
+
 
