@@ -3,6 +3,7 @@ import random
 import sys
 from BuildManager import *
 from SectionUtils import *
+from SectionManager import *
 
 from payload.Instruction import *
 from payload.MagicDevice import *
@@ -24,7 +25,7 @@ class BaseBlock:
         self.succeed_inited = set()
 
     def _get_data_base(self):
-        return self.graph['random_data_block_1'].base_label
+        return self.graph['random_data_block'].base_label
     
     def _gen_load_address(self):
         instr_la = Instruction()
@@ -163,24 +164,16 @@ class BaseBlock:
         return str_list
 
 class RandomBlock(BaseBlock):
-    def __init__(self, name, extension, graph, transient):
+    def __init__(self, name, extension, graph):
         super().__init__(name, extension, graph, True)
-        self.transient = transient
         self.gen_func = [
-            RandomBlock._gen_atomic,
-            RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_int_arithmetic,
-            RandomBlock._gen_int_arithmetic,
-            RandomBlock._gen_load_store,
+            BaseBlock._gen_atomic,
+            BaseBlock._gen_float_arithmetic,
+            BaseBlock._gen_float_arithmetic,
+            BaseBlock._gen_int_arithmetic,
+            BaseBlock._gen_int_arithmetic,
+            BaseBlock._gen_load_store,
         ]
-        if transient:
-            self.gen_func.extend(
-                [
-                    RandomBlock._gen_system,
-                    RandomBlock._gen_csr,
-                ]
-            )
 
     def gen_instr(self):
         for _ in range(random.randint(3,6)):
@@ -190,18 +183,12 @@ class RandomBlock(BaseBlock):
                 break
 
 class TransBlock:
-    def __init__(self, name, depth, max_depth, extension, fuzz_param, output_path):
-        self.name = f'{name}_{depth}'
-        self.depth = depth
-        self.max_depth = max_depth
-        self.boot = depth == 1
-        self.victim = depth == max_depth
+    def __init__(self, name, extension, output_path):
+        self.name = name
         self.entry = self.name + "_entry"
         self.inst_block_list = []
         self.data_list = []
         self.extension = extension
-        self.strategy = fuzz_param["strategy"]
-        self.transient = False
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
             os.path.join(output_path, self.name),
@@ -263,15 +250,31 @@ class TransBlock:
         if len(self.inst_block_list) != 0:
             self.inst_block_list[-1].add_succeed(block_list[0])
         self.inst_block_list.extend(block_list)
+    
+    def _compute_need_inited(self):
+        for block in self.inst_block_list:
+            block.compute_succeed_inited()
+        
+        iter_valid = True
+        while iter_valid:
+            iter_valid = False
+            for block in self.inst_block_list:
+                iter_valid = iter_valid or block.compute_need_inited() 
 
+        self.need_inited = set()
+        for block in self.inst_block_list:
+            self.need_inited.update(block.need_inited)
+        self.succeed_inited = self.inst_block_list[-1].succeed_inited
+    
+    def _inited_posted_process(self, previous_inited):
+        self.need_inited = self.need_inited - previous_inited
+        self.succeed_inited.update(previous_inited)
+    
     def gen_instr(self, graph):
-        match self.strategy:
-            case "default":
-                self.gen_default(graph)
-            case "random":
-                self.gen_random(graph)
-            case _:
-                self.gen_strategy(graph)
+        pass
+
+    def instr_mutate(self):
+        pass
     
     def _gen_random(self, graph, block_cnt=3):
         block_list = []
@@ -300,34 +303,6 @@ class TransBlock:
             block_list[i].add_succeed(block_list[i+1])
 
         return block_list
-    
-    def _compute_need_inited(self):
-        for block in self.inst_block_list:
-            block.compute_succeed_inited()
-        
-        iter_valid = True
-        while iter_valid:
-            iter_valid = False
-            for block in self.inst_block_list:
-                iter_valid = iter_valid or block.compute_need_inited() 
-
-        self.need_inited = set()
-        for block in self.inst_block_list:
-            self.need_inited.update(block.need_inited)
-        self.succeed_inited = self.inst_block_list[-1].succeed_inited
-    
-    def _inited_posted_process(self, previous_inited):
-        self.need_inited = self.need_inited - previous_inited
-        self.succeed_inited.update(previous_inited)
-
-    def gen_random(self, graph):
-        raise "Error: gen_random not implemented!"
-
-    def gen_default(self, graph):
-        raise "Error: gen_default not implemented!"
-
-    def gen_strategy(self, graph):
-        raise "Error: gen_dstrategy not implemented!"
 
     def gen_asm(self):
         inst_asm_list = []
@@ -344,3 +319,32 @@ class TransBlock:
 
     def work(self):
         return len(self.extension) > 0
+
+class TransBaseManager(SectionManager):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path):
+        super().__init__(config)
+        self.extension = extension
+        self.victim_privilege = victim_privilege
+        self.virtual = virtual
+        self.output_path = output_path
+    
+    def gen_block(self):
+        raise "gen_block has not been implemented!!!"
+    
+    def _set_section(self, text_section, data_section, block_list):
+        for block in block_list:
+            inst_list, data_list = block.gen_asm()
+            text_section.add_inst_list(inst_list)
+            data_section.add_inst_list(data_list)
+
+class FuzzSection(Section):
+    def __init__(self, name, flag):
+        super().__init__(name, flag)
+        self.inst_list = []
+
+    def add_inst_list(self, list):
+        self.inst_list.extend(list)
+        self.inst_list.append("\n")
+
+    def _generate_body(self):
+        return self.inst_list

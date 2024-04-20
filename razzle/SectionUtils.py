@@ -67,8 +67,6 @@ def Unsigned2Signed(imm):
     else:
         raise Exception(f"{imm} is not 64 bit num")
 
-
-
 def Signed2Unsigned(imm):
     if isSigned(imm):
         if imm > 0:
@@ -79,3 +77,9 @@ def Signed2Unsigned(imm):
         return imm
     else:
         raise Exception(f"{imm} is not 64 bit num")
+
+def up_align(number, align):
+    return (number + align - 1) // align * align
+
+def down_align(number, align):
+    return number // align * align

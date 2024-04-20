@@ -9,109 +9,16 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
-class InitBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('init_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.text.S"), False)
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.data.S"))
-
-class MTrapBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('mtrap_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.data.S"))
-
-class SecretProtectBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('secret_protect_block', depth, max_depth, extension, fuzz_param, output_path)
-        self.victim_privilege = fuzz_param["victim_privilege"]
-        self.virtual = fuzz_param["virtual"]
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._add_inst_block(BaseBlock(self.entry, self.extension, graph, False))
-        mtrap_block = graph[f"mtrap_block_{self.depth}"]
-        if (
-            self.victim_privilege == "M" or self.victim_privilege == "S"
-        ) and self.virtual:
-            self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.S.text.S"))
-        if self.victim_privilege == "M":
-            self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
-
-        inst_list = [
-            'secret_protect_exit:',
-            f"la t0, {mtrap_block.entry}",
-            "csrw mtvec, t0",
-            "csrr t0, mepc",
-            "addi t0, t0, 4",
-            "csrw mepc, t0",
-            "mret",
-        ]
-        self._load_inst_str(inst_list)
-
-
-class STrapBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('strap_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.data.S"))
-
-
 class ReturnBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('return_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__('return_block', extension, fuzz_param, output_path)
 
     def gen_default(self, graph):
-        inst_list = [
-            f'ld ra, {self.name}_store_ra',
-            'ret',
-        ]
-
-        data_list = [
-            f'{self.name}_store_ra:',
-            '.space 0x8',
-        ]
-
-        self._load_inst_str(inst_list)
-        self._load_data_str(data_list)
-
-class ExitBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('exit_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def gen_default(self, graph):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
+        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return_block.text.S"))
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('access_secret_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
+    def __init__(self, extension, fuzz_param, output_path):
+        super().__init__('access_secret_block', extension, fuzz_param, output_path)
 
     def _gen_block_begin(self, graph):
         inst_list_begin = [
@@ -192,41 +99,6 @@ class EncodeBlock(TransBlock):
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
             case _:
                 raise f"leak_kind cannot be {self.leak_kind}"
-            
-        self._gen_block_end(graph)
-
-class DecodeBlock(TransBlock):
-    def __init__(self, depth, max_depth, extension, fuzz_param, output_path):
-        super().__init__('decode_block', depth, max_depth, extension, fuzz_param, output_path)
-        assert (
-            self.strategy == "default"
-        ), f"strategy of {self.name} must be default rather than {self.strategy}"
-
-    def _gen_block_begin(self, graph):
-        inst_begin = [
-            'INFO_LEAK_START'
-        ]
-        self._load_inst_str(inst_begin)
-    
-    def _gen_block_end(self, graph):
-        inst_end = [
-            'decode_exit:',
-            'INFO_LEAK_END',
-        ]
-        self._load_inst_str(inst_end)
-
-    def gen_default(self, graph):
-        
-        self._gen_block_begin(graph)
-
-        encode_block = graph[f"encode_block_{self.max_depth}"]
-        match (encode_block.leak_kind):
-            case "cache":
-                self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), mutate=True)
-            case "FPUport" | "LSUport":
-                pass
-            case _:
-                raise f"leak_kind cannot be {encode_block.leak_kind}"
             
         self._gen_block_end(graph)
 
@@ -471,10 +343,12 @@ class PredictBlock(TransBlock):
         self.transient_entry = f'{self.name}_transient_entry'
 
         self.boot_victim = ['load', 'except', 'branch_not_taken', 'branch_taken', 'call', 'return']
-        self.boot_train  = ['return', 'except']
+        # self.boot_train  = ['return', 'except']
+        self.boot_train  = ['return']
         # self.boot_train  = ['except', 'branch_not_taken', 'branch_taken', 'call', 'return']
         self.chain_victim = ['branch_not_taken', 'branch_taken', 'call', 'return']
-        self.chain_train  = ['branch_not_taken', 'branch_taken', 'call', 'return']
+        # self.chain_train  = ['branch_not_taken', 'branch_taken', 'call', 'return']
+        self.chain_train  = ['call', 'return']
         
         if self.victim and self.boot:
             predict_pool = self.boot_victim
@@ -486,7 +360,7 @@ class PredictBlock(TransBlock):
             predict_pool = self.chain_train   
         
         self.predict_kind = random.choice(predict_pool)
-        
+
     def gen_random(self, graph):
         raise "Error: gen_random not implemented!"
 
@@ -852,8 +726,8 @@ class TransientBlock(TransBlock):
                 block.inst_list.append(Instruction(f'li {predict_block.dep_reg}, {value2}'))
             case 'call':
                 offset = - delay_block.result_imm - predict_block.off_imm
-                block.inst_list.append(Instruction(f'la a0, {transient_block.entry}'))
-                block.inst_list.append(Instruction(f'addi a0, a0, {offset}'))
+                block.inst_list.append(Instruction(f'la t0, {transient_block.entry}'))
+                block.inst_list.append(Instruction(f'addi t0, t0, {offset}'))
             case 'return':
                 pass
             case _:

@@ -87,71 +87,63 @@
             template/default/testcase_code/spectre-v1.c
         ]
     }
-    fuzz: {
-        bound: [
-            0x80009000
-            0x80020000
-            0x80020000
-            0x8003F000
-        ]
-        virtual_bound: [
-            0x0000000000009000
-            0x0000000000020000
-            0x0000000000020000
-            0x000000000003E000
-        ]
-        transient_depth: 3
-        block_param: {
-            init_block_param: {
-                strategy: default
-            }
-            mtrap_block_param: {
-                strategy: default
-            }
-            secret_protect_block_param: {
-                strategy: default
-            }
-            strap_block_param: {
-                strategy: default
-            }
-            exit_block_param: {
-                strategy: default
-            }
-            load_init_block_param: {
-                strategy: default
-            }
-            return_block_param: {
-                strategy: default
-            }
-            random_data_block_param: {
-                strategy: default
-                page_num: 2
-            }
+    trans:{
+        trans_frame: {
+            bound: [
+                0x80009000
+                0x80020000
+            ]
+            virtual_bound: [
+                0x0000000000009000
+                0x0000000000020000
+            ]
+        }
+        trans_body: {
+            bound: [
+                0x80020000
+                0x8003F000
+            ]
+            virtual_bound: [
+                0x0000000000020000
+                0x000000000003E000
+            ]
+            block_param: {
+                exit_block_param: {
+                    strategy: default
+                }
+                load_init_block_param: {
+                    strategy: default
+                }
+                return_block_param: {
+                    strategy: default
+                }
+                random_data_block_param: {
+                    strategy: default
+                    page_num: 2
+                }
 
-            run_time_block_param: {
-                strategy: default
-            }
-            delay_block_param: {
-                strategy: default
-                float_rate: 0.5
-                delay_len: 4
-            }
-            predict_block_param: {
-                strategy: default
-            }
-            transient_block_param: {
-                strategy: default
-            }
+                delay_block_param: {
+                    strategy: default
+                    float_rate: 0.5
+                    delay_len: 4
+                }
+                predict_block_param: {
+                    strategy: default
+                }
+                transient_block_param: {
+                    strategy: default
+                }
 
-            access_secret_block_param: {
-                strategy: default
-            }
-            encode_block_param: {
-                strategy: default
-                leak_kind: cache
-            }
-            decode_block_param: {
-                strategy: default
+                access_secret_block_param: {
+                    strategy: default
+                }
+                encode_block_param: {
+                    strategy: default
+                    leak_kind: cache
+                }
+                decode_block_param: {
+                    strategy: default
+                }
             }
         }
     }

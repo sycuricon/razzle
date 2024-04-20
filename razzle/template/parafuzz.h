@@ -16,6 +16,7 @@
 #define STATE_DUMP_ADDR     3
 
 #define CMD_POWER_OFF       0xAF1B608E883B0000ul
+#define CMD_SWAP_MEM        0xAF1B608E883C0000ul
 
 // deprecated
 #define GUESS_START         100
