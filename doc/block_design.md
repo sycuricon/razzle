@@ -235,5 +235,65 @@ predict_block_transient_entry:
 | call          |      1     |       1     |      0      |      1       |
 | return        |      0     |       1     |      0      |      1       |
 
+## trigger 设计
+
+### load, store
+
+category: LOAD STORE FLOAT_LOAD FLOAT_STORE
+connect: a0 <- dep + a0
+constraint: rs1 <- a0
+parameter: a0 + dep == secret_page_base/random_data_block_page_base
+
+### AMO
+
+category: AMO
+connect: a0 <- dep + a0
+constraint: rs1 <- a0
+parameter: a0 + dep == secret_page_base/random_data_block_page_base + [-0x800, 0x7ff]
+
+### load_sp, store_sp
+
+category: LOAD_SP STORE_SP
+connect: sp <- dep + a0
+constraint: null
+parameter: a0 + dep == secret_page_base/random_data_block_page_base
+
+### v4
+
+connect: a0 <- dep + a0
+constraint: sd zero, 0(a0)
+parameter: dep + a0 == access_secret_offset
+
+### bim
+
+category: BRANCH
+inst: beq, bne, blt, bge, bltu, bgeu, c.beqz, c.bnez
+connect: a0 <- dep + a0
+constraint: rs1 <- a0, rs2 <- dep, label == ret_label/not_return_label
+parameter: satisfied
+
+### btb
+
+category: JUMP
+inst: jalr, c.jalr, c.jr
+connect: a0 <- dep + a0
+constraint: rs1 <- a0
+parameter: a0 + imm == ret_label/not_return_label
+
+### rsb
+
+category: JUMP
+inst: ret
+connect: ra <- dep + a0
+constraint: rs1 <- ra, rd <- zero
+parameter: ra + imm == ret_label/not_return_label
+
+### other
+
+category: ARITHMETIC
+constraint: rs1 <- dep
+
+category: FLOAT
+constraint: frs1 <- dep
 
 
