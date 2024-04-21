@@ -262,7 +262,7 @@ parameter: a0 + dep == secret_page_base/random_data_block_page_base
 
 connect: a0 <- dep + a0
 constraint: sd zero, 0(a0)
-parameter: dep + a0 == access_secret_offset
+parameter: dep + a0 == access_secret_block_target_offset
 
 ### bim
 
@@ -278,12 +278,12 @@ category: JUMP
 inst: jalr, c.jalr, c.jr
 connect: a0 <- dep + a0
 constraint: rs1 <- a0
-parameter: a0 + imm == ret_label/not_return_label
+parameter: a0 + imm +dep == ret_label/not_return_label
 
 ### rsb
 
 category: JUMP
-inst: ret
+inst: jalr, c.jalr, c.jr
 connect: ra <- dep + a0
 constraint: rs1 <- ra, rd <- zero
 parameter: ra + imm == ret_label/not_return_label
