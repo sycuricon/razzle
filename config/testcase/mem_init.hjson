@@ -107,44 +107,6 @@
                 0x0000000000020000
                 0x000000000003E000
             ]
-            block_param: {
-                exit_block_param: {
-                    strategy: default
-                }
-                load_init_block_param: {
-                    strategy: default
-                }
-                return_block_param: {
-                    strategy: default
-                }
-                random_data_block_param: {
-                    strategy: default
-                    page_num: 2
-                }
-
-                delay_block_param: {
-                    strategy: default
-                    float_rate: 0.5
-                    delay_len: 4
-                }
-                predict_block_param: {
-                    strategy: default
-                }
-                transient_block_param: {
-                    strategy: default
-                }
-
-                access_secret_block_param: {
-                    strategy: default
-                }
-                encode_block_param: {
-                    strategy: default
-                    leak_kind: cache
-                }
-                decode_block_param: {
-                    strategy: default
-                }
-            }
         }
     }
     poc: {
