@@ -6,16 +6,19 @@ class SecretSection(Section):
     def __init__(self, name, length, secret):
         super().__init__(name, Flag.U | Flag.W | Flag.R)
         self.length = length
-        self.global_label = ["secret"]
+        self.global_label = ["secret", "secret_page_base"]
         self.secret = secret
 
     def _generate_body(self):
         write_line = []
         write_line.extend(Asmer.label_inst("secret"))
+        write_line.extend(Asmer.label_inst("secret_begin"))
         write_line.extend(Asmer.byte_inst(self.secret))
+        write_line.extend(Asmer.label_inst("secret_end"))
+        write_line.extend(Asmer.space_inst(0x800 - len(self.secret)))
+        write_line.extend(Asmer.label_inst("secret_page_base"))
 
         return write_line
-
 
 class SecretManager(SectionManager):
     def __init__(self, config):
