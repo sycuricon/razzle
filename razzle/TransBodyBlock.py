@@ -228,7 +228,7 @@ class TriggerBlock(TransBlock):
                 inst.set_category_constraint(['BRANCH'])
                 inst.set_label_constraint([self.ret_label, self.train_label])
                 def inst_constraint(rs1, rs2):
-                    return rs1 == 'A0' and rs2 == self.dep_reg
+                    return rs1 == 'A0' and  rs2 == self.dep_reg
                 inst.add_constraint(inst_constraint, ['RS1', 'RS2'])
             case TriggerType.BTB:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
@@ -245,11 +245,13 @@ class TriggerBlock(TransBlock):
                     return rs1 == 'RA' and rd == 'ZERO'
                 inst.add_constraint(inst_constraint, ['RS1', 'RD'])
             case TriggerType.ARITHMETIC:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['ARITHMETIC'])
                 def inst_constraint(rs1):
                     return rs1 == self.dep_reg
                 inst.add_constraint(inst_constraint, ['RS1'])
             case TriggerType.FLOAT:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['FLOAT'])
                 def inst_constraint(rs1):
                     return rs1 == self.dep_reg
@@ -342,14 +344,16 @@ class LoadInitBlock(TransBlock):
         need_inited = set()
         for block in self.init_block_list:
             need_inited.update(block.need_inited)
-        need_inited.difference_update({'A0'})
+        need_inited.difference_update({'A0', 'ZERO'})
 
         self.float_init_list = []
         self.GPR_init_list = []
+
         has_t0 = False
         if 'T0' in need_inited:
             has_t0 = True
-            need_inited.difference({'T0'})
+            need_inited.difference_update({'T0'})
+
         for reg in need_inited:
             if reg.startswith('F'):
                 self.float_init_list.append(reg)
@@ -362,19 +366,19 @@ class LoadInitBlock(TransBlock):
         inst_list = [
             f"la t0, {self.name}_delay_data_table",
         ]
-        table_index = 0
-        for freg in self.float_init_list:
-            inst_list.append(f"fld {freg.lower()}, {table_index*8}(t0)")
-            table_index += 1
-        for reg in self.GPR_init_list:
-            inst_list.append(f"ld {reg.lower()}, {table_index*8}(t0)")
-            table_index += 1
-
         data_list = [
             f"{self.name}_delay_data_table:"
         ]
-        for _ in range(len(need_inited)):
+
+        table_index = 0
+        for freg in self.float_init_list:
+            inst_list.append(f"fld {freg.lower()}, {table_index*8}(t0)")
             data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            table_index += 1
+        for reg in self.GPR_init_list:
+            inst_list.append(f"ld {reg.lower()}, {table_index*8}(t0)")
+            data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            table_index += 1
 
         self._load_inst_str(inst_list)
         self._load_data_str(data_list)
