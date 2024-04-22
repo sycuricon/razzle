@@ -10,10 +10,11 @@ from enum import Enum
 
 class MutateState(Enum):
     IDLE = 0
-    SELECT = 1
+    VICTIM = 1
     END = 2
-    TRAIN = 3
+    VICTIM_TRAIN = 3
     TTE = 4
+    TTE_TRAIN = 5
 
 class TransManager(SectionManager):
     def __init__(self, config, victim_privilege, virtual, output_path):
@@ -49,54 +50,75 @@ class TransManager(SectionManager):
         self.train_stack = []
 
     def _gen_victim(self):
-        pass
+        trans_body = TransVictimManager(self.config['trans_body'], self.extension,\
+                                self.victim_privilege, self.virtual, self.output_path)
+        trans_body.gen_block()
+        return trans_body
 
-    def _gen_tte(self, tte_target):
+    def _gen_tte(self, train_target):
         pass
     
     def _gen_train(self, train_target):
         pass
 
+    def _mutate_train(self, train_target):
+        pass
+
     def mem_mutate_iter(self):
         match(self.mutate_iter_state):
             case MutateState.IDLE:
-                self.mutate_iter_state = MutateState.SELECT
+                self.mutate_iter_state = MutateState.VICTIM
                 self.trans_body = self._gen_victim()
                 self.train_stack.append(self.trans_body)
-            case MutateState.SELECT:
-                self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.TTE, MutateState.END])
+            case MutateState.VICTIM:
+                self.mutate_iter_state = random.choice([MutateState.VICTIM_TRAIN, MutateState.TTE, MutateState.END])
                 match(self.mutate_iter_state):
-                    case MutateState.TRAIN:
+                    case MutateState.VICTIM_TRAIN:
                         self.trans_body = self._gen_train(self.train_stack[-1])
+                        self.train_stack.append(self.trans_body)
                     case MutateState.TTE:
                         self.trans_body = self._gen_tte(self.train_stack[-1])
                         self.train_stack.append(self.trans_body)
                     case _:
                         self.train_stack.pop()
                         return False
-            case MutateState.TRAIN:
-                self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.SELECT])
+            case MutateState.VICTIM_TRAIN:
+                self.mutate_iter_state = random.choice([MutateState.VICTIM_TRAIN, MutateState.VICTIM])
                 match(self.mutate_iter_state):
-                    case MutateState.TRAIN:
-                        self.trans_body = self._gen_train(self.train_stack[-1])
-                    case _:
-                        return False
-            case MutateState.TTE:
-                self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.SELECT])
-                match(self.mutate_iter_state):
-                    case MutateState.TRAIN:
-                        self.trans_body = self._gen_train(self.train_stack[-1])
+                    case MutateState.VICTIM_TRAIN:
+                        self.trans_body = self._mutate_train(self.train_stack[-1])
+                        self.train_stack[-1] = self.trans_body
                     case _:
                         self.train_stack.pop()
                         return False
+            case MutateState.TTE:
+                self.mutate_iter_state = random.choice([MutateState.TTE_TRAIN, MutateState.VICTIM])
+                match(self.mutate_iter_state):
+                    case MutateState.TTE_TRAIN:
+                        self.trans_body = self._gen_train(self.train_stack[-1])
+                        self.train_stack.append(self.trans_body)
+                    case _:
+                        self.train_stack.pop()
+                        return False
+            case MutateState.TTE_TRAIN:
+                self.mutate_iter_state = random.choice([MutateState.TTE_TRAIN, MutateState.VICTIM])
+                match(self.mutate_iter_state):
+                    case MutateState.TTE_TRAIN:
+                        self.trans_body = self._mutate_train(self.train_stack[-1])
+                        self.train_stack[-1] = self.trans_body
+                    case _:
+                        self.train_stack.pop()
+                        self.train_stack.pop()
+                        return False
             case _:
+                self.train_stack.pop()
                 return False
             
         self.trans_body_array.append(self.trans_body)
         return True
 
     def mem_mutate_halt(self):
-        return self.mutate_iter_state == MutateState.IDLE
+        return self.mutate_iter_state == MutateState.VICTIM
         # return self.mutate_iter_state == MutateState.END
 
     def _generate_sections(self):

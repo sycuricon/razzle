@@ -58,6 +58,24 @@ class SecretProtectBlock(TransBlock):
             self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.ret.text.S"))
 
+class RandomDataBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('random_data_block', extension, output_path)
+
+    def gen_instr(self):
+        def random_data_line(byte_num = 0x800):
+            assert byte_num%64==0, "byte_num must be aligned to 64"
+            for i in range(0, byte_num, 64):
+                data = [hex(random.randint(0,0xffffffffffffffff)) for i in range(8)]
+                dataline = " ,".join(data)
+                self.data_list.append(RawInstruction(f'.dword {dataline}'))
+        
+        self.base_label = []
+
+        random_data_line(0x800)
+        self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
+        random_data_line(0x800)
+
 class TransFrameManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
@@ -68,12 +86,14 @@ class TransFrameManager(TransBaseManager):
         self.mtrap_block = MTrapBlock(self.extension, self.output_path)
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, self.victim_privilege, self.virtual)
         self.strap_block = STrapBlock(self.extension, self.output_path)
+        self.random_data_block = RandomDataBlock(self.extension, self.output_path)
 
         self.init_block.gen_instr()
         self.runtime_block.gen_instr()
         self.mtrap_block.gen_instr()
         self.secret_protect_block.gen_instr()
         self.strap_block.gen_instr()
+        self.random_data_block.gen_instr()
 
     def _generate_sections(self):
         mtrap_section = self.section[".mtrap"] = FuzzSection(
@@ -88,9 +108,13 @@ class TransFrameManager(TransBaseManager):
         data_frame_section = self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
+        empty_section = FuzzSection(
+            "", 0
+        )
 
         self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
+        self._set_section(empty_section, data_frame_section, [self.random_data_block])
         self._set_section(text_frame_section, data_frame_section, [self.init_block, self.runtime_block])
 
         mtrap_section.add_global_label(
@@ -121,7 +145,7 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = Page.size
+        length = 2 * Page.size
         self.section[".data_frame"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
@@ -131,6 +155,73 @@ class TransFrameManager(TransBaseManager):
         offset += length
         length = Page.size
         self.section[".text_frame"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+class ExitBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('exit_block', extension, output_path)
+
+    def gen_instr(self):
+        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S"))
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
+
+class DecodeBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('decode_block', extension, output_path)
+
+    def _gen_block_begin(self):
+        inst_begin = [
+            'INFO_LEAK_START'
+        ]
+        self._load_inst_str(inst_begin)
+    
+    def _gen_block_end(self):
+        inst_end = [
+            'decode_exit:',
+            'INFO_LEAK_END',
+        ]
+        self._load_inst_str(inst_end)
+
+    def gen_instr(self):
+        self._gen_block_begin()
+        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), mutate=True)
+        self._gen_block_end()
+
+class TransExitManager(TransBaseManager):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path):
+        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    
+    def gen_block(self):
+        self.decode_block = DecodeBlock(self.extension, self.output_path)
+        self.exit_block = ExitBlock(self.extension, self.output_path)
+
+        self.decode_block.gen_instr()
+        self.exit_block.gen_instr()
+
+    def _generate_sections(self):
+
+        text_swap_section = self.section[".text_swap"] = FuzzSection(
+            ".text_swap", Flag.U | Flag.X | Flag.R
+        )
+        data_swap_section = self.section[".data_swap"] = FuzzSection(
+            ".data_swap", Flag.U | Flag.W | Flag.R
+        )
+
+        self._set_section(text_swap_section, data_swap_section, [self.decode_block, self.exit_block])
+
+    def _distribute_address(self):
+        offset = 0
+        length = Page.size
+        self.section[".text_swap"].get_bound(
+            self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".data_swap"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,

@@ -152,9 +152,9 @@ class DistributeManager:
         with open(file_origin_common, "wb") as file:
             file.write(common_byte_array)
 
-        secret_begin = symbol_table['_secret_start'] - address_base
-        secret_end   = symbol_table['_secret_end'] - address_base
-        common_byte_array[secret_begin:secret_end] = bytes([i for i in range(0, secret_end - secret_begin)])
+        secret_begin = symbol_table['secret_begin'] - address_base
+        secret_end   = symbol_table['secret_end'] - address_base
+        common_byte_array[secret_begin:secret_end] = bytes([0 for i in range(0, secret_end - secret_begin)])
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 

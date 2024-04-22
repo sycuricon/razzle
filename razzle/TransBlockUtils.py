@@ -162,6 +162,9 @@ class BaseBlock:
         for inst in self.inst_list:
             str_list.append(inst.to_asm()+'\n')
         return str_list
+    
+    def get_inst_len(self):
+        return len(self.inst_list)
 
 class RandomBlock(BaseBlock):
     def __init__(self, name, extension, graph):
@@ -270,6 +273,12 @@ class TransBlock:
         self.need_inited = self.need_inited - previous_inited
         self.succeed_inited.update(previous_inited)
     
+    def _get_inst_len(self):
+        inst_len = 0
+        for block in self.inst_block_list:
+            inst_len += block.get_inst_len()
+        return inst_len
+    
     def gen_instr(self, graph):
         pass
 
@@ -348,3 +357,61 @@ class FuzzSection(Section):
 
     def _generate_body(self):
         return self.inst_list
+
+def inst_simlutor(baker, inst_block_list_list, data_list_list):
+    if not os.path.exists(baker.output_path):
+        os.makedirs(baker.output_path)
+
+    file_name = os.path.join(baker.output_path, "tmp.S")
+    with open(file_name, "wt") as file:
+        file.write('#include "boom_conf.h"\n')
+        file.write('#include "encoding.h"\n')
+        file.write('#include "parafuzz.h"\n')
+        file.write(".section .text\n")
+        file.write(f"li t0, 0x8000000a00007800\n")
+        file.write("csrw mstatus, t0\n")
+        for inst_block_list in inst_block_list_list:
+            for block in inst_block_list:
+                file.writelines(block.gen_asm())
+                file.write("\n")
+        file.write(".section .data\n")
+        for data_list in data_list_list:
+            for data in data_list:
+                file.write(data.to_asm())
+                file.write("\n")
+
+    gen_elf = ShellCommand(
+        "riscv64-unknown-elf-gcc",
+        [
+            "-march=rv64gc_zicsr",
+            "-mabi=lp64f",
+            "-mcmodel=medany",
+            "-nostdlib",
+            "-nostartfiles",
+            "-I$RAZZLE_ROOT/template",
+            "-I$RAZZLE_ROOT/template/trans",
+            "-T$RAZZLE_ROOT/template/tmp/link.ld",
+        ],
+    )
+    baker.add_cmd(gen_elf.save_cmd([file_name, "-o", "$OUTPUT_PATH/tmp"]))
+
+    inst_cnt = ShellCommand(
+        "riscv64-unknown-elf-objdump",
+        ["-d", "$OUTPUT_PATH/tmp", "| grep -cE '^[[:space:]]+'"],
+    )
+    baker.add_cmd(inst_cnt.save_output("INST_CNT"))
+
+    gen_dump = ShellCommand(
+        "spike-solve", ["$OUTPUT_PATH/tmp", "$INST_CNT", "$OUTPUT_PATH/dump"]
+    )
+    baker.add_cmd(gen_dump.save_cmd())
+    baker.run()
+
+    with open(os.path.join(baker.output_path, "dump"), "rt") as file:
+        reg_lines = file.readlines()
+        dump_reg = {}
+        for reg_line in reg_lines:
+            key, value = reg_line.strip().split()
+            dump_reg[key] = int(value, base=16)
+        # print(dump_reg)
+    return dump_reg
