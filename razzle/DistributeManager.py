@@ -115,7 +115,7 @@ class DistributeManager:
             )
         )
     
-    def _generate_frame_block(self, bin_dist):
+    def _generate_frame_block(self, origin_bin_dist, variant_bin_dist):
         mem_begin = 0x80000000
         mem_end   = 0x80040000
         symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
@@ -149,8 +149,10 @@ class DistributeManager:
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 
-        bin_dist.append(f'{hex(mem_begin)} {hex(mem_end)}\n')
-        bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep xor {file_origin_common} {file_variant_common}\n')
+        origin_bin_dist.append(f'{hex(mem_begin)} {hex(mem_end)}\n')
+        variant_bin_dist.append(f'{hex(mem_begin)} {hex(mem_end)}\n')
+        origin_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_origin_common}\n')
+        variant_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_variant_common}\n')
 
         file_text_common = os.path.join(self.output_path, 'text_common.bin')
         text_begin = symbol_table['_text_frame_start'] - address_base
@@ -159,7 +161,8 @@ class DistributeManager:
         with open(file_text_common, "wb") as file:
             file.write(text_common_byte_array)
         
-        bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep shared {file_text_common}\n')
+        origin_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep {file_text_common}\n')
+        variant_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep {file_text_common}\n')
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
@@ -179,8 +182,7 @@ class DistributeManager:
         )
         baker.run()
 
-
-    def _generate_body_block(self, bin_dist, body_idx):
+    def _generate_body_block(self, origin_bin_dist, variant_bin_dist, body_idx):
         symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
@@ -204,7 +206,8 @@ class DistributeManager:
         with open(file_text_swap, "wb") as file:
             file.write(text_swap_byte_array)
         
-        bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap shared {body_idx} {file_text_swap}\n')
+        origin_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
+        variant_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
 
         file_data_swap = os.path.join(self.output_path, f'data_swap_{body_idx}.bin')
         data_begin = symbol_table['_data_swap_start'] - address_base
@@ -213,7 +216,8 @@ class DistributeManager:
         with open(file_data_swap, "wb") as file:
             file.write(data_swap_byte_array)
 
-        bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap xor {body_idx} {file_data_swap} {file_data_swap}\n')
+        origin_bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap {file_data_swap} {body_idx}\n')
+        variant_bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap {file_data_swap} {body_idx}\n')
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{body_idx}.sh"
@@ -235,22 +239,26 @@ class DistributeManager:
         self._generate_frame()
         self._generate_compile_shell()
         self.run()
-        bin_dist = []
+        origin_bin_dist = []
+        variant_bin_dist = []
         swap_index = 0
-        self._generate_frame_block(bin_dist)
-        self._generate_body_block(bin_dist, swap_index)
+        self._generate_frame_block(origin_bin_dist, variant_bin_dist)
+        self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
         swap_index += 1
 
         while not self.trans.mem_mutate_halt():
             if self.trans.mem_mutate_iter():
                 self.trans.file_generate(self.output_path, 'payload.S')
                 self.run()
-                self._generate_body_block(bin_dist, swap_index)
+                self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
                 swap_index += 1
         
-        bin_dist_file = os.path.join(self.output_path, 'bin_dist_file')
-        with open(bin_dist_file, "wt") as f:
-            f.writelines(bin_dist)
+        origin_bin_dist_file = os.path.join(self.output_path, 'origin_bin_dist')
+        with open(origin_bin_dist_file, "wt") as f:
+            f.writelines(origin_bin_dist)
+        variant_bin_dist_file = os.path.join(self.output_path, 'variant_bin_dist')
+        with open(variant_bin_dist_file, "wt") as f:
+            f.writelines(variant_bin_dist)
 
     def run(self, cmd=None):
         self.baker.run(cmd)
