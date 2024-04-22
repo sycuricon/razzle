@@ -470,9 +470,10 @@ class TransVictimManager(TransBaseManager):
 
         inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
               + self.trigger_block._get_inst_len() - 1
-        nop_inst_len = ((inst_len + 32 - 1) // 32 * 32 - inst_len) * 2
+        nop_inst_len = ((inst_len + 8 + 8 - 1) // 8 * 8 - inst_len) * 2
         
         self.nop1_block = NopBlock(self.extension, self.output_path, 'nop_name', nop_inst_len)
+        self.nop1_block.gen_instr()
 
     def _generate_sections(self):
 
