@@ -19,6 +19,7 @@ class DistributeManager:
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
         )
+        
         self.attack_privilege = self.config["attack"]
         self.victim_privilege = self.config["victim"]
         privilege_stage = {"M": 3, "S": 1, "U": 0}
@@ -104,16 +105,6 @@ class DistributeManager:
             )
         )
 
-        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
-        self.baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench",
-                    f"> $OUTPUT_PATH/Testbench.asm",
-                ]
-            )
-        )
-
         dump_symbol = ShellCommand("nm")
         self.baker.add_cmd(
             dump_symbol.save_cmd(
@@ -170,6 +161,25 @@ class DistributeManager:
         
         bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep shared {file_text_common}\n')
 
+        baker = BuildManager(
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
+        )
+        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
+        baker.add_cmd(
+            gen_asm.save_cmd(
+                [
+                    f"$OUTPUT_PATH/Testbench",
+                    "-j .init",
+                    "-j .mtrap",
+                    "-j .strap",
+                    "-j .text_frame",
+                    f"> $OUTPUT_PATH/Testbench_frame.asm",
+                ]
+            )
+        )
+        baker.run()
+
+
     def _generate_body_block(self, bin_dist, body_idx):
         symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
@@ -204,6 +214,22 @@ class DistributeManager:
             file.write(data_swap_byte_array)
 
         bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap xor {body_idx} {file_data_swap} {file_data_swap}\n')
+
+        baker = BuildManager(
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{body_idx}.sh"
+        )
+        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
+        baker.add_cmd(
+            gen_asm.save_cmd(
+                [
+                    f"$OUTPUT_PATH/Testbench",
+                    "-j .text_swap",
+                    "-j .data_swap",
+                    f"> $OUTPUT_PATH/Testbench_body_{body_idx}.asm",
+                ]
+            )
+        )
+        baker.run()
 
     def generate_test(self):
         self._generate_frame()

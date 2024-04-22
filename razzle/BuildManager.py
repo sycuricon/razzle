@@ -17,10 +17,10 @@ class ShellCommand:
 
 
 class BuildManager:
-    def __init__(self, env_var, output_path, shell="/bin/zsh"):
+    def __init__(self, env_var, output_path, shell="/bin/zsh", file_name = "build.sh"):
         self.shell = shell
         self.output_path = output_path
-        self.file_name = os.path.join(output_path, "build.sh")
+        self.file_name = os.path.join(output_path, file_name)
         self.reset_time = 0
         self.env_var = env_var
         self.build_cmds = []
