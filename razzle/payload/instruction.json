@@ -1570,7 +1570,7 @@
             "RV_C"
         ],
         "category": "LOAD_SP",
-        "format": "c.lwsp {RD}, {IMM}(SP)",
+        "format": "c.lwsp {RD}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 8,
         "variables": [
@@ -1584,7 +1584,7 @@
             "RV64_C"
         ],
         "category": "LOAD_SP",
-        "format": "c.ldsp {RD}, {IMM}(SP)",
+        "format": "c.ldsp {RD}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 9,
         "variables": [
@@ -1598,7 +1598,7 @@
             "RV32_C_F"
         ],
         "category": "LOAD_SP",
-        "format": "c.flwsp {FRD}, {IMM}(SP)",
+        "format": "c.flwsp {FRD}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 8,
         "variables": [
@@ -1612,7 +1612,7 @@
             "RV_C_D"
         ],
         "category": "LOAD_SP",
-        "format": "c.fldsp {FRD}, {IMM}",
+        "format": "c.fldsp {FRD}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 9,
         "variables": [
@@ -1626,7 +1626,7 @@
             "RV_C"
         ],
         "category": "STORE_SP",
-        "format": "c.swsp {RS2}, {IMM}(SP)",
+        "format": "c.swsp {RS2}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 8,
         "variables": [
@@ -1640,7 +1640,7 @@
             "RV64_C"
         ],
         "category": "STORE_SP",
-        "format": "c.sdsp {RS2}, {IMM}(SP)",
+        "format": "c.sdsp {RS2}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 9,
         "variables": [
@@ -1654,7 +1654,7 @@
             "RV32_C_F"
         ],
         "category": "STORE_SP",
-        "format": "c.fswsp {FRS2}, {IMM}(SP)",
+        "format": "c.fswsp {FRS2}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 8,
         "variables": [
@@ -1668,7 +1668,7 @@
             "RV_C_D"
         ],
         "category": "STORE_SP",
-        "format": "c.fsdsp {FRS2}, {IMM}(SP)",
+        "format": "c.fsdsp {FRS2}, {IMM}(sp)",
         "imm_type": "UIMM",
         "imm_length": 9,
         "variables": [

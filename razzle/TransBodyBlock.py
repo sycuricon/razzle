@@ -15,7 +15,7 @@ class DelayBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('delay_block', extension, output_path)
         self.float_rate = random.random() * 0.2 + 0.4 # 0.4 ~ 0.6
-        self.delay_len = random.randint(4, 6)
+        self.delay_len = random.randint(4, 8)
 
     def _gen_dep_list(self):
         self.GPR_list = [
@@ -199,6 +199,7 @@ class TriggerBlock(TransBlock):
     def gen_instr(self):
         block = BaseBlock(self.entry, self.extension, None, True)
         inst = Instruction()
+        inst.set_extension_constraint(self.extension)
 
         match(self.trigger_type):
             case TriggerType.LOAD_STORE:
@@ -421,10 +422,11 @@ class LoadInitBlock(TransBlock):
                     case _:
                         raise "the branch name is invalid"
             case TriggerType.BTB | TriggerType.RSB:
+                trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
                 if self.do_train:
-                    trigger_param = f'{self.train_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst["IMM"])}'
+                    trigger_param = f'{self.train_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
                 else:
-                    trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst["IMM"])}'
+                    trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
             case TriggerType.ARITHMETIC | TriggerType.FLOAT:
                 trigger_param = random.randint(0, 2**64-1)
             case _:
