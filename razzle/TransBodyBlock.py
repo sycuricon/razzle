@@ -180,12 +180,13 @@ class TriggerType(Enum):
     BIM = 4
     BTB = 5
     RSB = 6
-    ARITHMETIC = 7
-    FLOAT = 8
-    LEN = 9
+    JMP = 7
+    ARITHMETIC = 8
+    FLOAT = 9
+    LEN = 10
 
     def random_choice():
-        data = random.choice([TriggerType(i) for i in range(9)])
+        data = random.choice([TriggerType(i) for i in range(10)])
         return data
     
 class TriggerBlock(TransBlock):
@@ -205,61 +206,61 @@ class TriggerBlock(TransBlock):
             case TriggerType.LOAD_STORE:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'])
-                def inst_constraint(rs1):
-                    return rs1 == 'A0'
-                inst.add_constraint(inst_constraint, ['RS1'])
+                inst.solve()
+                inst['RS1'] = 'A0'
             case TriggerType.LOAD_STORE_SP:
                 block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['LOAD_SP', 'STORE_SP'])
+                inst.solve()
             case TriggerType.AMO:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['AMO'])
-                def inst_constraint(rs1):
-                    return rs1 == 'A0'
-                inst.add_constraint(inst_constraint, ['RS1'])
+                inst.solve()
+                inst['RS1'] = 'A0'
             case TriggerType.V4:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_name_constraint(['SD'])
-                def inst_constraint(rs1, rs2):
-                    return rs1 == 'ZERO' and rs2 == 'A0'
-                inst.add_constraint(inst_constraint, ['RS1', 'RS2'])
+                inst.solve()
+                inst['RS1'] = 'A0'
+                inst['RS2'] = 'ZERO'
             case TriggerType.BIM:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['BRANCH'])
                 inst.set_label_constraint([self.ret_label, self.train_label])
-                def inst_constraint(rs1, rs2):
-                    return rs1 == 'A0' and  rs2 == self.dep_reg
-                inst.add_constraint(inst_constraint, ['RS1', 'RS2'])
+                inst.solve()
+                inst['RS1'] = 'A0'
+                inst['RS2'] = self.dep_reg
             case TriggerType.BTB:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_name_constraint(['JALR', 'C.JALR', 'C.JR'])
                 inst.set_category_constraint(['JUMP'])
-                def inst_constraint(rs1):
-                    return rs1 == 'A0'
-                inst.add_constraint(inst_constraint, ['RS1'])
+                inst.solve()
+                inst['RS1'] = 'A0'
             case TriggerType.RSB:
                 block.inst_list.append(Instruction(f'add ra, {self.dep_reg}, a0'))
                 inst.set_name_constraint(['JALR', 'C.JR'])
                 inst.set_category_constraint(['JUMP'])
-                def inst_constraint(rs1, rd):
-                    return rs1 == 'RA' and rd == 'ZERO'
-                inst.add_constraint(inst_constraint, ['RS1', 'RD'])
+                inst.solve()
+                inst['RS1'] = 'RA'
+                inst['RD'] = 'ZERO'
+            case TriggerType.JMP:
+                inst.set_name_constraint(['JAL', 'C.J', 'C.JAL'])
+                inst.set_category_constraint(['JUMP'])
+                inst.set_label_constraint([self.ret_label])
+                inst.solve()
             case TriggerType.ARITHMETIC:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['ARITHMETIC'])
-                def inst_constraint(rs1):
-                    return rs1 == self.dep_reg
-                inst.add_constraint(inst_constraint, ['RS1'])
+                inst.solve()
+                inst['RS1'] = 'A0'
             case TriggerType.FLOAT:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['FLOAT'])
-                def inst_constraint(rs1):
-                    return rs1 == self.dep_reg
-                inst.add_constraint(inst_constraint, ['RS1'])
+                inst.solve()
+                inst['RS1'] = 'A0'
             case _:
                 raise "the trigger type is invalid"
     
-        inst.solve()
         self.trigger_inst = inst
         block.inst_list.append(inst)
         self._add_inst_block(block)
@@ -424,14 +425,14 @@ class LoadInitBlock(TransBlock):
                         else:
                             trigger_param = '0'
                     case _:
-                        raise "the branch name is invalid"
+                        raise Exception(f"the branch name {trigger_inst['NAME']} is invalid")
             case TriggerType.BTB | TriggerType.RSB:
                 trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
                 if self.do_train:
                     trigger_param = f'{self.train_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
                 else:
                     trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
-            case TriggerType.ARITHMETIC | TriggerType.FLOAT:
+            case TriggerType.ARITHMETIC | TriggerType.FLOAT | TriggerType.JMP:
                 trigger_param = random.randint(0, 2**64-1)
             case _:
                 raise "the trigger type is invalid"

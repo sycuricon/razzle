@@ -82,7 +82,7 @@ class DistributeManager:
         gen_elf = ShellCommand(
             "riscv64-unknown-elf-gcc",
             [
-                "-march=rv64gc_zicsr",
+                "-march=rv64gc_zicsr_zifencei",
                 "-mabi=lp64f",
                 "-mcmodel=medany",
                 "-nostdlib",
@@ -253,10 +253,10 @@ class DistributeManager:
                 self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
                 swap_index += 1
         
-        origin_bin_dist_file = os.path.join(self.output_path, 'origin_bin_dist')
+        origin_bin_dist_file = os.path.join(self.output_path, 'origin.dist')
         with open(origin_bin_dist_file, "wt") as f:
             f.writelines(origin_bin_dist)
-        variant_bin_dist_file = os.path.join(self.output_path, 'variant_bin_dist')
+        variant_bin_dist_file = os.path.join(self.output_path, 'variant.dist')
         with open(variant_bin_dist_file, "wt") as f:
             f.writelines(variant_bin_dist)
 

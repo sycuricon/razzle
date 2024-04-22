@@ -37,18 +37,9 @@ class InstructionBase:
     def __setitem__(self, item, value):
         if self._solution is None:
             raise Exception('Please call solve() first')
-        set_sucess = False
-        for variable in all_instructions[self._solution['NAME']]['variables']:
-            if variable_name_remap[variable] == item:
-                if value in variable_range[variable]:
-                    self._solution[variable] = value
-                    set_sucess = True
-                else:
-                    raise Exception(f'no value {value} in {variable}')
-        if set_sucess:
-            return
-        else:
-            raise Exception(f'{item} is not a variable of this instruction')
+        for name, rename in variable_name_remap.items():
+            if rename == item: 
+                self._solution[name] = value
 
     def __getitem__(self, item):
         if self._solution is None:
