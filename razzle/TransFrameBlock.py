@@ -105,7 +105,10 @@ class TransFrameManager(TransBaseManager):
         text_frame_section = self.section[".text_frame"] = FuzzSection(
             ".text_frame", Flag.U | Flag.X | Flag.R
         )
-        data_frame_section = self.section[".data_frame"] = FuzzSection(
+        random_data_section = self.section[".random_data"] = FuzzSection(
+            ".random_data", Flag.U | Flag.W | Flag.R
+        )
+        self.data_frame_section = data_frame_section = self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
         empty_section = FuzzSection(
@@ -114,7 +117,7 @@ class TransFrameManager(TransBaseManager):
 
         self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
-        self._set_section(empty_section, data_frame_section, [self.random_data_block])
+        self._set_section(empty_section, random_data_section, [self.random_data_block])
         self._set_section(text_frame_section, data_frame_section, [self.init_block, self.runtime_block])
 
         mtrap_section.add_global_label(
@@ -133,7 +136,7 @@ class TransFrameManager(TransBaseManager):
         offset = 0
         length = Page.size
         self.section[".mtrap"].get_bound(
-            self.memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
+            self.memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length, must_m=True
         )
 
         offset += length
@@ -145,8 +148,8 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = 2 * Page.size
-        self.section[".data_frame"].get_bound(
+        length = Page.size
+        self.section[".text_frame"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,
@@ -154,7 +157,15 @@ class TransFrameManager(TransBaseManager):
 
         offset += length
         length = Page.size
-        self.section[".text_frame"].get_bound(
+        self.section[".random_data"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = up_align(len(self.data_frame_section.inst_list), Page.size)
+        self.section[".data_frame"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,
@@ -191,8 +202,9 @@ class DecodeBlock(TransBlock):
         self._gen_block_end()
 
 class TransExitManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
+        self.trans_frame = trans_frame
     
     def gen_block(self):
         self.decode_block = DecodeBlock(self.extension, self.output_path)
@@ -206,23 +218,12 @@ class TransExitManager(TransBaseManager):
         text_swap_section = self.section[".text_swap"] = FuzzSection(
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
-        data_swap_section = self.section[".data_swap"] = FuzzSection(
-            ".data_swap", Flag.U | Flag.W | Flag.R
-        )
 
-        self._set_section(text_swap_section, data_swap_section, [self.decode_block, self.exit_block])
+        self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.decode_block, self.exit_block])
 
     def _distribute_address(self):
         offset = 0
         length = Page.size
         self.section[".text_swap"].get_bound(
             self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
-        )
-
-        offset += length
-        length = Page.size
-        self.section[".data_swap"].get_bound(
-            self.virtual_memory_bound[0][0] + offset,
-            self.memory_bound[0][0] + offset,
-            length,
         )

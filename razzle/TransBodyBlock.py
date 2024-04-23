@@ -327,8 +327,8 @@ class ReturnBlock(TransBlock):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return_block.text.S"))
 
 class LoadInitBlock(TransBlock):
-    def __init__(self, extension, output_path, init_block_list, delay_block, trigger_block, ret_label, train_label, do_train):
-        super().__init__('load_init_block', extension, output_path)
+    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, ret_label, train_label, do_train):
+        super().__init__(f'load_init_block_{depth}', extension, output_path)
         self.delay_block = delay_block
         self.trigger_block = trigger_block
         self.ret_label = ret_label
@@ -451,8 +451,10 @@ class LoadInitBlock(TransBlock):
             self.data_list[-1] = a0_data_asm
 
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
+        self.trans_frame = trans_frame
+        self.depth = depth
     
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -469,7 +471,7 @@ class TransVictimManager(TransBaseManager):
         self.trigger_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitBlock(self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.return_block.entry, self.access_secret_block.entry, False)
+        self.load_init_block = LoadInitBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.return_block.entry, self.access_secret_block.entry, False)
 
         self.load_init_block.gen_instr()
 
@@ -485,11 +487,13 @@ class TransVictimManager(TransBaseManager):
         text_swap_section = self.section[".text_swap"] = FuzzSection(
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
-        data_swap_section = self.section[".data_swap"] = FuzzSection(
-            ".data_swap", Flag.U | Flag.W | Flag.R
+
+        empty_section = FuzzSection(
+            "", 0
         )
 
-        self._set_section(text_swap_section, data_swap_section, [self.load_init_block, self.nop1_block, self.delay_block, self.trigger_block])
+        self._set_section(text_swap_section, self.trans_frame.data_frame_section,[self.load_init_block])
+        self._set_section(text_swap_section, empty_section, [self.nop1_block, self.delay_block, self.trigger_block])
 
         do_follow = True
         if self.trigger_block.trigger_type == TriggerType.BIM and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
@@ -506,23 +510,18 @@ class TransVictimManager(TransBaseManager):
                 do_follow = random.choice([True, False, False, False, False])
         
         if do_follow:
-            self._set_section(text_swap_section, data_swap_section, [self.access_secret_block, self.encode_block, self.return_block])
+            self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
+            self._set_section(text_swap_section, empty_section, [self.encode_block, self.return_block])
         else:
-            self._set_section(text_swap_section, data_swap_section, [self.return_block, self.access_secret_block, self.encode_block])
+            self._set_section(text_swap_section, empty_section, [self.return_block])
+            self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
+            self._set_section(text_swap_section, empty_section, [self.encode_block])
 
     def _distribute_address(self):
         offset = 0
         length = Page.size
         self.section[".text_swap"].get_bound(
             self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
-        )
-
-        offset += length
-        length = Page.size
-        self.section[".data_swap"].get_bound(
-            self.virtual_memory_bound[0][0] + offset,
-            self.memory_bound[0][0] + offset,
-            length,
         )
 
 

@@ -16,15 +16,11 @@ class Section:
         return self.length
 
     def get_bound(self, vaddr, paddr, length, must_m=False):
-        assert self.vaddr is None or vaddr is None
-        assert self.paddr is None or paddr is None
-        assert self.length is None or length is None
-
-        if self.vaddr is None:
+        if vaddr is not None:
             self.vaddr = vaddr
-        if self.paddr is None:
+        if paddr is not None:
             self.paddr = paddr
-        if self.length is None:
+        if length is not None:
             self.length = length
         self.must_m = must_m
 

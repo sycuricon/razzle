@@ -117,8 +117,6 @@ class DistributeManager:
         )
     
     def _generate_frame_block(self, origin_bin_dist, variant_bin_dist):
-        mem_begin = 0x80000000
-        mem_end   = 0x80040000
         symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
@@ -130,10 +128,7 @@ class DistributeManager:
         else:
             address_base = 0x80000000
         
-        if self.virtual:
-            address_offset = 0x80000000
-        else:
-            address_offset = 0
+        address_offset = 0x80000000
         
         file_origin_common  = os.path.join(self.output_path, 'origin_common.bin')
         file_variant_common = os.path.join(self.output_path, 'variant_common.bin')
@@ -150,20 +145,8 @@ class DistributeManager:
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 
-        origin_bin_dist.append(f'{hex(mem_begin)} {hex(mem_end)}\n')
-        variant_bin_dist.append(f'{hex(mem_begin)} {hex(mem_end)}\n')
         origin_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_origin_common}\n')
         variant_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_variant_common}\n')
-
-        file_text_common = os.path.join(self.output_path, 'text_common.bin')
-        text_begin = symbol_table['_text_frame_start'] - address_base
-        text_end   = symbol_table['_text_frame_end'] - address_base
-        text_common_byte_array = origin_byte_array[text_begin:text_end]
-        with open(file_text_common, "wb") as file:
-            file.write(text_common_byte_array)
-        
-        origin_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep {file_text_common}\n')
-        variant_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} keep {file_text_common}\n')
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
@@ -177,6 +160,7 @@ class DistributeManager:
                     "-j .mtrap",
                     "-j .strap",
                     "-j .text_frame",
+                    "-j .data_frame",
                     f"> $OUTPUT_PATH/Testbench_frame.asm",
                 ]
             )
@@ -195,10 +179,7 @@ class DistributeManager:
         else:
             address_base = 0x80000000
         
-        if self.virtual:
-            address_offset = 0x80000000
-        else:
-            address_offset = 0
+        address_offset = 0x80000000
         
         file_text_swap = os.path.join(self.output_path, f'text_swap_{body_idx}.bin')
         text_begin = symbol_table['_text_swap_start'] - address_base
@@ -210,16 +191,6 @@ class DistributeManager:
         origin_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
         variant_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
 
-        file_data_swap = os.path.join(self.output_path, f'data_swap_{body_idx}.bin')
-        data_begin = symbol_table['_data_swap_start'] - address_base
-        data_end   = symbol_table['_data_swap_end'] - address_base
-        data_swap_byte_array = origin_byte_array[data_begin:data_end]
-        with open(file_data_swap, "wb") as file:
-            file.write(data_swap_byte_array)
-
-        origin_bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap {file_data_swap} {body_idx}\n')
-        variant_bin_dist.append(f'{hex(data_begin + address_offset)} {hex(up_align(data_end, Page.size) - data_begin)} swap {file_data_swap} {body_idx}\n')
-
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{body_idx}.sh"
         )
@@ -229,7 +200,6 @@ class DistributeManager:
                 [
                     f"$OUTPUT_PATH/Testbench",
                     "-j .text_swap",
-                    "-j .data_swap",
                     f"> $OUTPUT_PATH/Testbench_body_{body_idx}.asm",
                 ]
             )
@@ -240,10 +210,13 @@ class DistributeManager:
         self._generate_frame()
         self._generate_compile_shell()
         self.run()
-        origin_bin_dist = []
-        variant_bin_dist = []
+
+        mem_begin = 0x80000000
+        mem_end   = 0x80040000
+        origin_bin_dist = [f'{hex(mem_begin)} {hex(mem_end)}\n']
+        variant_bin_dist = [f'{hex(mem_begin)} {hex(mem_end)}\n']
+
         swap_index = 0
-        self._generate_frame_block(origin_bin_dist, variant_bin_dist)
         self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
         swap_index += 1
 
@@ -253,6 +226,8 @@ class DistributeManager:
                 self.run()
                 self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
                 swap_index += 1
+        
+        self._generate_frame_block(origin_bin_dist, variant_bin_dist)
         
         origin_bin_dist_file = os.path.join(self.output_path, 'origin.dist')
         with open(origin_bin_dist_file, "wt") as f:

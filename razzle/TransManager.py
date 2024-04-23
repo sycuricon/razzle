@@ -44,15 +44,16 @@ class TransManager(SectionManager):
 
         self.mutate_iter_state = MutateState.IDLE
         self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
-        self.trans_body = self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path)
+        self.trans_body = self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
         self.trans_frame.gen_block()
         self.trans_body.gen_block()
         self.trans_body_array = [self.trans_body]
         self.train_stack = []
+        self.depth = 0
 
     def _gen_victim(self):
         trans_body = TransVictimManager(self.config['trans_body'], self.extension,\
-                                self.victim_privilege, self.virtual, self.output_path)
+                                self.victim_privilege, self.virtual, self.output_path, self.trans_frame, self.depth)
         trans_body.gen_block()
         return trans_body
 
@@ -116,6 +117,7 @@ class TransManager(SectionManager):
                 return False
             
         self.trans_body_array.append(self.trans_body)
+        self.depth += 1
         return True
 
     def mem_mutate_halt(self):
@@ -128,8 +130,7 @@ class TransManager(SectionManager):
         self.trans_body._generate_sections()
 
     def _distribute_address(self):
-        if self.mutate_iter_state == MutateState.IDLE:
-            self.trans_frame._distribute_address()
+        self.trans_frame._distribute_address()
         self.trans_body._distribute_address()
         self.section = {**self.trans_frame.section, **self.trans_body.section}
 
