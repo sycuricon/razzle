@@ -21,6 +21,9 @@ if __name__ == "__main__":
     parse.add_argument(
         "--fuzz", dest="do_fuzz", action="store_true", help="payload generate by fuzz"
     )
+    parse.add_argument(
+        "--debug", dest="debug", action="store_true", help="the code can print some debug info"
+    )
 
     args = parse.parse_args()
     args.output = os.path.realpath(args.output)
@@ -28,5 +31,5 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz)
+    dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz, args.debug)
     dist.generate_test()

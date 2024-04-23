@@ -17,7 +17,7 @@ class MutateState(Enum):
     TTE_TRAIN = 5
 
 class TransManager(SectionManager):
-    def __init__(self, config, victim_privilege, virtual, output_path):
+    def __init__(self, config, victim_privilege, virtual, output_path, do_debug):
         self.section = {}
         self.dut_file_list = []
         self.extension = [
@@ -40,6 +40,7 @@ class TransManager(SectionManager):
         self.virtual = virtual
         self.output_path = output_path
         self.config = config
+        self.do_debug = do_debug
 
         self.mutate_iter_state = MutateState.IDLE
         self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
@@ -137,6 +138,9 @@ class TransManager(SectionManager):
         f.write(f'#include "fuzzing.h"\n')
         if self.virtual:
             f.write('#define __VIRTUAL__\n')
+        if self.do_debug:
+            f.write('#define __TRAP_DEBUG__\n')
+        f.write('\n')
 
     def _write_sections(self, f):
         self.trans_frame._write_sections(f)

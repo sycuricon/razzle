@@ -11,10 +11,11 @@ from TransManager import *
 from SectionUtils import *
 
 class DistributeManager:
-    def __init__(self, hjson_filename, output_path, virtual, do_fuzz):
+    def __init__(self, hjson_filename, output_path, virtual, do_fuzz, do_debug):
         hjson_file = open(hjson_filename)
         self.config = hjson.load(hjson_file)
         hjson_file.close()
+        self.do_debug = do_debug
 
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
@@ -37,7 +38,7 @@ class DistributeManager:
         self.code["stack"] = StackManager(self.config["stack"])
         if do_fuzz:
             self.trans = self.code["payload"] = TransManager(
-                self.config["trans"], self.victim_privilege, self.virtual, output_path
+                self.config["trans"], self.victim_privilege, self.virtual, output_path, self.do_debug
             )
         else:
             self.code["payload"] = PayloadManager(self.config["payload"])
