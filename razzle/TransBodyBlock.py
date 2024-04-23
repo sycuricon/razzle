@@ -404,10 +404,10 @@ class LoadInitBlock(TransBlock):
             case TriggerType.V4:
                 trigger_param = f'access_secret_block_target_offset - {hex(self.dep_reg_result)}'
             case TriggerType.BIM:
-                branch_success = self.do_train and trigger_inst['LABEL'] == self.ret_label\
-                    or not self.do_train and trigger_inst['LABEL'] == self.train_label
+                branch_success = not self.do_train and trigger_inst['LABEL'] == self.ret_label\
+                    or self.do_train and trigger_inst['LABEL'] == self.train_label
                 match((branch_success, trigger_inst['NAME'])):
-                    case (True, 'BEQ') | (False, 'BNE') | (False, 'BLT') | (True, 'BGE') | (False, 'BLT') | (True, 'BGE'):
+                    case (True, 'BEQ') | (False, 'BNE') | (False, 'BLT') | (True, 'BGE') | (False, 'BLTU') | (True, 'BGEU'):
                         trigger_param = '0'
                     case (False, 'BEQ') | (True, 'BNE'):
                         trigger_param = '1'
