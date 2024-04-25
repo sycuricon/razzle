@@ -58,4 +58,5 @@ class BuildManager:
 
         self._save_file()
         os.system(f"chmod +x {self.file_name}")
-        os.system(f"{self.file_name}")
+        if os.system(f"{self.file_name}") != 0:
+            raise Exception(f'{self.file_name} execution fails')

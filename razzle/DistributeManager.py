@@ -117,7 +117,7 @@ class DistributeManager:
         )
     
     def _generate_frame_block(self, origin_bin_dist, variant_bin_dist):
-        symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
+        symbol_table = get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
         with open(file_origin, "rb") as file:
@@ -168,7 +168,7 @@ class DistributeManager:
         baker.run()
 
     def _generate_body_block(self, origin_bin_dist, variant_bin_dist, body_idx):
-        symbol_table = self._get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
+        symbol_table = get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
         with open(file_origin, "rb") as file:
@@ -224,6 +224,7 @@ class DistributeManager:
             if self.trans.mem_mutate_iter():
                 self.trans.file_generate(self.output_path, 'payload.S')
                 self.run()
+                self.trans.update_symbol_table()
                 self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
                 swap_index += 1
         
@@ -239,9 +240,3 @@ class DistributeManager:
     def run(self, cmd=None):
         self.baker.run(cmd)
     
-    def _get_symbol_file(self, file_name):
-        symbol_table = {}
-        for line in open(file_name, "rt"):
-            address, kind, symbol = line.strip().split()
-            symbol_table[symbol] = int(address, base=16)
-        return symbol_table

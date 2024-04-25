@@ -83,3 +83,10 @@ def up_align(number, align):
 
 def down_align(number, align):
     return number // align * align
+
+def get_symbol_file(file_name):
+    symbol_table = {}
+    for line in open(file_name, "rt"):
+        address, _, symbol = line.strip().split()
+        symbol_table[symbol] = int(address, base=16)
+    return symbol_table

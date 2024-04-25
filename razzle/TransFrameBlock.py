@@ -49,7 +49,7 @@ class SecretProtectBlock(TransBlock):
         self.virtual = virtual
 
     def gen_instr(self):
-        self._add_inst_block(BaseBlock(self.entry, self.extension, None, False))
+        self._add_inst_block(BaseBlock(self.entry, self.extension, False))
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
         ) and self.virtual:

@@ -116,7 +116,7 @@ class SectionManager:
             # print(asm_list)
             f.writelines(asm_list)
 
-    def _generate_sections(self, file):
+    def _generate_sections(self):
         pass
 
     def _distribute_address(self):

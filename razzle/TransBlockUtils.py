@@ -10,10 +10,9 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class BaseBlock:
-    def __init__(self, name, extension, graph, mutate):
+    def __init__(self, name, extension, mutate):
         self.name = name
         self.extension = extension
-        self.graph = graph
         self.mutate = mutate
         
         self.inst_list = []
@@ -24,16 +23,6 @@ class BaseBlock:
         self.need_inited = set()
         self.succeed_inited = set()
 
-    def _get_data_base(self):
-        return self.graph['random_data_block'].base_label
-    
-    def _gen_load_address(self):
-        instr_la = Instruction()
-        instr_la.set_label_constraint(self._get_data_base())
-        instr_la.set_name_constraint(['LA'])
-        instr_la.solve()
-        return instr_la
-
     def _gen_int_arithmetic(self):
         extension = [extension_i for extension_i in [
             'RV64_C', 'RV64_M', 'RV64_I', 'RV_M', 'RV_I', 'RV_C'] if extension_i in self.extension]
@@ -43,6 +32,13 @@ class BaseBlock:
         instr.add_constraint(instr_c_name,['NAME'])
         instr.solve()
         return [instr]
+    
+    def _gen_load_address(self):
+        instr_la = Instruction()
+        instr_la.set_label_constraint(['random_data_block_page_base'])
+        instr_la.set_name_constraint(['LA'])
+        instr_la.solve()
+        return instr_la
     
     def _gen_load_store(self):
         extension = [extension_i for extension_i in [
@@ -57,6 +53,7 @@ class BaseBlock:
             'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7ff))
         instr.add_constraint(instr_c_reg, ['RS1'])
         instr.solve()
+        instr['IMM'] = down_align(instr['IMM'], 8)
 
         return [instr_la, instr]
 
@@ -67,6 +64,7 @@ class BaseBlock:
         instr_off = Instruction()
         instr_off.set_name_constraint(['ADDI'])
         offset = random.randint(-0x800, 0x7ff)
+        offset = down_align(offset, 8)
         instr_off.set_imm_constraint(range(offset, offset+1))
         rd = instr_la['RD']
         def c_rd_rd1(r1, r2):
@@ -167,8 +165,8 @@ class BaseBlock:
         return len(self.inst_list)
 
 class RandomBlock(BaseBlock):
-    def __init__(self, name, extension, graph):
-        super().__init__(name, extension, graph, True)
+    def __init__(self, name, extension):
+        super().__init__(name, extension, True)
         self.gen_func = [
             BaseBlock._gen_atomic,
             BaseBlock._gen_float_arithmetic,
@@ -222,15 +220,15 @@ class TransBlock:
 
     def _load_inst_str(self, str_list, mutate=False):
         if str_list[0].endswith(':'):
-            block = BaseBlock(str_list[0][0:-1], self.extension, None, mutate)
+            block = BaseBlock(str_list[0][0:-1], self.extension, mutate)
             str_list.pop(0)
         else:
-            block = BaseBlock(self.entry, self.extension, None, mutate)
+            block = BaseBlock(self.entry, self.extension, mutate)
 
         for line in str_list:
             if line.endswith(':'):
                 self._add_inst_block(block)
-                block = BaseBlock(line[0:-1], self.extension, None, mutate)
+                block = BaseBlock(line[0:-1], self.extension, mutate)
                 continue
             
             if block.mutate:
@@ -279,16 +277,16 @@ class TransBlock:
             inst_len += block.get_inst_len()
         return inst_len
     
-    def gen_instr(self, graph):
+    def gen_instr(self):
         pass
 
     def instr_mutate(self):
         pass
     
-    def _gen_random(self, graph, block_cnt=3):
+    def _gen_random(self, block_cnt=3):
         block_list = []
         for i in range(block_cnt):
-            block = RandomBlock(f'{self.name}_{i}', self.extension, graph, self.transient)
+            block = RandomBlock(f'{self.name}_{i}', self.extension, self.transient)
             block.gen_instr()
             block_list.append(block)
 
@@ -345,6 +343,16 @@ class TransBaseManager(SectionManager):
             inst_list, data_list = block.gen_asm()
             text_section.add_inst_list(inst_list)
             data_section.add_inst_list(data_list)
+    
+    def _distribute_address(self):
+        offset = 0
+        length = Page.size
+        self.section[".text_swap"].get_bound(
+            self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
+        )
+    
+    def add_symbol_table(self, symbol_table_file):
+        self.symbol_table = get_symbol_file(symbol_table_file)
 
 class FuzzSection(Section):
     def __init__(self, name, flag):
