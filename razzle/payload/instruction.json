@@ -558,6 +558,14 @@
         "format": "ecall",
         "variables": []
     },
+    "ILLEGAL": {
+        "extension": [
+            "RV_ILLEGAL"
+        ],
+        "category": "SYSTEM",
+        "format": ".word 0x0",
+        "variables": []
+    },
     "EBREAK": {
         "extension": [
             "RV_I"
