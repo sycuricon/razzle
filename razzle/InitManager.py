@@ -80,12 +80,13 @@ class InitManager(SectionManager):
         self.reg_init_config["pmp"]["pmp2"]["ADDR"] = "0x80000000"
         self.reg_init_config["pmp"]["pmp2"]["RANGE"] = "0x40000"
 
+        # access_fault_pmp
         self.reg_init_config["pmp"]["pmp1"]["R"] = "0b0"
         self.reg_init_config["pmp"]["pmp1"]["W"] = "0b0"
         self.reg_init_config["pmp"]["pmp1"]["X"] = "0b0"
         self.reg_init_config["pmp"]["pmp1"]["L"] = "0b1"
         self.reg_init_config["pmp"]["pmp1"]["A"] = "NAPOT"
-        self.reg_init_config["pmp"]["pmp1"]["ADDR"] = "0x8000c000"
+        self.reg_init_config["pmp"]["pmp1"]["ADDR"] = "0x8003c000"
         if self.virtual:
             self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x1000"
         else:
