@@ -117,12 +117,13 @@ class AdjustType(Enum):
     BRANCH = 0
     RETURN = 1
     CALL = 2
-    JALR = 3
-    JMP = 4
-    OTHER = 5
+    CALL_LOOP = 3
+    JALR = 4
+    JMP = 5
+    OTHER = 6
 
     def random_choice():
-        return AdjustType(random.randint(0, 5))
+        return AdjustType(random.randint(0, 6))
 
 class AdjustBlock(TransBlock):
     def __init__(self, extension, output_path):
@@ -182,10 +183,19 @@ class AdjustBlock(TransBlock):
                     inst = Instruction(f'jalr zero, {jalr_offset}(ra)')
                     block.inst_list.append(inst)
                     jalr_offset = update_jalr_offset(jalr_offset, inst)
+                    inst['IMM'] = jalr_offset
                 case AdjustType.CALL:
                     inst = Instruction(f'jalr ra, {jalr_offset}(t0)')
                     block.inst_list.append(inst)
                     jalr_offset = update_jalr_offset(jalr_offset, inst)
+                    inst = Instruction('add ra, t0, zero')
+                    block.inst_list.append(inst)
+                    jalr_offset = update_jalr_offset(jalr_offset, inst)
+                case AdjustType.CALL_LOOP:
+                    inst = Instruction(f'jalr ra, {jalr_offset}(t0)')
+                    block.inst_list.append(inst)
+                    jalr_offset = update_jalr_offset(jalr_offset, inst)
+                    inst['IMM'] = jalr_offset
                     inst = Instruction('add ra, t0, zero')
                     block.inst_list.append(inst)
                     jalr_offset = update_jalr_offset(jalr_offset, inst)
@@ -194,10 +204,10 @@ class AdjustBlock(TransBlock):
                     inst.set_name_constraint(['JALR'])
                     inst.set_category_constraint(['JUMP'])
                     inst.solve()
-                    inst['RS1'] = 'T0'
-                    inst['IMM'] = jalr_offset
                     block.inst_list.append(inst)
                     jalr_offset = update_jalr_offset(jalr_offset, inst)
+                    inst['RS1'] = 'T0'
+                    inst['IMM'] = jalr_offset
                     jalr_offset = recover_t0_ra(inst, block, jalr_offset)
                 case AdjustType.JMP:
                     inst = Instruction()

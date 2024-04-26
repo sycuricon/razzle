@@ -82,6 +82,8 @@ class TransManager(SectionManager):
         self.trans_body.add_symbol_table(os.path.join(self.output_path, 'Testbench.symbol'))
 
     def mem_mutate_iter(self):
+        if len(self.trans_body_array) == 10:
+            self.mutate_iter_state = MutateState.END
         match(self.mutate_iter_state):
             case MutateState.IDLE:
                 self.mutate_iter_state = MutateState.VICTIM
@@ -91,22 +93,29 @@ class TransManager(SectionManager):
                 match(self.mutate_iter_state):
                     case MutateState.TRAIN:
                         self.trans_body = self._gen_train(self.victim)
+                        self.train_depth = 1
                     case MutateState.TTE:
                         self.trans_body = self._gen_tte(self.victim)
                     case _:
                         return False
             case MutateState.TRAIN:
-                self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.VICTIM])
+                if self.train_depth == 3:
+                    self.mutate_iter_state = MutateState.VICTIM
+                else:
+                    self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.VICTIM])
                 match(self.mutate_iter_state):
                     case MutateState.TRAIN:
                         self.trans_body = self._mutate_train(self.train)
+                        self.train_depth += 1
                     case _:
+                        self.train_depth = 0
                         return False
             case MutateState.TTE:
                 self.mutate_iter_state = random.choice([MutateState.TRAIN, MutateState.VICTIM])
                 match(self.mutate_iter_state):
                     case MutateState.TRAIN:
                         self.trans_body = self._gen_train(self.tte)
+                        self.train_depth = 1
                     case _:
                         return False
             case _:
