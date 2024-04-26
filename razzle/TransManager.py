@@ -50,6 +50,9 @@ class TransManager(SectionManager):
         self.trans_body.gen_block()
         self.trans_body_array = [self.trans_body]
         self.depth = 0
+    
+    def _generate_swap_list(self):
+        return [i for i in range(len(self.trans_body_array) - 1, -1, -1)]
 
     def _gen_victim(self):
         trans_body = TransVictimManager(self.config['trans_body'], self.extension,\

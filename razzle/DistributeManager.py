@@ -9,6 +9,39 @@ from SecretManager import *
 from StackManager import *
 from TransManager import *
 from SectionUtils import *
+import libconf
+
+class MemCfg:
+    def __init__(self, mem_start, mem_len):
+        self.mem_cfg = {}
+        self.mem_cfg['start_addr'] = mem_start
+        self.mem_cfg['max_mem_size'] = mem_len
+        self.mem_cfg['memory_regions'] = []
+        self.mem_cfg['swap_list'] = []
+    
+    def register_swap_id(self):
+        return len(self.mem_cfg['memory_regions'])
+    
+    def add_mem_region(self, mem_type, start_addr, max_len, init_file, swap_id):
+        assert mem_type in ['dut', 'vnt', 'swap']
+        mem_region = {'type':mem_type, 'start_addr':start_addr,\
+                    'max_len':max_len, 'init_file':init_file, 'swap_id':swap_id}
+        self.mem_cfg['memory_regions'].append(mem_region)
+    
+    def add_swap_list(self, swap_list):
+        self.mem_cfg['swap_list'] = swap_list
+    
+    def dump_conf(self, output_path):
+        with open(os.path.join(output_path, 'swap_mem.cfg'), "wt") as file:
+            tmp_mem_cfg = {}
+            for key,value in self.mem_cfg.items():
+                tmp_mem_cfg[key] = value
+            tmp_mem_cfg['memory_regions'] = tuple(tmp_mem_cfg['memory_regions'])
+            file.write(libconf.dumps(tmp_mem_cfg))
+    
+    def load_conf(self, output_path):
+        with open(os.path.join(output_path, 'swap_mem.cfg'), "rt") as file:
+            self.mem_cfg = libconf.load(file)
 
 class DistributeManager:
     def __init__(self, hjson_filename, output_path, virtual, do_fuzz, do_debug):
@@ -53,6 +86,8 @@ class DistributeManager:
         self.loader = LoaderManager(self.virtual)
 
         self.file_list = []
+
+        self.mem_cfg = MemCfg(0x80000000, 0x40000)
 
     def _collect_compile_file(self, file_list):
         self.file_list.extend(file_list)
@@ -116,7 +151,7 @@ class DistributeManager:
             )
         )
     
-    def _generate_frame_block(self, origin_bin_dist, variant_bin_dist):
+    def _generate_frame_block(self):
         symbol_table = get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
@@ -145,8 +180,8 @@ class DistributeManager:
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 
-        origin_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_origin_common}\n')
-        variant_bin_dist.append(f'{hex(common_begin + address_offset)} {hex(up_align(common_end, Page.size) - common_begin)} keep {file_variant_common}\n')
+        self.mem_cfg.add_mem_region('dut', common_begin + address_offset, up_align(common_end, Page.size), file_origin_common, 0)
+        self.mem_cfg.add_mem_region('vnt', common_begin + address_offset, up_align(common_end, Page.size), file_variant_common, 0)
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
@@ -167,7 +202,8 @@ class DistributeManager:
         )
         baker.run()
 
-    def _generate_body_block(self, origin_bin_dist, variant_bin_dist, body_idx):
+    def _generate_body_block(self):
+        body_idx = self.mem_cfg.register_swap_id()
         symbol_table = get_symbol_file(os.path.join(self.output_path, 'Testbench.symbol'))
 
         file_origin = os.path.join(self.output_path, 'Testbench.bin')
@@ -188,9 +224,8 @@ class DistributeManager:
         with open(file_text_swap, "wb") as file:
             file.write(text_swap_byte_array)
         
-        origin_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
-        variant_bin_dist.append(f'{hex(text_begin + address_offset)} {hex(up_align(text_end, Page.size) - text_begin)} swap {file_text_swap} {body_idx}\n')
-
+        self.mem_cfg.add_mem_region('swap', text_begin + address_offset, up_align(text_end, Page.size) - text_begin, file_text_swap, body_idx)
+        
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{body_idx}.sh"
         )
@@ -211,13 +246,8 @@ class DistributeManager:
         self._generate_compile_shell()
         self.run()
 
-        mem_begin = 0x80000000
-        mem_end   = 0x80040000
-        origin_bin_dist = [f'{hex(mem_begin)} {hex(mem_end)}\n']
-        variant_bin_dist = [f'{hex(mem_begin)} {hex(mem_end)}\n']
-
         swap_index = 0
-        self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
+        self._generate_body_block()
         swap_index += 1
 
         while not self.trans.mem_mutate_halt():
@@ -225,17 +255,13 @@ class DistributeManager:
                 self.trans.file_generate(self.output_path, 'payload.S')
                 self.run()
                 self.trans.update_symbol_table()
-                self._generate_body_block(origin_bin_dist, variant_bin_dist, swap_index)
+                self._generate_body_block()
                 swap_index += 1
         
-        self._generate_frame_block(origin_bin_dist, variant_bin_dist)
+        self._generate_frame_block()
         
-        origin_bin_dist_file = os.path.join(self.output_path, 'origin.dist')
-        with open(origin_bin_dist_file, "wt") as f:
-            f.writelines(origin_bin_dist)
-        variant_bin_dist_file = os.path.join(self.output_path, 'variant.dist')
-        with open(variant_bin_dist_file, "wt") as f:
-            f.writelines(variant_bin_dist)
+        self.mem_cfg.add_swap_list(self.trans._generate_swap_list())
+        self.mem_cfg.dump_conf(self.output_path)
 
     def run(self, cmd=None):
         self.baker.run(cmd)
