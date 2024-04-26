@@ -100,6 +100,20 @@ class LoadInitTrainBlock(LoadInitBlock):
                         train_param[train_inst['RS1']] = 0
                     case _:
                         raise Exception('invalid branch type')
+            case TrainType.BRANCH_TAKEN:
+                match(train_inst['NAME']):
+                    case 'BEQ'|'BGE'|'BGEU':
+                        train_param[train_inst['RS1']] = 0
+                        train_param[train_inst['RS2']] = 0
+                    case 'BNE'|'BLT'|'BLTU':
+                        train_param[train_inst['RS1']] = 1
+                        train_param[train_inst['RS2']] = 0
+                    case 'C.BEQZ':
+                        train_param[train_inst['RS1']] = 0
+                    case 'C.BNEZ':
+                        train_param[train_inst['RS1']] = 1
+                    case _:
+                        raise Exception('invalid branch type')
             case TrainType.JALR | TrainType.RETURN | TrainType.CALL if train_inst['NAME'] in ['C.JALR', 'JALR']:
                 train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
                 if do_train:
