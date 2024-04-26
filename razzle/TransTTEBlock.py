@@ -12,107 +12,6 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
-class TriggerTTEBlock(TransBlock):
-    def __init__(self, extension, output_path, dep_reg, ret_label):
-        super().__init__('trigger_block', extension, output_path)
-        self.dep_reg = dep_reg
-        self.ret_label  = ret_label
-        self.trigger_type = TriggerType.tte_random_choice()
-    
-    def gen_instr(self):
-        block = BaseBlock(self.entry, self.extension, True)
-        inst = Instruction()
-        inst.set_extension_constraint(self.extension)
-
-        match(self.trigger_type):
-            case TriggerType.LOAD_STORE:
-                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                inst.set_category_constraint(['LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'])
-                inst.solve()
-                inst['RS1'] = 'A0'
-            case TriggerType.LOAD_STORE_SP:
-                block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
-                inst.set_category_constraint(['LOAD_SP', 'STORE_SP'])
-                inst.solve()
-            case TriggerType.AMO:
-                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                inst.set_category_constraint(['AMO'])
-                inst.solve()
-                inst['RS1'] = 'A0'
-            case TriggerType.BIM:
-                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                inst.set_category_constraint(['BRANCH'])
-                inst.set_label_constraint([self.ret_label])
-                inst.solve()
-                inst['RS1'] = 'A0'
-                inst['RS2'] = self.dep_reg
-            case TriggerType.BTB:
-                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                inst.set_name_constraint(['JALR', 'C.JALR', 'C.JR'])
-                inst.set_category_constraint(['JUMP'])
-                inst.solve()
-                inst['RS1'] = 'A0'
-            case TriggerType.RSB:
-                block.inst_list.append(Instruction(f'add ra, {self.dep_reg}, a0'))
-                inst.set_name_constraint(['JALR', 'C.JR'])
-                inst.set_category_constraint(['JUMP'])
-                inst.solve()
-                inst['RS1'] = 'RA'
-                inst['RD'] = 'ZERO'
-            case _:
-                raise "the trigger type is invalid"
-    
-        self.trigger_inst = inst
-        block.inst_list.append(inst)
-        self._add_inst_block(block)
-
-class LoadInitTTEBlock(LoadInitDelayBlock):
-    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block):
-        super().__init__(depth, extension, output_path, init_block_list)
-        self.delay_block = delay_block
-        self.trigger_block = trigger_block
-        self.ret_label = trigger_block.ret_label
-
-    def _compute_trigger_param(self):
-        trigger_inst = self.trigger_block.trigger_inst
-        trigger_type = self.trigger_block.trigger_type
-
-        match(trigger_type):
-            case TriggerType.LOAD_STORE | TriggerType.LOAD_STORE_SP:
-                address_base = 'secret_page_base'
-                trigger_param = f'{address_base} - {hex(self.dep_reg_result)}'
-            case TriggerType.AMO:
-                address_base = 'secret_page_base'
-                trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(random.randint(-0x800, 0x7ff))}'
-            case TriggerType.BIM:
-                match(trigger_inst['NAME']):
-                    case 'BEQ' | 'BGE' | 'BGEU':
-                        trigger_param = '0'
-                    case 'BNE':
-                        trigger_param = '1'
-                    case 'BLT':
-                        assert Unsigned2Signed(self.dep_reg_result) != -0x8000000000000000
-                        trigger_param = '-1'
-                    case 'BLTU':
-                        assert self.dep_reg_result != 0
-                        trigger_param = '-1'
-                    case 'C.BEQZ':
-                        trigger_param = f'-{hex(self.dep_reg_result)}'
-                    case 'C.BNEZ':
-                        if self.dep_reg_result == 0:
-                            trigger_param = '1'
-                        else:
-                            trigger_param = '0'
-                    case _:
-                        raise Exception(f"the branch name {trigger_inst['NAME']} is invalid")
-            case TriggerType.BTB | TriggerType.RSB:
-                trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
-                trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
-            case _:
-                raise Exception("the trigger type is invalid")
-
-        return {'A0': trigger_param}
-
 class AdjustType(Enum):
     BRANCH = 0
     RETURN = 1
@@ -126,8 +25,9 @@ class AdjustType(Enum):
         return AdjustType(random.randint(0, 6))
 
 class AdjustBlock(TransBlock):
-    def __init__(self, extension, output_path):
+    def __init__(self, extension, output_path, trigger_type):
         super().__init__('adjust_block', extension, output_path)
+        self.trigger_type = trigger_type
     
     def _gen_block_begin(self):
         inst_list_begin = [
@@ -244,17 +144,17 @@ class TransTTEManager(TransBaseManager):
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.adjust_block = AdjustBlock(self.extension, self.output_path)
+        self.adjust_block = AdjustBlock(self.extension, self.output_path, self.trans_victim.trigger_block.trigger_type)
 
         self.delay_block.gen_instr()
         self.return_block.gen_instr()
         self.adjust_block.gen_instr()
 
-        self.trigger_block = TriggerTTEBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry)
+        self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block, False)
         self.trigger_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.adjust_block, self.return_block]
-        self.load_init_block = LoadInitTTEBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block = LoadInitTriggerBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr()
 
         front_block_begin = self.trans_victim.symbol_table['_text_swap_start']

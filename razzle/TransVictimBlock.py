@@ -204,7 +204,7 @@ class EncodeBlock(TransBlock):
             
         self._gen_block_end()
 
-class LoadInitVictimBlock(LoadInitDelayBlock):
+class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block):
         super().__init__(depth, extension, output_path, init_block_list)
         self.delay_block = delay_block
@@ -270,6 +270,23 @@ class LoadInitVictimBlock(LoadInitDelayBlock):
                 raise Exception("the trigger type is invalid")
 
         return {'A0':trigger_param}
+
+    def _simulate_dep_reg_result(self):
+        inst_block_list = [self.inst_block_list, self.delay_block.inst_block_list]
+        data_list = [self.data_list, self.delay_block.data_list]
+        dump_result = inst_simlutor(self.baker, inst_block_list, data_list)
+        return dump_result[self.delay_block.result_reg]
+
+    def gen_instr(self):
+        self._gen_init_code()
+        self.dep_reg_result = self._simulate_dep_reg_result()
+        self.trigger_param = self._compute_trigger_param()
+
+        a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
+        if self.GPR_init_list[-1] == 'T0':
+            self.data_list[-2] = a0_data_asm
+        else:
+            self.data_list[-1] = a0_data_asm
 
 class SecretMigrateType(Enum):
     MEMORY = 0
@@ -350,7 +367,7 @@ class TransVictimManager(TransBaseManager):
         self.trigger_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitVictimBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block = LoadInitTriggerBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr()
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)

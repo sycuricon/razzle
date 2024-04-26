@@ -297,24 +297,3 @@ class LoadInitBlock(TransBlock):
 
     def _compute_trigger_param(self):
         raise Exception("the _compute_trigger_param is not implemented!!!")
-
-class LoadInitDelayBlock(LoadInitBlock):
-    def __init__(self, depth, extension, output_path, init_block_list):
-        super().__init__(depth, extension, output_path, init_block_list)
-
-    def _simulate_dep_reg_result(self):
-        inst_block_list = [self.inst_block_list, self.delay_block.inst_block_list]
-        data_list = [self.data_list, self.delay_block.data_list]
-        dump_result = inst_simlutor(self.baker, inst_block_list, data_list)
-        return dump_result[self.delay_block.result_reg]
-
-    def gen_instr(self):
-        self._gen_init_code()
-        self.dep_reg_result = self._simulate_dep_reg_result()
-        self.trigger_param = self._compute_trigger_param()
-
-        a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
-        if self.GPR_init_list[-1] == 'T0':
-            self.data_list[-2] = a0_data_asm
-        else:
-            self.data_list[-1] = a0_data_asm
