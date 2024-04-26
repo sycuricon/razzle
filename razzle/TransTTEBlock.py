@@ -44,6 +44,42 @@ class AdjustBlock(TransBlock):
             f"j run_time_loop",
         ]
         self._load_inst_str(inst_exit)
+    
+    def _gen_adjust_type(self):
+        class AdjustMainType(Enum):
+            BRANCH = 0
+            CALL_RETURN = 1
+            JMP = 2
+            OTHER = 3
+
+        adjust_main_type = [AdjustMainType.BRANCH, AdjustMainType.CALL_RETURN,\
+                        AdjustMainType.JMP, AdjustMainType.OTHER]
+        adjust_main_prob = [0.2, 0.2, 0.2, 0.1]
+        match self.trigger_type:
+            case TriggerType.BRANCH:
+                adjust_main_prob[AdjustMainType.BRANCH] += 0.3
+            case TriggerType.RETURN:
+                adjust_main_prob[AdjustMainType.CALL_RETURN] += 0.3
+            case TriggerType.JMP | TriggerType.JALR:
+                adjust_main_prob[AdjustMainType.JMP] += 0.3
+            case _:
+                adjust_main_prob[AdjustMainType.BRANCH] += 0.1
+                adjust_main_prob[AdjustMainType.CALL_RETURN] += 0.1
+                adjust_main_prob[AdjustMainType.JMP] += 0.1
+        
+        match random_choice(adjust_main_prob, adjust_main_type):
+            case AdjustMainType.BRANCH:
+                return AdjustType.BRANCH
+            case AdjustMainType.CALL_RETURN:
+                adjust_sub_type = [AdjustType.RETURN, AdjustType.CALL, AdjustType.CALL_LOOP]
+                adjust_sub_prob = [0.5, 0.3, 0.2]
+                return random_choice(adjust_sub_prob, adjust_sub_type)
+            case AdjustMainType.JMP:
+                return random.choice([AdjustType.JALR, AdjustType.JMP])
+            case AdjustMainType.OTHER:
+                return AdjustType.OTHER
+            case _:
+                raise Exception("invalid adjust type")
 
     def gen_instr(self):
         def update_jalr_offset(jalr_offset, inst):
@@ -68,7 +104,7 @@ class AdjustBlock(TransBlock):
 
         jalr_offset = 8
         for _ in range(24):
-            match(AdjustType.random_choice()):
+            match(self._gen_adjust_type()):
                 case AdjustType.BRANCH:
                     inst = Instruction()
                     inst.set_category_constraint(['BRANCH'])
@@ -150,8 +186,9 @@ class TransTTEManager(TransBaseManager):
         self.return_block.gen_instr()
         self.adjust_block.gen_instr()
 
-        self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block, False)
+        self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block, True)
         self.trigger_block.gen_instr()
+        assert self.trigger_block.trigger_type != TriggerType.V4
 
         block_list = [self.delay_block, self.trigger_block, self.adjust_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)

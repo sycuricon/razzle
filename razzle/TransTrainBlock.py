@@ -13,83 +13,109 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
-class TriggerTrainBlock(TransBlock):
-    def __init__(self, extension, output_path, ret_label, train_label):
-        super().__init__('trigger_block', extension, output_path)
+class TrainType(Enum):
+    BRANCH_NOT_TAKEN = 0
+    BRANCH_TAKEN = 1
+    JALR = 2
+    JMP = 3
+    CALL = 4
+    RETURN = 5
+    LEN = 6
+
+class trainTrainBlock(TransBlock):
+    def __init__(self, extension, output_path, ret_label, train_label, train_type):
+        super().__init__('train_block', extension, output_path)
         self.ret_label  = ret_label
         self.train_label = train_label
-        self.trigger_type = TriggerType.train_random_choice()
+        self.train_type = train_type
     
     def gen_instr(self):
         block = BaseBlock(self.entry, self.extension, True)
         inst = Instruction()
         inst.set_extension_constraint(self.extension)
 
-        match(self.trigger_type):
-            case TriggerType.BIM:
+        match(self.train_type):
+            case TrainType.BRANCH_NOT_TAKEN | TrainType.BRANCH_TAKEN:
                 inst.set_category_constraint(['BRANCH'])
                 inst.set_label_constraint([self.ret_label, self.train_label])
                 inst.solve()
-            case TriggerType.BTB:
+                inst['RS1'] = 'A0'
+                inst['RS1'] = 'A1'
+            case TrainType.JALR:
                 inst.set_name_constraint(['JALR', 'C.JALR', 'C.JR'])
                 inst.set_category_constraint(['JUMP'])
-                def btb_c(rs1):
-                    return rs1 != 'ZERO'
-                inst.add_constraint(btb_c, ['RS1'])
                 inst.solve()
-            case TriggerType.RSB:
+                inst['RS1'] = 'A0'
+            case TrainType.RETURN:
                 inst.set_name_constraint(['JALR', 'C.JR'])
                 inst.set_category_constraint(['JUMP'])
                 inst.solve()
                 inst['RS1'] = 'RA'
                 inst['RD'] = 'ZERO'
-            case TriggerType.JMP:
-                inst.set_name_constraint(['JAL', 'C.J'])
+            case TrainType.JMP:
+                inst.set_name_constraint(['JAL', 'C.J', 'C.JAL'])
                 inst.set_category_constraint(['JUMP'])
                 inst.set_label_constraint([self.ret_label, self.train_label])
                 inst.solve()
+            case TrainType.CALL:
+                inst.set_name_constraint(['JALR', 'JAL', 'C.JALR', 'C.JAL'])
+                inst.set_category_constraint(['JUMP'])
+                inst.set_label_constraint([self.ret_label, self.train_label])
+                inst.solve()
+                inst['RD'] = 'RA'
+                inst['RS1'] = 'A0'
             case _:
-                raise "the trigger type is invalid"
+                raise "the train type is invalid"
     
-        self.trigger_inst = inst
+        self.train_inst = inst
         block.inst_list.append(inst)
         self._add_inst_block(block)
     
 class LoadInitTrainBlock(LoadInitBlock):
-    def __init__(self, depth, extension, output_path, trigger_block):
+    def __init__(self, depth, extension, output_path, train_block):
         super().__init__(depth, extension, output_path, None)
-        self.trigger_block = trigger_block
-        self.ret_label = trigger_block.ret_label
-        self.train_label = trigger_block.train_label
+        self.train_block = train_block
+        self.ret_label = train_block.ret_label
+        self.train_label = train_block.train_label
     
-    def _compute_trigger_param(self):
-        trigger_inst = self.trigger_block.trigger_inst
-        trigger_type = self.trigger_block.trigger_type
+    def _compute_train_param(self):
+        train_inst = self.train_block.train_inst
+        train_type = self.train_block.train_type
 
         do_train = random.choice([False, True])
-        trigger_param = {}
+        train_param = {}
 
-        match(trigger_type):
-            case TriggerType.BIM:
-                trigger_param[trigger_inst['RS1']] = random.randint(0, 2**64-1)
-                if trigger_inst.has('RS2'):
-                    trigger_param[trigger_inst['RS2']] = random.randint(0, 2**64-1)
-            case TriggerType.BTB | TriggerType.RSB:
-                trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
+        match(train_type):
+            case TrainType.BRANCH_NOT_TAKEN:
+                match(train_inst['NAME']):
+                    case 'BEQ'|'BGE'|'BGEU':
+                        train_param[train_inst['RS1']] = 0
+                        train_param[train_inst['RS2']] = 1
+                    case 'BNE'|'BLT'|'BLTU':
+                        train_param[train_inst['RS1']] = 0
+                        train_param[train_inst['RS2']] = 0
+                    case 'C.BEQZ':
+                        train_param[train_inst['RS1']] = 1
+                    case 'C.BNEZ':
+                        train_param[train_inst['RS1']] = 0
+                    case _:
+                        raise Exception('invalid branch type')
+            case TrainType.JALR | TrainType.RETURN | TrainType.CALL if train_inst['NAME'] in ['C.JALR', 'JALR']:
+                train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
                 if do_train:
-                    trigger_param[trigger_inst['RS1']] = f'{self.train_label} - {hex(trigger_inst_imm)}'
+                    train_param[train_inst['RS1']] = f'{self.train_label} - {hex(train_inst_imm)}'
                 else:
-                    trigger_param[trigger_inst['RS1']] = f'{self.ret_label} - {hex(trigger_inst_imm)}'
-            case TriggerType.JMP:
+                    train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
+            case TrainType.JMP | TrainType.CALL if train_inst['NAME'] in ['C.JAL', 'JAL']:
                 pass
             case _:
-                raise Exception("the trigger type is invalid")
+                raise Exception("the train type is invalid")
 
-        return trigger_param
+        return train_param
     
     def gen_instr(self):
-        trigger_param = self._compute_trigger_param()
-        need_inited = list(trigger_param.keys())
+        train_param = self._compute_train_param()
+        need_inited = list(train_param.keys())
         if 'ZERO' in need_inited:
             need_inited.remove('ZERO')
         if 'SP' in need_inited:
@@ -128,11 +154,12 @@ class NopRetBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TransTrainManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth, trans_victim):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth, trans_victim, train_type):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.trans_frame = trans_frame
         assert type(trans_victim) in [TransVictimManager, TransTTEManager]
         self.trans_victim = trans_victim
+        self.train_type = train_type
         self.depth = depth
 
     def gen_block(self):
@@ -160,15 +187,15 @@ class TransTrainManager(TransBaseManager):
         self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin)//2)
         self.nop_ret_block.gen_instr()
 
-        self.trigger_block = TriggerTrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry)
-        self.trigger_block.gen_instr()
-        trigger_block_len = 2 if self.trigger_block.trigger_inst['NAME'].startswith == 'C.' else 4
+        self.train_block = trainTrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
+        self.train_block.gen_instr()
+        train_block_len = 2 if self.train_block.train_inst['NAME'].startswith == 'C.' else 4
 
-        self.load_init_block = LoadInitTrainBlock(self.depth, self.extension, self.output_path, self.trigger_block)
+        self.load_init_block = LoadInitTrainBlock(self.depth, self.extension, self.output_path, self.train_block)
         self.load_init_block.gen_instr()
         load_init_block_len = self.load_init_block._get_inst_len() * 2 + 4
 
-        c_nop_len = (front_block_end - front_block_begin - trigger_block_len - load_init_block_len) // 2
+        c_nop_len = (front_block_end - front_block_begin - train_block_len - load_init_block_len) // 2
         self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
         self.nop_block.gen_instr()
 
@@ -185,7 +212,7 @@ class TransTrainManager(TransBaseManager):
         )
 
         self._set_section(text_swap_section, self.trans_frame.data_frame_section,[self.load_init_block])
-        self._set_section(text_swap_section, empty_section, [self.nop_block, self.trigger_block])
+        self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
         if self.return_block_first:
             self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])
         else:

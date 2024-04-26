@@ -129,8 +129,8 @@ class TransManager(SectionManager):
         return True
 
     def mem_mutate_halt(self):
-        return self.mutate_iter_state == MutateState.VICTIM
-        # return self.mutate_iter_state == MutateState.END
+        # return self.mutate_iter_state == MutateState.VICTIM
+        return self.mutate_iter_state == MutateState.END
 
     def _generate_sections(self):
         if self.mutate_iter_state == MutateState.IDLE:
