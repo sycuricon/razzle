@@ -341,8 +341,6 @@ class SecretMigrateBlock(TransBlock):
 
         self._load_inst_str(inst_list)
         
-
-
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
@@ -379,6 +377,8 @@ class TransVictimManager(TransBaseManager):
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr()
+
+        self.trigger_type = self.trigger_block.trigger_type
 
     def _generate_sections(self):
         if len(self.section) != 0:

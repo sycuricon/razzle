@@ -353,6 +353,9 @@ class TransBaseManager(SectionManager):
     
     def add_symbol_table(self, symbol_table_file):
         self.symbol_table = get_symbol_file(symbol_table_file)
+    
+    def register_swap_idx(self, swap_idx):
+        self.swap_idx = swap_idx
 
 class FuzzSection(Section):
     def __init__(self, name, flag):

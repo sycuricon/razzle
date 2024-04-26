@@ -241,22 +241,20 @@ class DistributeManager:
         )
         baker.run()
 
+        self.trans.register_swap_idx(body_idx)
+
     def generate_test(self):
         self._generate_frame()
         self._generate_compile_shell()
         self.run()
 
-        swap_index = 0
         self._generate_body_block()
-        swap_index += 1
 
-        while not self.trans.mem_mutate_halt():
-            if self.trans.mem_mutate_iter():
-                self.trans.file_generate(self.output_path, 'payload.S')
-                self.run()
-                self.trans.update_symbol_table()
-                self._generate_body_block()
-                swap_index += 1
+        for _ in self.trans.mem_mutate_iter():
+            self.trans.file_generate(self.output_path, 'payload.S')
+            self.run()
+            self.trans.update_symbol_table()
+            self._generate_body_block()
         
         self._generate_frame_block()
         

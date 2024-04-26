@@ -226,6 +226,8 @@ class TransTTEManager(TransBaseManager):
 
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr()
+
+        self.trigger_type = self.trigger_block.trigger_type
     
     def _generate_sections(self):
         if len(self.section) != 0:

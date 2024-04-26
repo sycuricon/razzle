@@ -205,6 +205,9 @@ class TriggerType(Enum):
 
     LEN = 17
 
+    def need_train(trigger_type):
+        return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP]
+
     def random_choice():
         data = random.choice([TriggerType(i) for i in range(17)])
         return data
