@@ -72,13 +72,24 @@ class InitManager(SectionManager):
         else:
             self.reg_init_config["csr"]["mscratch"]["SCRATCH"] = "0x80003800"
         # pmp
-        self.reg_init_config["pmp"]["pmp1"]["R"] = "0b1"
-        self.reg_init_config["pmp"]["pmp1"]["W"] = "0b1"
-        self.reg_init_config["pmp"]["pmp1"]["X"] = "0b1"
-        self.reg_init_config["pmp"]["pmp1"]["L"] = "0b0"
+        self.reg_init_config["pmp"]["pmp2"]["R"] = "0b1"
+        self.reg_init_config["pmp"]["pmp2"]["W"] = "0b1"
+        self.reg_init_config["pmp"]["pmp2"]["X"] = "0b1"
+        self.reg_init_config["pmp"]["pmp2"]["L"] = "0b0"
+        self.reg_init_config["pmp"]["pmp2"]["A"] = "NAPOT"
+        self.reg_init_config["pmp"]["pmp2"]["ADDR"] = "0x80000000"
+        self.reg_init_config["pmp"]["pmp2"]["RANGE"] = "0x40000"
+
+        self.reg_init_config["pmp"]["pmp1"]["R"] = "0b0"
+        self.reg_init_config["pmp"]["pmp1"]["W"] = "0b0"
+        self.reg_init_config["pmp"]["pmp1"]["X"] = "0b0"
+        self.reg_init_config["pmp"]["pmp1"]["L"] = "0b1"
         self.reg_init_config["pmp"]["pmp1"]["A"] = "NAPOT"
-        self.reg_init_config["pmp"]["pmp1"]["ADDR"] = "0x80000000"
-        self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x40000"
+        self.reg_init_config["pmp"]["pmp1"]["ADDR"] = "0x8000c000"
+        if self.virtual:
+            self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x1000"
+        else:
+            self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x2000"
 
         # self.reg_init_config["pmp"]["pmp0"]["R"]="0b0"
         # self.reg_init_config["pmp"]["pmp0"]["W"]="0b0"

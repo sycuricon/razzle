@@ -58,6 +58,24 @@ class SecretProtectBlock(TransBlock):
             self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.ret.text.S"))
 
+class AccessFaultDataBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('access_fault_data_block', extension, output_path)
+
+    def gen_instr(self):
+        self.data_list.append(RawInstruction('.space 0x800'))
+        self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
+        self.data_list.append(RawInstruction('.space 0x800'))
+
+class PageFaultDataBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('page_fault_data_block', extension, output_path)
+
+    def gen_instr(self):
+        self.data_list.append(RawInstruction('.space 0x800'))
+        self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
+        self.data_list.append(RawInstruction('.space 0x800'))
+
 class RandomDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('random_data_block', extension, output_path)
@@ -69,8 +87,6 @@ class RandomDataBlock(TransBlock):
                 data = [hex(random.randint(0,0xffffffffffffffff)) for i in range(8)]
                 dataline = " ,".join(data)
                 self.data_list.append(RawInstruction(f'.dword {dataline}'))
-        
-        self.base_label = []
 
         random_data_line(0x800)
         self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
@@ -87,6 +103,8 @@ class TransFrameManager(TransBaseManager):
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, self.victim_privilege, self.virtual)
         self.strap_block = STrapBlock(self.extension, self.output_path)
         self.random_data_block = RandomDataBlock(self.extension, self.output_path)
+        self.access_fault_block = AccessFaultDataBlock(self.extension, self.output_path)
+        self.page_fault_block = PageFaultDataBlock(self.extension, self.output_path)
 
         self.init_block.gen_instr()
         self.runtime_block.gen_instr()
@@ -94,6 +112,8 @@ class TransFrameManager(TransBaseManager):
         self.secret_protect_block.gen_instr()
         self.strap_block.gen_instr()
         self.random_data_block.gen_instr()
+        self.access_fault_block.gen_instr()
+        self.page_fault_block.gen_instr()
 
     def _generate_sections(self):
         mtrap_section = self.section[".mtrap"] = FuzzSection(
@@ -108,6 +128,12 @@ class TransFrameManager(TransBaseManager):
         random_data_section = self.section[".random_data"] = FuzzSection(
             ".random_data", Flag.U | Flag.W | Flag.R
         )
+        access_fault_data_section = self.section[".access_fault_data"] = FuzzSection(
+            ".access_fault_data", Flag.U | Flag.W | Flag.R
+        )
+        page_fault_data_section = self.section[".page_fault_data"] = FuzzSection(
+            ".page_fault_data", 0
+        )
         self.data_frame_section = data_frame_section = self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
@@ -117,6 +143,8 @@ class TransFrameManager(TransBaseManager):
 
         self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
+        self._set_section(empty_section, access_fault_data_section, [self.access_fault_block])
+        self._set_section(empty_section, page_fault_data_section, [self.page_fault_block])
         self._set_section(empty_section, random_data_section, [self.random_data_block])
         self._set_section(text_frame_section, data_frame_section, [self.init_block, self.runtime_block])
 
@@ -150,6 +178,22 @@ class TransFrameManager(TransBaseManager):
         offset += length
         length = Page.size
         self.section[".text_frame"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".access_fault_data"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".page_fault_data"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,

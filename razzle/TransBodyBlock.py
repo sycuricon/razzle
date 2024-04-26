@@ -180,20 +180,33 @@ class NopBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TriggerType(Enum):
-    LOAD_STORE = 0
-    LOAD_STORE_SP = 1
-    AMO = 2
-    V4 = 3
-    BIM = 4
-    BTB = 5
-    RSB = 6
-    JMP = 7
-    ARITHMETIC = 8
-    FLOAT = 9
-    LEN = 10
+    LOAD_MISALIGN = 0
+    LOAD_ACCESS_FAULT = 1
+    LOAD_PAGE_FAULT = 2
+    
+    STORE_MISALIGN = 3
+    STORE_ACCESS_FAULT = 4
+    STORE_PAGE_FAULT = 5
+    
+    AMO_MISALIGN = 6
+    AMO_PAGE_FAULT = 7
+    AMO_ACCESS_FAULT = 8
+    
+    EBREAK = 9
+    ECALL = 10
+    ILLEGAL = 11
+    
+    V4 = 12
+
+    BRANCH = 13
+    JALR = 14
+    RETURN = 15
+    JMP = 16
+
+    LEN = 17
 
     def random_choice():
-        data = random.choice([TriggerType(i) for i in range(10)])
+        data = random.choice([TriggerType(i) for i in range(17)])
         return data
 
     def tte_random_choice():
@@ -217,6 +230,17 @@ class TriggerType(Enum):
         ])
 
         return data
+
+def random_choice(random_prob, random_type):
+    assert len(random_prob) == len(random_type)
+    prob = 0
+    prob_data = random.random()
+    for rand_type, rand_prob in zip(random_type, random_prob):
+        prob += rand_prob
+        if prob_data < prob:
+            return rand_type
+    else:
+        return rand_type
 
 class LoadInitBlock(TransBlock):
     def __init__(self, depth, extension, output_path, init_block_list):
