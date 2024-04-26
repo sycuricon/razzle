@@ -1,4 +1,3 @@
-secret_protect_call:
     ecall
 start_bim_init:
     INFO_BIM_START
