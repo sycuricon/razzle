@@ -79,7 +79,7 @@ class TriggerBlock(TransBlock):
                     case TriggerType.EBREAK:
                         inst = Instruction('ebreak')
                     case TriggerType.ILLEGAL:
-                        inst = RawInstruction('.dword 0x0')
+                        inst = RawInstruction('illegal')
                     case TriggerType.ECALL:
                         inst = Instruction('ecall')
                     case _:
@@ -102,13 +102,7 @@ class TriggerBlock(TransBlock):
                         trigger_type = [TriggerType.LOAD_MISALIGN, TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT]
                         self.trigger_type = random_choice(type_prob, trigger_type)
                    
-                    match(self.trigger_type):
-                        case TriggerType.LOAD_MISALIGN:
-                            inst['IMM'] = down_align(inst['IMM'], 8) + 1
-                        case TriggerType.LOAD_ACCESS_FAULT|TriggerType.LOAD_PAGE_FAULT:
-                            inst['IMM'] = down_align(inst['IMM'], 8)
-                        case _:
-                            raise Exception("excepted trigger type")
+                    inst['IMM'] = down_align(inst['IMM'], 8)
                         
                 elif rand_data < 0.7:
                     
@@ -127,14 +121,8 @@ class TriggerBlock(TransBlock):
                         trigger_type = [TriggerType.STORE_MISALIGN, TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT]
                         self.trigger_type = random_choice(type_prob, trigger_type)
                    
-                    match(self.trigger_type):
-                        case TriggerType.STORE_MISALIGN:
-                            inst['IMM'] = down_align(inst['IMM'], 8) + 1
-                        case TriggerType.STORE_ACCESS_FAULT|TriggerType.STORE_PAGE_FAULT:
-                            inst['IMM'] = down_align(inst['IMM'], 8)
-                        case _:
-                            raise Exception("excepted trigger type")
-
+                    inst['IMM'] = down_align(inst['IMM'], 8)
+                    
                 else:
                     block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                     inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
@@ -230,22 +218,22 @@ class LoadInitVictimBlock(LoadInitDelayBlock):
 
         match(trigger_type):
             case TriggerType.LOAD_MISALIGN | TriggerType.STORE_MISALIGN:
-                address_base = 'random_data_page_base'
-                trigger_param = f'{address_base} - {self.dep_reg_result}'
+                address_base = 'random_data_block_page_base'
+                trigger_param = f'{address_base} - {self.dep_reg_result} + 1'
             case TriggerType.LOAD_ACCESS_FAULT | TriggerType.STORE_ACCESS_FAULT:
-                address_base = 'access_fault_data_page_base'
+                address_base = 'access_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
             case TriggerType.LOAD_PAGE_FAULT | TriggerType.STORE_PAGE_FAULT:
-                address_base = 'page_fault_data_page_base'
+                address_base = 'page_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
             case TriggerType.AMO_MISALIGN:
-                address_base = 'random_data_page_base'
+                address_base = 'random_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))} + 1'
             case TriggerType.AMO_ACCESS_FAULT:
-                address_base = 'access_fault_data_page_base'
+                address_base = 'access_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.AMO_PAGE_FAULT:
-                address_base = 'page_fault_data_page_base'
+                address_base = 'page_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.V4:
                 trigger_param = f'access_secret_block_target_offset - {hex(self.dep_reg_result)}'
@@ -276,10 +264,67 @@ class LoadInitVictimBlock(LoadInitDelayBlock):
                 trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
             case TriggerType.JMP:
                 trigger_param = random.randint(0, 2**64-1)
+            case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL:
+                pass
             case _:
                 raise Exception("the trigger type is invalid")
 
         return {'A0':trigger_param}
+
+class SecretMigrateType(Enum):
+    MEMORY = 0
+    CACHE = 1
+    LOAD_BUFFER = 2
+    LEN = 3     
+
+class SecretMigrateBlock(TransBlock):
+    def __init__(self, extension, output_path, protect_gpr_list):
+        super().__init__('secret_migrate_block', extension, output_path)
+        self.protected_gpr_list = protect_gpr_list
+        
+        secret_migrate_type = [SecretMigrateType.MEMORY,\
+            SecretMigrateType.CACHE, SecretMigrateType.LOAD_BUFFER]
+        secret_migrate_prob = [0.7, 0.2, 0.1]
+        self.secret_migrate_type = random_choice(secret_migrate_prob, secret_migrate_type)
+
+    def gen_instr(self):
+        if len(self.protected_gpr_list) >= 30:
+            self.secret_migrate_type = SecretMigrateType.MEMORY
+
+        inst_list = []
+        used_reg = random.choices(list(set(reg_range) - {'ZERO'} - set(self.protected_gpr_list)), k=2)
+        used_reg = [reg.lower() for reg in used_reg]
+        
+        if self.secret_migrate_type == SecretMigrateType.MEMORY:
+            inst_list.extend(['c.nop'] * 6)
+        else:
+            inst_list.extend(
+                [
+                    f'la {used_reg[0]}, secret',
+                    f'ld {used_reg[1]}, 0({used_reg[0]})'
+                ]
+            )
+        
+        if self.secret_migrate_type == SecretMigrateType.LOAD_BUFFER:
+            inst_list.extend(
+                [
+                    f'la {used_reg[0]}, dummy_data_block_data',
+                    f'li {used_reg[1]}, 0x1000',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                ]
+            )
+        else:
+            inst_list.extend(['c.nop'] * 22)
+
+        self._load_inst_str(inst_list)
+        
+
 
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth):
@@ -306,11 +351,13 @@ class TransVictimManager(TransBaseManager):
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitVictimBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-
         self.load_init_block.gen_instr()
 
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)
+        self.secret_migrate_block.gen_instr()
+
         inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
-              + self.trigger_block._get_inst_len() - 1
+              + self.secret_migrate_block._get_inst_len() + self.trigger_block._get_inst_len() - 1
         nop_inst_len = ((inst_len + 16 + 8 - 1) // 8 * 8 - inst_len) * 2
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
@@ -329,7 +376,7 @@ class TransVictimManager(TransBaseManager):
         )
 
         self._set_section(text_swap_section, self.trans_frame.data_frame_section,[self.load_init_block])
-        self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block, self.trigger_block])
+        self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
 
         do_follow = True
         if self.trigger_block.trigger_type == TriggerType.BRANCH and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
