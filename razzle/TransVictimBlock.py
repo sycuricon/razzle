@@ -93,6 +93,7 @@ class TriggerBlock(TransBlock):
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('access_secret_block', extension, output_path)
+        self.li_offset = True if random.random() < 0.8 else False
 
     def _gen_block_begin(self):
         inst_list_begin = [
@@ -103,20 +104,32 @@ class AccessSecretBlock(TransBlock):
     def gen_instr(self):
         self._gen_block_begin()
         
-        inst_list = [
-            f'begin_access_secret:',
-            f'la t0, {self.name}_target_offset',
-            'ld t1, 0(t0)',
-            'la t0, trapoline',
-            'add t0, t0, t1',
-            'lb t0, 0(t0)',
-        ]
-        self._load_inst_str(inst_list, mutate=True)
+        if self.li_offset:
+            
+            inst_list = [
+                f'begin_access_secret:',
+                'li t1, 0xfffffffffffff001',
+                'la t0, trapoline',
+                'add t0, t0, t1',
+                'lb t0, 0(t0)',
+            ]
 
+        else:
+
+            inst_list = [
+                f'begin_access_secret:',
+                f'ld t1, {self.name}_target_offset',
+                'la t0, trapoline',
+                'add t0, t0, t1',
+                'lb t0, 0(t0)',
+            ]
+            
         data_list = [
             f'{self.name}_target_offset:',
             '.dword secret + LEAK_TARGET - trapoline',
         ]
+
+        self._load_inst_str(inst_list)
         self._load_data_str(data_list)
 
 class EncodeBlock(TransBlock):
