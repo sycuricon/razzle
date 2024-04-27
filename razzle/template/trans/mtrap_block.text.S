@@ -1,7 +1,4 @@
-    csrrw sp, mscratch, sp
-    addi sp, sp, -16
-    sd t0, 0(sp)
-    sd t1, 8(sp)
+    INFO_VCTM_END
 #ifdef __TRAP_DEBUG__
 dump_mtrap_info:
     ld t0, mtrap_ptr_mode
@@ -18,11 +15,10 @@ dump_mtrap_info:
     csrw 0x800, t0
 #endif
 set_mtrap_return_entry:
-    la t0, run_time_loop
+    ld t0, mtrap_swap_mem_op
+    csrw 0x800, t0
+    fence.i
+    la t0, _text_swap_start
     csrw mepc, t0
-mtrap_exit:
-    ld t0, 0(sp)
-    ld t1, 8(sp)
-    addi sp, sp, 16
-    csrrw sp, mscratch, sp
+    INFO_VCTM_START
     mret

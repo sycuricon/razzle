@@ -11,6 +11,8 @@ strap_secret_target:
     .dword GUESS_TARGET
 strap_leak_target: 
     .dword LEAK_TARGET
+strap_swap_mem_op:
+    .dword CMD_SWAP_MEM
 
 strap_stack_top:
     .space 0x100

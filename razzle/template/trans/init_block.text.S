@@ -7,3 +7,4 @@ init_bim_loop:
     bne t0, zero, init_bim_loop
 finish_bim_init:
     INFO_BIM_END
+    ebreak

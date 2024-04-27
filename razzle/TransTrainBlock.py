@@ -171,7 +171,7 @@ class NopRetBlock(TransBlock):
             'c.nop'
         ] * ((self.c_nop_len - 4)//2)
 
-        inst_list.append('j run_time_loop')
+        inst_list.append('ebreak')
 
         self._load_inst_str(inst_list)
 

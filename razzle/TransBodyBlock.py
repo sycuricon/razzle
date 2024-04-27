@@ -16,7 +16,7 @@ class ReturnBlock(TransBlock):
         super().__init__('return_block', extension, output_path)
 
     def gen_instr(self):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/return_block.text.S"))
+        self._load_inst_str(['ebreak'])
 
 class DelayBlock(TransBlock):
     def __init__(self, extension, output_path):

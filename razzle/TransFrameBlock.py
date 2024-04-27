@@ -16,15 +16,6 @@ class InitBlock(TransBlock):
 
     def gen_instr(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.data.S"))
-
-class RunTimeBlock(TransBlock):
-    def __init__(self, extension, output_path):
-        super().__init__('run_time_block', extension, output_path)
-
-    def gen_instr(self):
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/run_time_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/run_time_block.data.S"))
 
 class MTrapBlock(TransBlock):
     def __init__(self, extension, output_path):
@@ -105,7 +96,6 @@ class TransFrameManager(TransBaseManager):
 
     def gen_block(self):
         self.init_block = InitBlock(self.extension, self.output_path)
-        self.runtime_block = RunTimeBlock(self.extension, self.output_path)
         self.mtrap_block = MTrapBlock(self.extension, self.output_path)
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, self.victim_privilege, self.virtual)
         self.strap_block = STrapBlock(self.extension, self.output_path)
@@ -115,7 +105,6 @@ class TransFrameManager(TransBaseManager):
         self.dummy_data_block = DummyDataBlock(self.extension, self.output_path)
 
         self.init_block.gen_instr()
-        self.runtime_block.gen_instr()
         self.mtrap_block.gen_instr()
         self.secret_protect_block.gen_instr()
         self.strap_block.gen_instr()
@@ -159,7 +148,7 @@ class TransFrameManager(TransBaseManager):
         self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
         self._set_section(empty_section, random_data_section, [self.random_data_block])
-        self._set_section(text_frame_section, data_frame_section, [self.init_block, self.runtime_block])
+        self._set_section(text_frame_section, empty_section, [self.init_block])
         self._set_section(empty_section, dummy_data_section, [self.dummy_data_block])
         self._set_section(empty_section, access_fault_data_section, [self.access_fault_block])
         self._set_section(empty_section, page_fault_data_section, [self.page_fault_block])

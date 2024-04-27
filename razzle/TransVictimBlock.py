@@ -207,7 +207,7 @@ class EncodeBlock(TransBlock):
         inst_exit = [
             "encode_exit:",
             "INFO_TEXE_END",
-            f"j run_time_loop",
+            f"ebreak",
         ]
         self._load_inst_str(inst_exit)
 

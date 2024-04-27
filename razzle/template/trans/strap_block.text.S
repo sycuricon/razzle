@@ -1,6 +1,4 @@
-    csrrw sp, sscratch, sp
-    addi sp, sp, -8
-    sd t0, 0(sp)
+    INFO_VCTM_END
 #ifdef __TRAP_DEBUG__
 dump_strap_info:
     ld t0, strap_ptr_mode
@@ -17,10 +15,10 @@ dump_strap_info:
     csrw 0x800, t0
 #endif
 set_strap_return_entry:
-    la t0, run_time_loop
+    ld t0, strap_swap_mem_op
+    csrw 0x800, t0
+    fence.i
+    la t0, _text_swap_start
     csrw sepc, t0
-strap_exit:
-    ld t0, 0(sp)
-    addi sp, sp, 8
-    csrrw sp, sscratch, sp
+    INFO_VCTM_START
     sret
