@@ -125,6 +125,9 @@ class TransFrameManager(TransBaseManager):
         self.dummy_data_block.gen_instr()
 
     def _generate_sections(self):
+        if len(self.section) != 0:
+            return
+
         mtrap_section = self.section[".mtrap"] = FuzzSection(
             ".mtrap", Flag.X | Flag.R | Flag.W
         )

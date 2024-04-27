@@ -1,7 +1,7 @@
 import os
 import random
 import sys
-from enum import Enum
+from enum import *
 from BuildManager import *
 from SectionUtils import *
 from SectionManager import *
@@ -80,7 +80,7 @@ class TriggerBlock(TransBlock):
                     case TriggerType.EBREAK:
                         inst = Instruction('ebreak')
                     case TriggerType.ILLEGAL:
-                        inst = RawInstruction('illegal')
+                        inst = Instruction('illegal')
                     case TriggerType.ECALL:
                         inst = Instruction('ecall')
                     case _:
@@ -278,11 +278,11 @@ class LoadInitTriggerBlock(LoadInitBlock):
             case TriggerType.JMP:
                 trigger_param = random.randint(0, 2**64-1)
             case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL:
-                pass
+                trigger_param = None
             case _:
                 raise Exception("the trigger type is invalid")
 
-        return {'A0':trigger_param}
+        return {'A0':trigger_param} if trigger_param != None else {}
 
     def _simulate_dep_reg_result(self):
         inst_block_list = [self.inst_block_list, self.delay_block.inst_block_list]
@@ -295,17 +295,17 @@ class LoadInitTriggerBlock(LoadInitBlock):
         self.dep_reg_result = self._simulate_dep_reg_result()
         self.trigger_param = self._compute_trigger_param()
 
-        a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
-        if self.GPR_init_list[-1] == 'T0':
-            self.data_list[-2] = a0_data_asm
-        else:
-            self.data_list[-1] = a0_data_asm
+        if len(self.trigger_param) != 0:
+            a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
+            if self.GPR_init_list[-1] == 'T0':
+                self.data_list[-2] = a0_data_asm
+            else:
+                self.data_list[-1] = a0_data_asm
 
 class SecretMigrateType(Enum):
-    MEMORY = 0
-    CACHE = 1
-    LOAD_BUFFER = 2
-    LEN = 3     
+    MEMORY = auto()
+    CACHE = auto()
+    LOAD_BUFFER = auto()
 
 class SecretMigrateBlock(TransBlock):
     def __init__(self, extension, output_path, protect_gpr_list):
@@ -431,6 +431,9 @@ class TransVictimManager(TransBaseManager):
             self._set_section(text_swap_section, empty_section, [self.return_block])
             self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block])
+    
+    def need_train(self):
+        return TriggerType.need_train(self.trigger_block.trigger_type)
 
             
 

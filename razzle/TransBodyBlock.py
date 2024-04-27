@@ -1,7 +1,7 @@
 import os
 import random
 import sys
-from enum import Enum
+from enum import *
 from BuildManager import *
 from SectionUtils import *
 from SectionManager import *
@@ -180,30 +180,28 @@ class NopBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TriggerType(Enum):
-    LOAD_MISALIGN = 0
-    LOAD_ACCESS_FAULT = 1
-    LOAD_PAGE_FAULT = 2
+    LOAD_MISALIGN = auto()
+    LOAD_ACCESS_FAULT = auto()
+    LOAD_PAGE_FAULT = auto()
     
-    STORE_MISALIGN = 3
-    STORE_ACCESS_FAULT = 4
-    STORE_PAGE_FAULT = 5
+    STORE_MISALIGN = auto()
+    STORE_ACCESS_FAULT = auto()
+    STORE_PAGE_FAULT = auto()
     
-    AMO_MISALIGN = 6
-    AMO_PAGE_FAULT = 7
-    AMO_ACCESS_FAULT = 8
+    AMO_MISALIGN = auto()
+    AMO_PAGE_FAULT = auto()
+    AMO_ACCESS_FAULT = auto()
     
-    EBREAK = 9
-    ECALL = 10
-    ILLEGAL = 11
+    EBREAK = auto()
+    ECALL = auto()
+    ILLEGAL = auto()
     
-    V4 = 12
+    V4 = auto()
 
-    BRANCH = 13
-    JALR = 14
-    RETURN = 15
-    JMP = 16
-
-    LEN = 17
+    BRANCH = auto()
+    JALR = auto()
+    RETURN = auto()
+    JMP = auto()
 
     def need_train(trigger_type):
         return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP]

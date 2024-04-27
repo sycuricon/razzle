@@ -1,7 +1,7 @@
 import os
 import random
 import sys
-from enum import Enum
+from enum import *
 from BuildManager import *
 from SectionUtils import *
 from SectionManager import *
@@ -14,13 +14,12 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class TrainType(Enum):
-    BRANCH_NOT_TAKEN = 0
-    BRANCH_TAKEN = 1
-    JALR = 2
-    JMP = 3
-    CALL = 4
-    RETURN = 5
-    LEN = 6
+    BRANCH_NOT_TAKEN = auto()
+    BRANCH_TAKEN = auto()
+    JALR = auto()
+    JMP = auto()
+    CALL = auto()
+    RETURN = auto()
 
 class trainTrainBlock(TransBlock):
     def __init__(self, extension, output_path, ret_label, train_label, train_type):
@@ -65,7 +64,7 @@ class trainTrainBlock(TransBlock):
                 inst['RD'] = 'RA'
                 inst['RS1'] = 'A0'
             case _:
-                raise "the train type is invalid"
+                raise Exception(f"the train type {self.train_type} is invalid")
     
         self.train_inst = inst
         block.inst_list.append(inst)
@@ -114,16 +113,25 @@ class LoadInitTrainBlock(LoadInitBlock):
                         train_param[train_inst['RS1']] = 1
                     case _:
                         raise Exception('invalid branch type')
-            case TrainType.JALR | TrainType.RETURN | TrainType.CALL if train_inst['NAME'] in ['C.JALR', 'JALR']:
+            case TrainType.JALR | TrainType.RETURN:
                 train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
                 if do_train:
                     train_param[train_inst['RS1']] = f'{self.train_label} - {hex(train_inst_imm)}'
                 else:
                     train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
-            case TrainType.JMP | TrainType.CALL if train_inst['NAME'] in ['C.JAL', 'JAL']:
+            case TrainType.CALL:
+                if train_inst['NAME'] in ['C.JALR', 'JALR']:
+                    train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
+                    if do_train:
+                        train_param[train_inst['RS1']] = f'{self.train_label} - {hex(train_inst_imm)}'
+                    else:
+                        train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
+                elif train_inst['NAME'] in ['C.JAL', 'JAL']:
+                    pass
+            case TrainType.JMP:
                 pass
             case _:
-                raise Exception("the train type is invalid")
+                raise Exception(f"the train type {train_type} and inst {train_inst['NAME']} is invalid")
 
         return train_param
     

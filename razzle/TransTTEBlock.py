@@ -1,7 +1,7 @@
 import os
 import random
 import sys
-from enum import Enum
+from enum import *
 from BuildManager import *
 from SectionUtils import *
 from SectionManager import *
@@ -13,13 +13,13 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class AdjustType(Enum):
-    BRANCH = 0
-    RETURN = 1
-    CALL = 2
-    CALL_LOOP = 3
-    JALR = 4
-    JMP = 5
-    OTHER = 6
+    BRANCH = auto()
+    RETURN = auto()
+    CALL = auto()
+    CALL_LOOP = auto()
+    JALR = auto()
+    JMP = auto()
+    OTHER = auto()
 
 class AdjustBlock(TransBlock):
     def __init__(self, extension, output_path, trigger_type):
@@ -44,10 +44,10 @@ class AdjustBlock(TransBlock):
     
     def _gen_adjust_type(self):
         class AdjustMainType(Enum):
-            BRANCH = 0
-            CALL_RETURN = 1
-            JMP = 2
-            OTHER = 3
+            BRANCH = auto()
+            CALL_RETURN = auto()
+            JMP = auto()
+            OTHER = auto()
 
         adjust_main_prob = {
             AdjustMainType.BRANCH: 0.2,
@@ -189,7 +189,7 @@ class TransTTEManager(TransBaseManager):
         self.return_block.gen_instr()
         self.adjust_block.gen_instr()
 
-        self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block, True)
+        self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block.entry, True)
         self.trigger_block.gen_instr()
         assert self.trigger_block.trigger_type != TriggerType.V4
 
@@ -247,6 +247,9 @@ class TransTTEManager(TransBaseManager):
         self._set_section(text_swap_section, self.trans_frame.data_frame_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block,\
                             self.trigger_block, self.adjust_block, self.return_block])
+    
+    def need_train(self):
+        return TriggerType.need_train(self.trigger_block.trigger_type)
 
 
 

@@ -250,7 +250,7 @@ class DistributeManager:
 
         self._generate_body_block()
 
-        for _ in self.trans.mem_mutate_iter():
+        for _ in self.trans.trans_block_iter():
             self.trans.file_generate(self.output_path, 'payload.S')
             self.run()
             self.trans.update_symbol_table()
