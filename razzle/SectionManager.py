@@ -113,7 +113,6 @@ class SectionManager:
     def _write_sections(self, f):
         for section in self.section.values():
             asm_list = section.generate_asm()
-            # print(asm_list)
             f.writelines(asm_list)
 
     def _generate_sections(self):

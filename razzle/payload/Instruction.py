@@ -220,6 +220,9 @@ class InstructionBase:
                 asm = asm.replace(
                     '{' + variable_name_remap[variable] + '}', var)
         return asm
+    
+    def is_rvc(self):
+        return self._solution['NAME'].startswith('C.')
 
 class RawInstruction(InstructionBase):
     def __init__(self, raw_inst):
@@ -227,6 +230,9 @@ class RawInstruction(InstructionBase):
 
     def to_asm(self):
         return self.raw_inst
+    
+    def is_rvc(self):
+        return True
 
 # for i in range(100):
 #    instr = Instruction()

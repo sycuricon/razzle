@@ -285,9 +285,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
         return {'A0':trigger_param} if trigger_param != None else {}
 
     def _simulate_dep_reg_result(self):
-        inst_block_list = [self.inst_block_list, self.delay_block.inst_block_list]
-        data_list = [self.data_list, self.delay_block.data_list]
-        dump_result = inst_simlutor(self.baker, inst_block_list, data_list)
+        dump_result = inst_simlutor(self.baker, [self, self.delay_block])
         return dump_result[self.delay_block.result_reg]
 
     def gen_instr(self):

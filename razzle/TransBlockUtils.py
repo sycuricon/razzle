@@ -153,14 +153,7 @@ class BaseBlock:
     def add_succeed(self, node):
         self.succeed.append(node)
         node.previous.append(self)
-
-    def gen_asm(self):
-        str_list = []
-        str_list.append(f'{self.name}:\n')
-        for inst in self.inst_list:
-            str_list.append(inst.to_asm()+'\n')
-        return str_list
-    
+        
     def get_inst_len(self):
         return len(self.inst_list)
 
@@ -313,9 +306,17 @@ class TransBlock:
 
     def gen_asm(self):
         inst_asm_list = []
+        rvc_open = True
+        inst_asm_list.append('.option rvc\n')
         inst_asm_list.append(f"{self.name}:\n")
         for block in self.inst_block_list:
-            inst_asm_list.extend(block.gen_asm())
+            inst_asm_list.append(f'{block.name}:\n')
+            for inst in block.inst_list:
+                rvc_type = inst.is_rvc()
+                if rvc_type != rvc_open:
+                    rvc_open = rvc_type
+                    inst_asm_list.append('.option rvc\n' if rvc_open else '.option norvc\n')
+                inst_asm_list.append(inst.to_asm()+'\n')
             inst_asm_list.append('\n')
 
         data_asm_list = []
@@ -369,7 +370,7 @@ class FuzzSection(Section):
     def _generate_body(self):
         return self.inst_list
 
-def inst_simlutor(baker, inst_block_list_list, data_list_list):
+def inst_simlutor(baker, block_list):
     if not os.path.exists(baker.output_path):
         os.makedirs(baker.output_path)
 
@@ -378,18 +379,28 @@ def inst_simlutor(baker, inst_block_list_list, data_list_list):
         file.write('#include "boom_conf.h"\n')
         file.write('#include "encoding.h"\n')
         file.write('#include "parafuzz.h"\n')
-        file.write(".section .text\n")
-        file.write(f"li t0, 0x8000000a00007800\n")
-        file.write("csrw mstatus, t0\n")
-        for inst_block_list in inst_block_list_list:
-            for block in inst_block_list:
-                file.writelines(block.gen_asm())
-                file.write("\n")
-        file.write(".section .data\n")
-        for data_list in data_list_list:
-            for data in data_list:
-                file.write(data.to_asm())
-                file.write("\n")
+        
+        text_section = FuzzSection(
+            ".text", Flag.U | Flag.X | Flag.R
+        )
+        data_section = FuzzSection(
+            ".data", Flag.U | Flag.W | Flag.R
+        )
+
+        text_section.add_inst_list(
+            [
+                f"li t0, 0x8000000a00007800\n",
+                "csrw mstatus, t0\n",
+            ]
+        )
+
+        for block in block_list:
+            text_list, data_list = block.gen_asm()
+            text_section.add_inst_list(text_list)
+            data_section.add_inst_list(data_list)
+        
+        file.writelines(text_section.generate_asm())
+        file.writelines(data_section.generate_asm())
 
     gen_elf = ShellCommand(
         "riscv64-unknown-elf-gcc",
