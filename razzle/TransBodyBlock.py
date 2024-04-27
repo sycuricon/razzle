@@ -208,43 +208,6 @@ class TriggerType(Enum):
     def need_train(trigger_type):
         return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP]
 
-    def random_choice():
-        data = random.choice([TriggerType(i) for i in range(17)])
-        return data
-
-    def tte_random_choice():
-        data = random.choice([
-            TriggerType.LOAD_STORE,
-            TriggerType.LOAD_STORE_SP,
-            TriggerType.AMO,
-            TriggerType.BIM,
-            TriggerType.BTB,
-            TriggerType.RSB
-        ])
-
-        return data
-    
-    def train_random_choice():
-        data = random.choice([
-            TriggerType.BIM,
-            TriggerType.BTB,
-            TriggerType.RSB,
-            TriggerType.JMP
-        ])
-
-        return data
-
-def random_choice(random_prob, random_type):
-    assert len(random_prob) == len(random_type)
-    prob = 0
-    prob_data = random.random()
-    for rand_type, rand_prob in zip(random_type, random_prob):
-        prob += rand_prob
-        if prob_data < prob:
-            return rand_type
-    else:
-        return rand_type
-
 class LoadInitBlock(TransBlock):
     def __init__(self, depth, extension, output_path, init_block_list):
         super().__init__(f'load_init_block_{depth}', extension, output_path)

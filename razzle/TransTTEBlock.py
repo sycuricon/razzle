@@ -21,9 +21,6 @@ class AdjustType(Enum):
     JMP = 5
     OTHER = 6
 
-    def random_choice():
-        return AdjustType(random.randint(0, 6))
-
 class AdjustBlock(TransBlock):
     def __init__(self, extension, output_path, trigger_type):
         super().__init__('adjust_block', extension, output_path)
@@ -52,9 +49,12 @@ class AdjustBlock(TransBlock):
             JMP = 2
             OTHER = 3
 
-        adjust_main_type = [AdjustMainType.BRANCH, AdjustMainType.CALL_RETURN,\
-                        AdjustMainType.JMP, AdjustMainType.OTHER]
-        adjust_main_prob = [0.2, 0.2, 0.2, 0.1]
+        adjust_main_prob = {
+            AdjustMainType.BRANCH: 0.2,
+            AdjustMainType.CALL_RETURN: 0.2,
+            AdjustMainType.JMP: 0.2,
+            AdjustMainType.OTHER: 0.1
+        }
         match self.trigger_type:
             case TriggerType.BRANCH:
                 adjust_main_prob[AdjustMainType.BRANCH] += 0.3
@@ -67,13 +67,16 @@ class AdjustBlock(TransBlock):
                 adjust_main_prob[AdjustMainType.CALL_RETURN] += 0.1
                 adjust_main_prob[AdjustMainType.JMP] += 0.1
         
-        match random_choice(adjust_main_prob, adjust_main_type):
+        match random_choice(adjust_main_prob):
             case AdjustMainType.BRANCH:
                 return AdjustType.BRANCH
             case AdjustMainType.CALL_RETURN:
-                adjust_sub_type = [AdjustType.RETURN, AdjustType.CALL, AdjustType.CALL_LOOP]
-                adjust_sub_prob = [0.5, 0.3, 0.2]
-                return random_choice(adjust_sub_prob, adjust_sub_type)
+                adjust_sub_prob = {
+                    AdjustType.RETURN: 0.5,
+                    AdjustType.CALL: 0.3,
+                    AdjustType.CALL_LOOP: 0.2,
+                }
+                return random_choice(adjust_sub_prob)
             case AdjustMainType.JMP:
                 return random.choice([AdjustType.JALR, AdjustType.JMP])
             case AdjustMainType.OTHER:

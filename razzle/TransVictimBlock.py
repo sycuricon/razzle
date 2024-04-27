@@ -33,10 +33,13 @@ class TriggerBlock(TransBlock):
             inst['RS1'] = 'A0'
             inst['RS2'] = 'ZERO'
         elif random.random() < 0.7:
-            type_prob = [0.35, 0.25, 0.25, 0.15]
-            trigger_type = [TriggerType.JALR, TriggerType.BRANCH,\
-                        TriggerType.RETURN, TriggerType.JMP]
-            self.trigger_type = random_choice(type_prob, trigger_type)
+            type_prob = {
+                TriggerType.JALR: 0.35,
+                TriggerType.BRANCH: 0.25,
+                TriggerType.RETURN: 0.25,
+                TriggerType.JMP: 0.15
+            }
+            self.trigger_type = random_choice(type_prob)
             match(self.trigger_type):
                 case TriggerType.BRANCH:
                     block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
@@ -72,9 +75,7 @@ class TriggerBlock(TransBlock):
         else:
             rand_data = random.random()
             if rand_data < 0.1:
-                type_prob = [0.33, 0.33, 0.34]
-                trigger_type = [TriggerType.EBREAK, TriggerType.ILLEGAL, TriggerType.ECALL]
-                self.trigger_type = random_choice(type_prob, trigger_type)
+                self.trigger_type = random.choice([TriggerType.EBREAK, TriggerType.ILLEGAL, TriggerType.ECALL])
                 match(self.trigger_type):
                     case TriggerType.EBREAK:
                         inst = Instruction('ebreak')
@@ -85,7 +86,6 @@ class TriggerBlock(TransBlock):
                     case _:
                         raise Exception("excepted trigger type")
             else:
-                type_prob = [0.2, 0.4, 0.4]
                 if rand_data < 0.4:
                     inst.set_category_constraint(['LOAD', 'FLOAT_LOAD', 'LOAD_SP'])
                     inst.solve()
@@ -99,8 +99,12 @@ class TriggerBlock(TransBlock):
                     if inst['NAME'] in ['LB', 'LBU']:
                         self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT])
                     else:
-                        trigger_type = [TriggerType.LOAD_MISALIGN, TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT]
-                        self.trigger_type = random_choice(type_prob, trigger_type)
+                        type_prob = {
+                            TriggerType.LOAD_MISALIGN: 0.2,
+                            TriggerType.LOAD_ACCESS_FAULT: 0.4,
+                            TriggerType.LOAD_PAGE_FAULT: 0.4
+                        }
+                        self.trigger_type = random_choice(type_prob)
                    
                     inst['IMM'] = down_align(inst['IMM'], 8)
                         
@@ -118,19 +122,28 @@ class TriggerBlock(TransBlock):
                     if inst['NAME'] in ['SB', 'SBU']:
                         self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT])
                     else:
-                        trigger_type = [TriggerType.STORE_MISALIGN, TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT]
-                        self.trigger_type = random_choice(type_prob, trigger_type)
+                        type_prob = {
+                            TriggerType.STORE_MISALIGN: 0.2,
+                            TriggerType.STORE_ACCESS_FAULT: 0.4,
+                            TriggerType.STORE_PAGE_FAULT: 0.4
+                        }
+                        self.trigger_type = random_choice(type_prob)
                    
                     inst['IMM'] = down_align(inst['IMM'], 8)
                     
                 else:
+
                     block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                     inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
                     inst.solve()
                     inst['RS1'] = 'A0' 
 
-                    trigger_type = [TriggerType.AMO_MISALIGN, TriggerType.AMO_ACCESS_FAULT, TriggerType.AMO_PAGE_FAULT]
-                    self.trigger_type = random_choice(type_prob, trigger_type)
+                    type_prob = {
+                        TriggerType.AMO_MISALIGN: 0.2,
+                        TriggerType.AMO_ACCESS_FAULT: 0.4,
+                        TriggerType.AMO_PAGE_FAULT: 0.4
+                    }
+                    self.trigger_type = random_choice(type_prob)
     
         self.trigger_inst = inst
         block.inst_list.append(inst)
@@ -299,10 +312,12 @@ class SecretMigrateBlock(TransBlock):
         super().__init__('secret_migrate_block', extension, output_path)
         self.protected_gpr_list = protect_gpr_list
         
-        secret_migrate_type = [SecretMigrateType.MEMORY,\
-            SecretMigrateType.CACHE, SecretMigrateType.LOAD_BUFFER]
-        secret_migrate_prob = [0.7, 0.2, 0.1]
-        self.secret_migrate_type = random_choice(secret_migrate_prob, secret_migrate_type)
+        secret_migrate_prob = {
+            SecretMigrateType.MEMORY: 0.7,
+            SecretMigrateType.CACHE: 0.2,
+            SecretMigrateType.LOAD_BUFFER: 0.1
+        }
+        self.secret_migrate_type = random_choice(secret_migrate_prob)
 
     def gen_instr(self):
         if len(self.protected_gpr_list) >= 30:

@@ -426,3 +426,13 @@ def inst_simlutor(baker, inst_block_list_list, data_list_list):
             dump_reg[key] = int(value, base=16)
         # print(dump_reg)
     return dump_reg
+
+def random_choice(random_prob):
+    prob = 0
+    prob_data = random.random()
+    for rand_type, rand_prob in random_prob.items():
+        prob += rand_prob
+        if prob_data < prob:
+            return rand_type
+    else:
+        return rand_type

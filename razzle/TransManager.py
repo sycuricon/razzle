@@ -56,17 +56,22 @@ class TransManager(SectionManager):
         self.depth = 0
 
     def _gen_train_swap_list(self, train_dict):
-        train_type = [TrainType.BRANCH_NOT_TAKEN, TrainType.JALR, TrainType.CALL, TrainType.RETURN, TrainType.JMP]
-        train_prob = [0.15, 0.1, 0.15, 0.15, 0.05]
+        train_prob = {
+            TrainType.BRANCH_NOT_TAKEN: 0.15,
+            TrainType.JALR: 0.1,
+            TrainType.CALL: 0.15,
+            TrainType.RETURN: 0.15,
+            TrainType.JMP: 0.05
+        }
         match self.trans_victim.trigger_type:
             case TriggerType.BRANCH:
-                train_prob[0] += 0.4
+                train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
             case TriggerType.JALR | TriggerType.JMP:
-                train_prob[1] += 0.4
+                train_prob[TrainType.JALR] += 0.4
             case TriggerType.RETURN:
-                train_prob[2] += 0.2
-                train_prob[3] += 0.2
-        train_type = random_choice(train_prob, train_type)
+                train_prob[TrainType.CALL] += 0.2
+                train_prob[TrainType.RETURN] += 0.2
+        train_type = random_choice(train_prob)
         match(train_type):
             case TrainType.BRANCH_NOT_TAKEN:
                 not_taken_swap_idx = train_dict[TrainType.BRANCH_NOT_TAKEN].swap_idx
@@ -127,7 +132,7 @@ class TransManager(SectionManager):
         self.depth += 1
 
         for train_target in [self.trans_victim, self.trans_tte]:
-            for train_type in [TrainType(i) for i in range(TrainType.LEN)]:
+            for train_type in [TrainType(i) for i in range(int(TrainType.LEN))]:
                 self.trans_body = TransTrainManager(self.config['trans_body'], self.extension,\
                     self.victim_privilege, self.virtual, self.output_path, self.trans_frame,\
                     self.depth, train_target, train_type)
