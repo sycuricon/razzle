@@ -169,7 +169,7 @@ class NopRetBlock(TransBlock):
     def gen_instr(self):
         inst_list = [
             'c.nop'
-        ] * (self.c_nop_len - 2)
+        ] * ((self.c_nop_len - 4)//2)
 
         inst_list.append('j run_time_loop')
 
@@ -206,18 +206,18 @@ class TransTrainManager(TransBaseManager):
                 front_block_end = return_entry
                 self.return_block_first = True
 
-        self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin)//2)
+        self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin))
         self.nop_ret_block.gen_instr()
 
         self.train_block = trainTrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
         self.train_block.gen_instr()
-        train_block_len = 2 if self.train_block.train_inst['NAME'].startswith == 'C.' else 4
+        train_block_len = self.train_block._get_inst_len()
 
         self.load_init_block = LoadInitTrainBlock(self.depth, self.extension, self.output_path, self.train_block)
         self.load_init_block.gen_instr()
-        load_init_block_len = self.load_init_block._get_inst_len() * 2 + 4
+        load_init_block_len = self.load_init_block._get_inst_len()
 
-        c_nop_len = (front_block_end - front_block_begin - train_block_len - load_init_block_len) // 2
+        c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
         self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
         self.nop_block.gen_instr()
 

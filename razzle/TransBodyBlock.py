@@ -174,7 +174,7 @@ class NopBlock(TransBlock):
 
     def gen_instr(self):
         inst_list = [
-            'c.nop' for _ in range(self.c_nop_len)
+            'c.nop' for _ in range(self.c_nop_len//2)
         ]
 
         self._load_inst_str(inst_list)

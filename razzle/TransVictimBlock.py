@@ -192,6 +192,9 @@ class AccessSecretBlock(TransBlock):
         self._load_data_str(data_list)
 
         self.secret_reg = 'T0'
+    
+    def _get_inst_len(self):
+        return 7 * 4
 
 class EncodeBlock(TransBlock):
     def __init__(self, extension, output_path, secret_reg):
@@ -353,6 +356,9 @@ class SecretMigrateBlock(TransBlock):
             inst_list.extend(['c.nop'] * 22)
 
         self._load_inst_str(inst_list)
+    
+    def _get_inst_len(self):
+        return (22 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth):
@@ -385,8 +391,12 @@ class TransVictimManager(TransBaseManager):
         self.secret_migrate_block.gen_instr()
 
         inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
-              + self.secret_migrate_block._get_inst_len() + self.trigger_block._get_inst_len() - 1
-        nop_inst_len = ((inst_len + 16 + 8 - 1) // 8 * 8 - inst_len) * 2
+              + self.secret_migrate_block._get_inst_len() + self.trigger_block._get_inst_len()
+        if self.trigger_block.trigger_inst.is_rvc():
+            inst_len -= 2
+        else:
+            inst_len -= 4
+        nop_inst_len = (inst_len + 16*4 + 8 - 1) // 8 * 8 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr()

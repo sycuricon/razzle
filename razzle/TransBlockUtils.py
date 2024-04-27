@@ -155,7 +155,11 @@ class BaseBlock:
         node.previous.append(self)
         
     def get_inst_len(self):
-        return len(self.inst_list)
+        sum = 0
+        for inst in self.inst_list:
+            sum += inst.get_len()
+        return sum
+
 
 class RandomBlock(BaseBlock):
     def __init__(self, name, extension):

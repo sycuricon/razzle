@@ -224,6 +224,14 @@ class InstructionBase:
     def is_rvc(self):
         return self._solution['NAME'].startswith('C.')
 
+    def get_len(self):
+        if self._solution['NAME'] == 'LA' or self._solution['NAME'] == 'Li':
+            return 8
+        elif self.is_rvc():
+            return 2
+        else:
+            return 4
+
 class RawInstruction(InstructionBase):
     def __init__(self, raw_inst):
         self.raw_inst = raw_inst
@@ -232,7 +240,15 @@ class RawInstruction(InstructionBase):
         return self.raw_inst
     
     def is_rvc(self):
-        return True
+        return self.raw_inst.startswith('c.')
+
+    def get_len(self):
+        if self.raw_inst.startswith('la') or self.raw_inst.startswith('li'):
+            return 8
+        elif self.is_rvc():
+            return 2
+        else:
+            return 4
 
 # for i in range(100):
 #    instr = Instruction()

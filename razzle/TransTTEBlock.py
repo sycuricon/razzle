@@ -211,13 +211,11 @@ class TransTTEManager(TransBaseManager):
         else:
             victim_front_len -= 4
         
-        tte_front_len = self.load_init_block._get_inst_len() *2 + 4 + \
-            self.delay_block._get_inst_len() * 4 + \
-            self.trigger_block._get_inst_len() * 4 + 3 * 4 + random.randint(2, 4) * 4
-        if self.trigger_block.trigger_inst['NAME'].startswith('C.'):
-            tte_front_len -= 2
+        tte_front_len = self.load_init_block._get_inst_len() + \
+            self.delay_block._get_inst_len() + \
+            self.trigger_block._get_inst_len() + (3 + random.randint(2, 4)) * 4
         
-        nop_inst_len = (victim_front_len - tte_front_len) // 2
+        nop_inst_len = victim_front_len - tte_front_len
 
         if nop_inst_len < 0:
             for inst in self.load_init_block.gen_asm()[0]:
