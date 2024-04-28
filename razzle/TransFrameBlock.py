@@ -129,9 +129,12 @@ class TransFrameManager(TransBaseManager):
         random_data_section = self.section[".random_data"] = FuzzSection(
             ".random_data", Flag.U | Flag.W | Flag.R
         )
-        self.data_frame_section = data_frame_section = self.section[".data_frame"] = FuzzSection(
+        self.data_frame_section = self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
+        self.data_load_init_section = self.section[".data_load_init"] = FuzzSection(
+            ".data_load_init", Flag.U | Flag.W | Flag.R
+        ) 
         dummy_data_section = self.section[".dummy_data"] = FuzzSection(
             ".dummy_data", Flag.U | Flag.W | Flag.R
         )
@@ -197,8 +200,16 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = up_align(len(self.data_frame_section.inst_list), Page.size)
+        length = Page.size
         self.section[".data_frame"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = up_align(len(self.data_load_init_section.inst_list), Page.size)
+        self.section[".data_load_init"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,

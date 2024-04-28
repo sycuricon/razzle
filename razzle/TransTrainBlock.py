@@ -233,7 +233,7 @@ class TransTrainManager(TransBaseManager):
             "", 0
         )
 
-        self._set_section(text_swap_section, self.trans_frame.data_frame_section,[self.load_init_block])
+        self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
         if self.return_block_first:
             self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])

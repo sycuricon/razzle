@@ -332,6 +332,10 @@ class TransBlock:
     def work(self):
         return len(self.extension) > 0
 
+    def clear(self):
+        self.inst_block_list = []
+        self.data_list = []
+
 class TransBaseManager(SectionManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path):
         super().__init__(config)
