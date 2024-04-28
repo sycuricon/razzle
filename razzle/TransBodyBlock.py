@@ -256,7 +256,7 @@ class LoadInitBlock(TransBlock):
             data_list.append(f".dword {hex(random.randint(0, 2**64))}")
             table_index += 1
 
-        self._load_inst_str(inst_list)
+        self._load_inst_str(inst_list, True)
         self._load_data_str(data_list)
 
     def _compute_trigger_param(self):

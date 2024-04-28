@@ -11,7 +11,7 @@ from TransFrameBlock import *
 from enum import *
 
 class TransManager(SectionManager):
-    def __init__(self, config, victim_privilege, virtual, output_path, do_debug):
+    def __init__(self, config, victim_privilege, virtual, output_path, do_debug, repo_path):
         self.section = {}
         self.dut_file_list = []
         self.extension = [
@@ -36,8 +36,19 @@ class TransManager(SectionManager):
         self.config = config
         self.do_debug = do_debug
 
+        self.swap_list = []
+        self.swap_id = 0
+        self.swap_map = {}
+        
+        self.depth = 0
+
+        self.repo_path = repo_path
+        self.trigger_repo_path = os.path.join(self.repo_path, "trigger_template")
+        self.leak_repo_path = os.path.join(self.repo_path, "leak_template")
+
         self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
         self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
+        self._distr_swap_id(self.trans_exit)
         self.trans_body = self.trans_exit
         self.trans_frame.gen_block()
         self.trans_exit.gen_block()
@@ -45,9 +56,13 @@ class TransManager(SectionManager):
         self.trans_tte = None
         self.victim_train = {}
         self.tte_train = {}
-        self.depth = 0
 
-    def _gen_train_swap_list(self, train_dict):
+    def _distr_swap_id(self, trans_swap):
+        trans_swap.register_swap_idx(self.swap_id)
+        self.swap_map[self.swap_id] = trans_swap
+        self.swap_id += 1
+
+    def _gen_train_swap_list(self, train_target, train_dict):
         train_prob = {
             TrainType.BRANCH_NOT_TAKEN: 0.15,
             TrainType.JALR: 0.1,
@@ -55,7 +70,7 @@ class TransManager(SectionManager):
             TrainType.RETURN: 0.15,
             TrainType.JMP: 0.05
         }
-        match self.trans_victim.trigger_type:
+        match train_target.trigger_type:
             case TriggerType.BRANCH:
                 train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
             case TriggerType.JALR | TriggerType.JMP:
@@ -83,64 +98,103 @@ class TransManager(SectionManager):
             for _ in range(0, 3):
                 if random.random() < 0.25:
                     break
-                swap_list[0:0] = self._gen_train_swap_list(self.tte_train)
+                swap_list[0:0] = self._gen_train_swap_list(self.trans_tte, self.tte_train)
         return swap_list
     
-    def _generate_swap_list(self):
+    def generate_swap_list(self, stage):
         swap_list = [self.trans_victim.swap_idx, self.trans_exit.swap_idx]
         if self.trans_victim.need_train():
-            adjust_weight = 0.6
             for _ in range(0, 4):
                 if random.random() < 0.2:
                     break
-                if random.random() < adjust_weight:
-                    swap_list[0:0] = self._gen_tte_swap_list()
-                    adjust_weight = 0
-                else:
-                    swap_list[0:0] = self._gen_train_swap_list(self.victim_train)
-                    adjust_weight -= 0.2
+                swap_list[0:0] = self._gen_train_swap_list(self.trans_victim, self.victim_train)
+        self.swap_list = swap_list
         return swap_list 
     
-    def update_symbol_table(self):
-        self.trans_body.add_symbol_table(os.path.join(self.output_path, 'Testbench.symbol'))
+    def update_symbol_table(self, symbol_table):
+        self.trans_body.add_symbol_table(symbol_table)
     
-    def register_swap_idx(self, swap_idx):
-        self.trans_body.register_swap_idx(swap_idx)
-
-    def trans_block_iter(self):
-        self.depth = 0
+    def gen_victim(self):
         self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
-            self.victim_privilege, self.virtual, self.output_path, self.trans_frame, self.depth)
+            self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
+        self._distr_swap_id(self.trans_victim)
         self.trans_body = self.trans_victim
         self.trans_body.gen_block()
-        yield self.trans_body
-        self.depth += 1
 
+    def gen_victim_train(self):
         if not self.trans_victim.need_train():
             return
 
-        self.trans_tte = TransTTEManager(self.config['trans_body'], self.extension,\
-                self.victim_privilege, self.virtual, self.output_path, self.trans_frame, self.depth, self.trans_victim)
-        self.trans_body = self.trans_tte
-        self.trans_body.gen_block()
-        yield self.trans_body
-        self.depth += 1
+        self.trans_victim.trans_frame.data_load_init_section.clear()
 
-        for train_target in [self.trans_victim, self.trans_tte]:
-            if not train_target.need_train():
-                continue
-
+        self.depth = 1
+        train_target = self.trans_victim
+        if len(self.victim_train) == 0:
             for train_type in [member for member in TrainType]:
                 self.trans_body = TransTrainManager(self.config['trans_body'], self.extension,\
                     self.victim_privilege, self.virtual, self.output_path, self.trans_frame,\
-                    self.depth, train_target, train_type)
-                if type(train_target) == TransTTEManager:
-                    self.tte_train[train_type] = self.trans_body
-                else:
-                    self.victim_train[train_type] = self.trans_body
+                    train_target, train_type)
+                self._distr_swap_id(self.trans_body)
+                self.victim_train[train_type] = self.trans_body
                 self.trans_body.gen_block()
-                yield self.trans_body
                 self.depth += 1
+                yield
+        else:
+            for trans_body in self.victim_train.values():
+                self.trans_body = trans_body
+                self.trans_body.gen_block()
+                yield
+    
+    def need_train(self):
+        return self.trans_victim.need_train()
+    
+    def store_trigger(self):
+        if not os.path.exists(self.trigger_repo_path):
+            os.makedirs(self.trigger_repo_path)
+
+        template_names = os.listdir(self.trigger_repo_path)
+        new_template = os.path.join(self.trigger_repo_path, str(len(template_names)))
+        if not os.path.exists(new_template):
+            os.makedirs(new_template)
+        for i,swap_id in enumerate(self.swap_list[:-2]):
+            train_fold = os.path.join(new_template, f'train_{i}')
+            if not os.path.exists(train_fold):
+                os.makedirs(train_fold)
+            trans_body = self.swap_map[swap_id]
+            trans_body.dump_trigger_block(train_fold)
+        
+        train_fold = os.path.join(new_template, f'trigger')
+        if not os.path.exists(train_fold):
+            os.makedirs(train_fold)
+        trans_body = self.swap_map[self.swap_list[-2]]
+        trans_body.dump_trigger_block(train_fold)
+
+    def store_leak(self):
+        if not os.path.exists(self.leak_repo_path):
+            os.makedirs(self.leak_repo_path)
+
+        template_names = os.listdir(self.leak_repo_path)
+        new_template = os.path.join(self.leak_repo_path, str(len(template_names)))
+        if not os.path.exists(new_template):
+            os.makedirs(new_template)
+        for i,swap_id in enumerate(self.swap_list[:-2]):
+            train_fold = os.path.join(new_template, f'train_{i}')
+            if not os.path.exists(train_fold):
+                os.makedirs(train_fold)
+            trans_body = self.swap_map[swap_id]
+            trans_body.dump_trigger_block(train_fold)
+        
+        train_fold = os.path.join(new_template, f'trigger')
+        if not os.path.exists(train_fold):
+            os.makedirs(train_fold)
+        trans_body = self.swap_map[self.swap_list[-2]]
+        trans_body.dump_leak_block(train_fold)
+    
+    def mutate_victim(self):
+        self.trans_victim.mutate()
+    
+    def get_swap_idx(self):
+        return self.trans_body.swap_idx
 
     def _generate_sections(self):
         self.trans_frame._generate_sections()

@@ -283,7 +283,7 @@ class TransBlock:
     def _gen_random(self, block_cnt=3):
         block_list = []
         for i in range(block_cnt):
-            block = RandomBlock(f'{self.name}_{i}', self.extension, self.transient)
+            block = RandomBlock(f'{self.name}_{i}', self.extension)
             block.gen_instr()
             block_list.append(block)
 
@@ -360,8 +360,22 @@ class TransBaseManager(SectionManager):
             self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
         )
     
-    def add_symbol_table(self, symbol_table_file):
-        self.symbol_table = get_symbol_file(symbol_table_file)
+    def _dump_trans_block(self, folder, block_list, return_front):
+        return_front_file = os.path.join(folder, 'return_front')
+        with open(return_front_file, "wt") as file:
+            file.write("True" if return_front else "False")
+
+        for block in block_list:
+            text_name = os.path.join(folder, f'{block.name}.text')
+            data_name = os.path.join(folder, f'{block.name}.data')
+            text_list, data_list = block.gen_asm()
+            with open(text_name, "wt") as file:
+                file.writelines(text_list)
+            with open(data_name, "wt") as file:
+                file.writelines(data_list)
+    
+    def add_symbol_table(self, symbol_table):
+        self.symbol_table = symbol_table
     
     def register_swap_idx(self, swap_idx):
         self.swap_idx = swap_idx
@@ -374,6 +388,9 @@ class FuzzSection(Section):
     def add_inst_list(self, list):
         self.inst_list.extend(list)
         self.inst_list.append("\n")
+    
+    def clear(self):
+        self.inst_list = []
 
     def _generate_body(self):
         return self.inst_list

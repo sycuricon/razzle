@@ -5,15 +5,20 @@ from SectionUtils import *
 class ChannelSection(Section):
     def __init__(self, name, length, image_value):
         super().__init__(name, Flag.U | Flag.W | Flag.R)
-        self.length = length
+        self.length = up_align(length, Page.size)
         self.global_label = ["trapoline", "array"]
+        for i in range(self.length//Page.size):
+            self.global_label.append(f'channel_page_base_{i}')
         self.image_value = image_value
 
     def _generate_body(self):
         write_line = []
         write_line.extend(Asmer.label_inst("array"))
         write_line.extend(Asmer.label_inst("trapoline"))
-        write_line.extend(Asmer.fill_inst(self.length, 1, self.image_value))
+        for i in range(self.length//Page.size):
+            write_line.extend(Asmer.fill_inst(Page.size//2, 1, self.image_value))
+            write_line.extend(Asmer.label_inst(f'channel_page_base_{i}'))
+            write_line.extend(Asmer.fill_inst(Page.size//2, 1, self.image_value))
         return write_line
 
 

@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import copy
 from enum import *
 from BuildManager import *
 from SectionUtils import *
@@ -216,7 +217,7 @@ class EncodeBlock(TransBlock):
             case "cache" | "FPUport" | "LSUport":
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
             case _:
-                raise f"leak_kind cannot be {self.leak_kind}"
+                self._gen_random(3)
             
         self._gen_block_end()
 
@@ -312,7 +313,8 @@ class SecretMigrateBlock(TransBlock):
     def __init__(self, extension, output_path, protect_gpr_list):
         super().__init__('secret_migrate_block', extension, output_path)
         self.protected_gpr_list = protect_gpr_list
-        
+
+    def gen_instr(self):
         secret_migrate_prob = {
             SecretMigrateType.MEMORY: 0.7,
             SecretMigrateType.CACHE: 0.2,
@@ -320,7 +322,6 @@ class SecretMigrateBlock(TransBlock):
         }
         self.secret_migrate_type = random_choice(secret_migrate_prob)
 
-    def gen_instr(self):
         if len(self.protected_gpr_list) >= 30:
             self.secret_migrate_type = SecretMigrateType.MEMORY
 
@@ -361,10 +362,9 @@ class SecretMigrateBlock(TransBlock):
         return (22 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.trans_frame = trans_frame
-        self.depth = depth
     
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -384,7 +384,7 @@ class TransVictimManager(TransBaseManager):
         self.trigger_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitTriggerBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr()
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)
@@ -403,21 +403,6 @@ class TransVictimManager(TransBaseManager):
 
         self.trigger_type = self.trigger_block.trigger_type
 
-    def _generate_sections(self):
-        if len(self.section) != 0:
-            return
-
-        text_swap_section = self.section[".text_swap"] = FuzzSection(
-            ".text_swap", Flag.U | Flag.X | Flag.R
-        )
-
-        empty_section = FuzzSection(
-            "", 0
-        )
-
-        self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
-        self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
-
         do_follow = True
         if self.trigger_block.trigger_type == TriggerType.BRANCH and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
             do_follow = False
@@ -432,7 +417,59 @@ class TransVictimManager(TransBaseManager):
             else:
                 do_follow = random.choice([True, False, False, False, False])
         
-        if do_follow:
+        self.return_front = not do_follow
+    
+    def dump_trigger_block(self, folder):
+        need_inited = set()
+        need_inited.update(self.delay_block.need_inited)
+        need_inited.update(self.trigger_block.need_inited)
+        load_init_block = copy.deepcopy(self.load_init_block)
+
+        new_inst_list = []
+        new_data_list = []
+        old_inst_list = self.load_init_block.inst_block_list[0].inst_list
+        old_data_list = self.load_init_block.data_list
+        
+        new_inst_list.append(old_inst_list[0])
+        for inst, data in zip(old_inst_list[1:], old_data_list):
+            if inst['NAME'] == 'C.LDSP':
+                if inst['RD'] in need_inited:
+                    new_inst_list.append(inst)
+                    new_data_list.append(data)
+            else:
+                if inst['FRD'] in need_inited:
+                    new_inst_list.append(inst)
+                    new_data_list.append(data)
+        
+        load_init_block.inst_block_list[0].inst_list = new_inst_list
+        load_init_block.data_list = new_data_list
+
+        self._dump_trans_block(folder, [load_init_block, self.delay_block,\
+            self.trigger_block], self.return_front)
+    
+    def dump_leak_block(self, folder):
+        self._dump_trans_block(folder, [self.load_init_block, self.secret_migrate_block, self.delay_block,\
+            self.trigger_block, self.access_secret_block, self.encode_block], self.return_front)
+
+    def mutate(self):
+        pass
+
+    def _generate_sections(self):
+        if len(self.section) != 0:
+            return
+
+        text_swap_section = self.section[".text_swap"] = FuzzSection(
+            ".text_swap", Flag.U | Flag.X | Flag.R
+        )
+
+        empty_section = FuzzSection(
+            "", 0
+        )
+
+        self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
+        self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
+        
+        if not self.return_front:
             self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block, self.return_block])
         else:

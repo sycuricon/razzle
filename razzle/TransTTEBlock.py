@@ -173,12 +173,11 @@ class AdjustBlock(TransBlock):
         self._gen_block_end()
 
 class TransTTEManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth, trans_victim):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, trans_victim):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.trans_frame = trans_frame
         assert type(trans_victim) == TransVictimManager
         self.trans_victim = trans_victim
-        self.depth = depth
 
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -194,7 +193,7 @@ class TransTTEManager(TransBaseManager):
         assert self.trigger_block.trigger_type != TriggerType.V4
 
         block_list = [self.delay_block, self.trigger_block, self.adjust_block, self.return_block]
-        self.load_init_block = LoadInitTriggerBlock(self.depth, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr()
 
         front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
@@ -206,7 +205,7 @@ class TransTTEManager(TransBaseManager):
             front_block_end = return_entry
 
         victim_front_len = front_block_end - front_block_begin
-        if self.trans_victim.trigger_block.trigger_inst['NAME'].startswith('C.'):
+        if self.trans_victim.trigger_block.trigger_inst.is_rvc():
             victim_front_len -= 2
         else:
             victim_front_len -= 4
@@ -229,6 +228,12 @@ class TransTTEManager(TransBaseManager):
         self.nop_block.gen_instr()
 
         self.trigger_type = self.trigger_block.trigger_type
+
+        self.return_front = False
+    
+    def dump_trigger_block(self, folder):
+        self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
+            self.trigger_block, self.adjust_block], self.return_front)
     
     def _generate_sections(self):
         if len(self.section) != 0:

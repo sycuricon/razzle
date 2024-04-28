@@ -208,7 +208,7 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = up_align(len(self.data_load_init_section.inst_list), Page.size)
+        length = Page.size
         self.section[".data_load_init"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
@@ -294,9 +294,3 @@ class TransExitManager(TransBaseManager):
 
         self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.decode_block, self.exit_block])
 
-    def _distribute_address(self):
-        offset = 0
-        length = Page.size
-        self.section[".text_swap"].get_bound(
-            self.virtual_memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length
-        )

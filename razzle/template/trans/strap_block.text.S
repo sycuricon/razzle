@@ -19,6 +19,10 @@ set_strap_return_entry:
     csrw 0x800, t0
     fence.i
     la t0, _text_swap_start
+#ifdef __VIRTUAL__
+    li t1, 0x100000
+    add t0, t0, t1
+#endif
     csrw sepc, t0
     INFO_VCTM_START
     sret

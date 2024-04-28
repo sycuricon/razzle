@@ -155,7 +155,7 @@ class LoadInitTrainBlock(LoadInitBlock):
         table_index = 0
         for reg in self.GPR_init_list:
             inst_list.append(f"c.ldsp {reg.lower()}, {table_index*8}(sp)")
-            data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            data_list.append(f".dword {train_param[reg]}")
             table_index += 1
 
         self._load_inst_str(inst_list)
@@ -176,19 +176,18 @@ class NopRetBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TransTrainManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, depth, trans_victim, train_type):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, trans_victim, train_type):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.trans_frame = trans_frame
         assert type(trans_victim) in [TransVictimManager, TransTTEManager]
         self.trans_victim = trans_victim
         self.train_type = train_type
-        self.depth = depth
 
     def gen_block(self):
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr()
 
-        self.return_block_first = False
+        self.return_front = False
 
         front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
         if type(self.trans_victim) == TransTTEManager:
@@ -204,7 +203,7 @@ class TransTrainManager(TransBaseManager):
             else:
                 nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
                 front_block_end = return_entry
-                self.return_block_first = True
+                self.return_front = True
 
         self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin))
         self.nop_ret_block.gen_instr()
@@ -213,13 +212,16 @@ class TransTrainManager(TransBaseManager):
         self.train_block.gen_instr()
         train_block_len = self.train_block._get_inst_len()
 
-        self.load_init_block = LoadInitTrainBlock(self.depth, self.extension, self.output_path, self.train_block)
+        self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block)
         self.load_init_block.gen_instr()
         load_init_block_len = self.load_init_block._get_inst_len()
 
         c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
         self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
         self.nop_block.gen_instr()
+    
+    def dump_trigger_block(self, folder):
+        self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
 
     def _generate_sections(self):
         if len(self.section) != 0:
@@ -235,7 +237,7 @@ class TransTrainManager(TransBaseManager):
 
         self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
-        if self.return_block_first:
+        if self.return_front:
             self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])
         else:
             self._set_section(text_swap_section, empty_section, [self.nop_ret_block, self.return_block])
