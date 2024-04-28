@@ -1,6 +1,6 @@
 {
-    attack: S
-    victim: M
+    attack: U
+    victim: U
     init: {
         bound: [
             0x80000000
