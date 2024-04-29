@@ -36,7 +36,7 @@ class TransManager(SectionManager):
         self.config = config
         self.do_debug = do_debug
 
-        self.swap_list = []
+        self.swap_block_list = []
         self.swap_id = 0
         self.swap_map = {}
 
@@ -107,16 +107,14 @@ class TransManager(SectionManager):
         return swap_list
     
     def generate_swap_list(self, stage):
-        swap_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
+        swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
         if self.trans_victim.need_train():
             for _ in range(0, 4):
                 if random.random() < 0.2:
                     break
-                swap_list[0:0] = self._gen_train_swap_list(self.trans_victim, self.victim_train)
-        self.swap_list = []
-        for swap_block in swap_list:
-            self.swap_list.append(swap_block['swap_id'])
-        return swap_list 
+                swap_block_list[0:0] = self._gen_train_swap_list(self.trans_victim, self.victim_train)
+        self.swap_block_list = swap_block_list
+        return swap_block_list 
     
     def update_symbol_table(self, symbol_table):
         self.trans_body.add_symbol_table(symbol_table)
@@ -155,6 +153,10 @@ class TransManager(SectionManager):
         return self.trans_victim.need_train()
     
     def store_trigger(self):
+        self.swap_list = []
+        for swap_block in self.swap_block_list:
+            self.swap_list.append(swap_block['swap_id'])
+
         if not os.path.exists(self.trigger_repo_path):
             os.makedirs(self.trigger_repo_path)
 

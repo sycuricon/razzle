@@ -390,6 +390,7 @@ class DistributeManager:
         windows_begin = 0
         sync_time = 0
         vicitm_end = 0
+        is_trigger = False
         for line in open(f'{self.taint_log}.log', 'r'):
             exec_info, exec_time = list(map(str.strip ,line.strip().split(',')))
             if exec_info == "DELAY_END_ENQ":
@@ -398,6 +399,13 @@ class DistributeManager:
                 sync_time = int(exec_time)
             if exec_info == 'VCTM_END_DEQ':
                 vicitm_end = int(exec_time)
+            if exec_info == "TEXE_START_ENQ":
+                is_trigger = True
+
+        is_leak = False
+        cover_expand = False
+        if not is_trigger:
+            return is_trigger, is_leak, cover_expand
         
         base_windows_list = base_list[windows_begin:sync_time]
         variant_windows_list = variant_list[windows_begin:sync_time]
@@ -405,13 +413,6 @@ class DistributeManager:
 
         base_spread_list = base_list[sync_time:vicitm_end]
         variant_spread_list = variant_list[sync_time:vicitm_end]
-
-        is_trigger = False
-        is_leak = False
-        if max(base_spread_list) > 0:
-            is_trigger = True      
-        else:
-            return is_trigger, is_leak, cover_expand
 
         base_array = np.array(base_spread_list)
         base_array = base_array - np.average(base_array)
@@ -434,6 +435,22 @@ class DistributeManager:
     def _reorder_swap_list(self, stage):
         self.mem_cfg.add_swap_list(self.trans.generate_swap_list(stage))
         self.mem_cfg.dump_conf(self.output_path)
+    
+    def _trigger_reduce(self):
+        swap_block_list = self.trans.swap_block_list
+        for _ in range(len(swap_block_list)-2):
+            for i in range(0, len(swap_block_list)-2):
+                tmp_swap_block_list = copy.copy(swap_block_list)
+                tmp_swap_block_list.pop(i)
+                self.mem_cfg.add_swap_list(tmp_swap_block_list)
+                self.mem_cfg.dump_conf(self.output_path)
+                is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                if is_trigger:
+                    swap_block_list = tmp_swap_block_list
+                    break
+            else:
+                break
+        self.trans.swap_block_list = swap_block_list
     
     def fuzz_stage1(self):
         # get frame and exit
@@ -463,13 +480,15 @@ class DistributeManager:
                     if not is_trigger:
                         continue
                     else:
-                        self.trans.store_trigger()
                         break
                 else:
                     continue
                 break
             else:
                 continue
+
+            self._trigger_reduce()
+            self.trans.store_trigger()
 
             if is_leak and cover_expand:
                 self.trans.store_leak()
