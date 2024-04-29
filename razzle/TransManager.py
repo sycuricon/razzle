@@ -39,8 +39,6 @@ class TransManager(SectionManager):
         self.swap_list = []
         self.swap_id = 0
         self.swap_map = {}
-        
-        self.depth = 0
 
         self.repo_path = repo_path
         self.trigger_repo_path = os.path.join(self.repo_path, "trigger_template")
@@ -81,8 +79,8 @@ class TransManager(SectionManager):
         train_type = random_choice(train_prob)
         match(train_type):
             case TrainType.BRANCH_NOT_TAKEN:
-                not_taken_swap_idx = train_dict[TrainType.BRANCH_NOT_TAKEN].swap_idx
-                taken_swap_idx = train_dict[TrainType.BRANCH_TAKEN].swap_idx
+                not_taken_swap_idx = train_dict[TrainType.BRANCH_NOT_TAKEN].mem_region
+                taken_swap_idx = train_dict[TrainType.BRANCH_TAKEN].mem_region
                 branch_not_taken_1 = [not_taken_swap_idx]
                 branch_not_taken_2 = [not_taken_swap_idx, not_taken_swap_idx]
                 branch_taken_1 = [taken_swap_idx]
@@ -90,10 +88,10 @@ class TransManager(SectionManager):
                 branch_balance = random.choice([[not_taken_swap_idx, taken_swap_idx], [taken_swap_idx, not_taken_swap_idx]])
                 return random.choice([branch_not_taken_1, branch_not_taken_2, branch_taken_1, branch_taken_2, branch_balance])
             case _:
-                return [train_dict[train_type].swap_idx]
+                return [train_dict[train_type].mem_region]
     
     def _gen_tte_swap_list(self):
-        swap_list = [self.trans_tte.swap_idx]
+        swap_list = [self.trans_tte.mem_region]
         if self.trans_tte.need_train():
             for _ in range(0, 3):
                 if random.random() < 0.25:
@@ -102,7 +100,7 @@ class TransManager(SectionManager):
         return swap_list
     
     def generate_swap_list(self, stage):
-        swap_list = [self.trans_victim.swap_idx, self.trans_exit.swap_idx]
+        swap_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
         if self.trans_victim.need_train():
             for _ in range(0, 4):
                 if random.random() < 0.2:
@@ -115,9 +113,10 @@ class TransManager(SectionManager):
         self.trans_body.add_symbol_table(symbol_table)
     
     def gen_victim(self):
-        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
-            self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
-        self._distr_swap_id(self.trans_victim)
+        if self.trans_victim is None:
+            self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
+                self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
+            self._distr_swap_id(self.trans_victim)
         self.trans_body = self.trans_victim
         self.trans_body.gen_block()
 
@@ -125,9 +124,8 @@ class TransManager(SectionManager):
         if not self.trans_victim.need_train():
             return
 
-        self.trans_victim.trans_frame.data_load_init_section.clear()
+        self.trans_victim.trans_frame.data_train_section.clear()
 
-        self.depth = 1
         train_target = self.trans_victim
         if len(self.victim_train) == 0:
             for train_type in [member for member in TrainType]:
@@ -137,7 +135,6 @@ class TransManager(SectionManager):
                 self._distr_swap_id(self.trans_body)
                 self.victim_train[train_type] = self.trans_body
                 self.trans_body.gen_block()
-                self.depth += 1
                 yield
         else:
             for trans_body in self.victim_train.values():
@@ -192,6 +189,11 @@ class TransManager(SectionManager):
     
     def mutate_victim(self):
         self.trans_victim.mutate()
+        self.trans_body = self.trans_victim
+
+    def mutate_tte(self):
+        self.trans_tte.mutate()
+        self.trans_body = self.victim_tte
     
     def get_swap_idx(self):
         return self.trans_body.swap_idx

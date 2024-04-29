@@ -466,15 +466,17 @@ class TransVictimManager(TransBaseManager):
             "", 0
         )
 
-        self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
+        self.trans_frame.data_victim_section.clear()
+
+        self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
         
         if not self.return_front:
-            self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
+            self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block, self.return_block])
         else:
             self._set_section(text_swap_section, empty_section, [self.return_block])
-            self._set_section(text_swap_section, self.trans_frame.data_frame_section, [self.access_secret_block])
+            self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block])
     
     def need_train(self):

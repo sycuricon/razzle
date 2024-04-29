@@ -132,9 +132,15 @@ class TransFrameManager(TransBaseManager):
         self.data_frame_section = self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
-        self.data_load_init_section = self.section[".data_load_init"] = FuzzSection(
-            ".data_load_init", Flag.U | Flag.W | Flag.R
-        ) 
+        self.data_victim_section = self.section[".data_victim"] = FuzzSection(
+            ".data_victim", Flag.U | Flag.W | Flag.R
+        )
+        self.data_tte_section = self.section[".data_tte"] = FuzzSection(
+            ".data_tte", Flag.U | Flag.W | Flag.R
+        )
+        self.data_train_section = self.section[".data_train"] = FuzzSection(
+            ".data_train", Flag.U | Flag.W | Flag.R
+        )
         dummy_data_section = self.section[".dummy_data"] = FuzzSection(
             ".dummy_data", Flag.U | Flag.W | Flag.R
         )
@@ -209,7 +215,23 @@ class TransFrameManager(TransBaseManager):
 
         offset += length
         length = Page.size
-        self.section[".data_load_init"].get_bound(
+        self.section[".data_victim"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".data_tte"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".data_train"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,

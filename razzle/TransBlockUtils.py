@@ -379,6 +379,9 @@ class TransBaseManager(SectionManager):
     
     def register_swap_idx(self, swap_idx):
         self.swap_idx = swap_idx
+    
+    def register_memory_region(self, mem_region):
+        self.mem_region = mem_region
 
 class FuzzSection(Section):
     def __init__(self, name, flag):

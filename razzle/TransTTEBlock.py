@@ -247,7 +247,7 @@ class TransTTEManager(TransBaseManager):
             "", 0
         )
 
-        self._set_section(text_swap_section, self.trans_frame.data_load_init_section,[self.load_init_block])
+        self._set_section(text_swap_section, self.trans_frame.data_tte_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block,\
                             self.trigger_block, self.adjust_block, self.return_block])
     
