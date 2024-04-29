@@ -176,12 +176,12 @@ class NopRetBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TransTrainManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, trans_victim, train_type):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_victim, train_type):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        self.trans_frame = trans_frame
         assert type(trans_victim) in [TransVictimManager, TransTTEManager]
         self.trans_victim = trans_victim
         self.train_type = train_type
+        self.data_section = data_section
 
     def gen_block(self):
         self.return_block = ReturnBlock(self.extension, self.output_path)
@@ -231,11 +231,16 @@ class TransTrainManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
+        if type(self.trans_victim) == TransVictimManager:
+            self.section[".data_train"] = self.data_section
+        else:
+            self.section[".data_tte_train"] = self.data_section
+
         empty_section = FuzzSection(
             "", 0
         )
 
-        self._set_section(text_swap_section, self.trans_frame.data_train_section,[self.load_init_block])
+        self._set_section(text_swap_section, self.data_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
         if self.return_front:
             self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])

@@ -10,6 +10,7 @@ class Section:
         self.vaddr = None
         self.paddr = None
         self.link = None
+        self.must_m = False
         self.global_label = []
 
     def get_length(self):

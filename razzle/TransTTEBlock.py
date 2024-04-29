@@ -173,11 +173,11 @@ class AdjustBlock(TransBlock):
         self._gen_block_end()
 
 class TransTTEManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame, trans_victim):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_victim):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        self.trans_frame = trans_frame
         assert type(trans_victim) == TransVictimManager
         self.trans_victim = trans_victim
+        self.data_section = data_section
 
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -243,11 +243,14 @@ class TransTTEManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
+        self.section[".data_tte"] = self.data_section
+
         empty_section = FuzzSection(
             "", 0
         )
 
-        self._set_section(text_swap_section, self.trans_frame.data_tte_section,[self.load_init_block])
+        self.data_section.clear()
+        self._set_section(text_swap_section, self.data_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block,\
                             self.trigger_block, self.adjust_block, self.return_block])
     

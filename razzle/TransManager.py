@@ -59,6 +59,13 @@ class TransManager(SectionManager):
         trans_swap.register_swap_idx(self.swap_id)
         self.swap_map[self.swap_id] = trans_swap
         self.swap_id += 1
+    
+    def move_data_section(self):
+        data_train_section, data_tte_section, data_tte_train_section, data_victim_section = self.trans_frame.move_data_section()
+        self.data_train_section = data_train_section
+        self.data_tte_section = data_tte_section
+        self.data_tte_train_section = data_tte_train_section
+        self.data_victim_section = data_victim_section
 
     def _gen_train_swap_list(self, train_target, train_dict):
         train_prob = {
@@ -106,7 +113,9 @@ class TransManager(SectionManager):
                 if random.random() < 0.2:
                     break
                 swap_list[0:0] = self._gen_train_swap_list(self.trans_victim, self.victim_train)
-        self.swap_list = swap_list
+        self.swap_list = []
+        for swap_block in swap_list:
+            self.swap_list.append(swap_block['swap_id'])
         return swap_list 
     
     def update_symbol_table(self, symbol_table):
@@ -115,7 +124,7 @@ class TransManager(SectionManager):
     def gen_victim(self):
         if self.trans_victim is None:
             self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
-                self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
+                self.victim_privilege, self.virtual, self.output_path, self.data_victim_section)
             self._distr_swap_id(self.trans_victim)
         self.trans_body = self.trans_victim
         self.trans_body.gen_block()
@@ -124,13 +133,13 @@ class TransManager(SectionManager):
         if not self.trans_victim.need_train():
             return
 
-        self.trans_victim.trans_frame.data_train_section.clear()
+        self.data_train_section.clear()
 
         train_target = self.trans_victim
         if len(self.victim_train) == 0:
             for train_type in [member for member in TrainType]:
                 self.trans_body = TransTrainManager(self.config['trans_body'], self.extension,\
-                    self.victim_privilege, self.virtual, self.output_path, self.trans_frame,\
+                    self.victim_privilege, self.virtual, self.output_path, self.data_train_section,\
                     train_target, train_type)
                 self._distr_swap_id(self.trans_body)
                 self.victim_train[train_type] = self.trans_body

@@ -18,16 +18,16 @@ class MemCfg:
     def __init__(self, mem_start, mem_len):
         self.mem_start = mem_start
         self.mem_len = mem_len
-        self.mem_regions = {'dut':[], 'vnt':[], 'swap':[]}
+        self.mem_regions = {}
+        self.mem_region_kind = ['frame', 'data_train',\
+            'data_tte', 'data_train_tte', 'data_victim', 'swap']
+        for kind in self.mem_region_kind:
+            self.mem_regions[kind] = []
         self.swap_list = []
     
-    def add_mem_region(self, mem_type, start_addr, max_len, init_file, swap_id):
-        assert mem_type in ['dut', 'vnt', 'swap']
-        mem_region = {'type':mem_type, 'start_addr':start_addr,\
-                    'max_len':max_len, 'init_file':init_file, 'swap_id':swap_id}
-        
-        mem_region_array = self.mem_regions[mem_type]
-        mem_region_array.append(mem_region)
+    def add_mem_region(self, kind, mem_region):
+        assert kind in self.mem_region_kind and kind != 'swap'
+        self.mem_regions[kind] = mem_region
     
     def add_swap_list(self, swap_block_list):
         self.swap_list = []
@@ -35,18 +35,16 @@ class MemCfg:
         for swap_block in swap_block_list:
             self.mem_regions['swap'].append(swap_block)
             self.swap_list.append(swap_block['swap_id'])
-
-    def clear_frame(self):
-        self.mem_regions['dut'] = []
-        self.mem_regions['vnt'] = []
     
     def dump_conf(self, output_path):
         with open(os.path.join(output_path, 'swap_mem.cfg'), "wt") as file:
             tmp_mem_cfg = {}
             tmp_mem_cfg['start_addr'] = self.mem_start
             tmp_mem_cfg['max_mem_size'] = self.mem_len
-            tmp_mem_cfg['memory_regions'] = tuple(self.mem_regions['dut'] +\
-                         self.mem_regions['vnt'] + self.mem_regions['swap'])
+            mem_region = []
+            for regions in self.mem_regions.values():
+                mem_region.extend(regions)
+            tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
             file.write(libconf.dumps(tmp_mem_cfg))
     
@@ -189,6 +187,9 @@ class DistributeManager:
     
     def _generate_frame_block(self):
         swap_idx = self.trans.get_swap_idx()
+
+        baker = self._generate_compile_shell(swap_idx)
+        baker.run()
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
 
         file_origin = os.path.join(self.output_path, f'Testbench_{swap_idx}.bin')
@@ -206,7 +207,7 @@ class DistributeManager:
         file_variant_common = os.path.join(self.output_path, 'variant_common.bin')
 
         common_begin = 0
-        common_end   = symbol_table['_data_train_end'] - address_base
+        common_end   = symbol_table['_data_frame_end'] - address_base
         common_byte_array = origin_byte_array[common_begin:common_end]
         with open(file_origin_common, "wb") as file:
             file.write(common_byte_array)
@@ -217,9 +218,22 @@ class DistributeManager:
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 
-        self.mem_cfg.clear_frame()
-        self.mem_cfg.add_mem_region('dut', common_begin + address_offset, up_align(common_end, Page.size), file_origin_common, 0)
-        self.mem_cfg.add_mem_region('vnt', common_begin + address_offset, up_align(common_end, Page.size), file_variant_common, 0)
+        dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
+                    'max_len':up_align(common_end, Page.size), 'init_file':file_origin_common, 'swap_id':self.trans.get_swap_idx()}
+        vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
+                    'max_len':up_align(common_end, Page.size), 'init_file':file_variant_common, 'swap_id':self.trans.get_swap_idx()}
+        self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
+
+        file_text_swap = os.path.join(self.output_path, f'text_swap_{swap_idx}.bin')
+        text_begin = symbol_table['_text_swap_start'] - address_base
+        text_end   = symbol_table['_text_swap_end'] - address_base
+        text_swap_byte_array = origin_byte_array[text_begin:text_end]
+        with open(file_text_swap, "wb") as file:
+            file.write(text_swap_byte_array)
+        
+        mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
+        self.trans.trans_body.register_memory_region(mem_region)
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
@@ -234,9 +248,7 @@ class DistributeManager:
                     "-j .strap",
                     "-j .text_frame",
                     "-j .data_frame",
-                    "-j .data_victim",
-                    "-j .data_tte",
-                    "-j .data_train",
+                    "-j .swap_text",
                     f"> $OUTPUT_PATH/Testbench_frame.asm",
                 ]
             )
@@ -273,6 +285,35 @@ class DistributeManager:
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
                     'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
         self.trans.trans_body.register_memory_region(mem_region)
+
+        trans_body_type = type(self.trans.trans_body)
+        if trans_body_type == TransVictimManager:
+            data_name = 'data_victim'
+        elif trans_body_type == TransTTEManager:
+            data_name = 'data_tte'
+        elif trans_body_type == TransTrainManager:
+            if type(self.trans.trans_body.trans_victim) == TransVictimManager:
+                data_name = 'data_train'
+            else:
+                data_name = 'data_tte_train'
+        else:
+            raise Exception('the type of trans_body is invalid')
+        
+        data_begin_label = f'_{data_name}_start'
+        data_end_label = f'_{data_name}_end'
+
+        file_data = os.path.join(self.output_path, f'{data_name}_{swap_idx}.bin')
+        data_begin = symbol_table[data_begin_label] - address_base
+        data_end   = symbol_table[data_end_label] - address_base
+        data_byte_array = origin_byte_array[data_begin:data_end]
+        with open(file_data, "wb") as file:
+            file.write(data_byte_array)
+        
+        dut_mem_region = {'type':'dut', 'start_addr':data_begin + address_offset,\
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
+        vnt_mem_region = {'type':'vnt', 'start_addr':data_begin + address_offset,\
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
+        self.mem_cfg.add_mem_region(data_name, [dut_mem_region, vnt_mem_region])
         
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{swap_idx}.sh"
@@ -282,7 +323,8 @@ class DistributeManager:
             gen_asm.save_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench_{swap_idx}",
-                    "-j .text_swap",
+                    f"-j .text_swap",
+                    f'-j .{data_name}',
                     f"> $OUTPUT_PATH/Testbench_body_{swap_idx}.asm",
                 ]
             )
@@ -396,7 +438,8 @@ class DistributeManager:
     def fuzz_stage1(self):
         # get frame and exit
         self._generate_frame()
-        self._generate_body_block()
+        self._generate_frame_block()
+        self.trans.move_data_section()
 
         victim_fuzz_iter = 2
         for _ in range(victim_fuzz_iter):
@@ -412,7 +455,6 @@ class DistributeManager:
                     self.file_list = self.frame_file_list + \
                         self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
                     self._generate_body_block()
-                self._generate_frame_block()
 
                 max_reorder_swap_list = 2 if self.trans.need_train() else 1
                 for _ in range(max_reorder_swap_list):
@@ -438,7 +480,6 @@ class DistributeManager:
                     self.file_list = self.frame_file_list + \
                         self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
                     self._generate_body_block()
-                    self._generate_frame_block()
 
                     is_trigger, is_leak, cover_expand = self._sim_and_analysis()
                     if is_leak and cover_expand:

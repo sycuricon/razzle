@@ -362,9 +362,9 @@ class SecretMigrateBlock(TransBlock):
         return (22 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        self.trans_frame = trans_frame
+        self.data_section = data_section
     
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -462,21 +462,23 @@ class TransVictimManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
+        self.section[".data_victim"] = self.data_section
+
         empty_section = FuzzSection(
             "", 0
         )
 
-        self.trans_frame.data_victim_section.clear()
+        self.data_section.clear()
 
-        self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.load_init_block])
+        self._set_section(text_swap_section, self.data_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
         
         if not self.return_front:
-            self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.access_secret_block])
+            self._set_section(text_swap_section, self.data_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block, self.return_block])
         else:
             self._set_section(text_swap_section, empty_section, [self.return_block])
-            self._set_section(text_swap_section, self.trans_frame.data_victim_section, [self.access_secret_block])
+            self._set_section(text_swap_section, self.data_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block])
     
     def need_train(self):
