@@ -236,8 +236,6 @@ class TransTTEManager(TransBaseManager):
             self.trigger_block, self.adjust_block], self.return_front)
     
     def _generate_sections(self):
-        if len(self.section) != 0:
-            return
 
         text_swap_section = self.section[".text_swap"] = FuzzSection(
             ".text_swap", Flag.U | Flag.X | Flag.R

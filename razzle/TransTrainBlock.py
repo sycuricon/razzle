@@ -224,8 +224,6 @@ class TransTrainManager(TransBaseManager):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
 
     def _generate_sections(self):
-        if len(self.section) != 0:
-            return
 
         text_swap_section = self.section[".text_swap"] = FuzzSection(
             ".text_swap", Flag.U | Flag.X | Flag.R
