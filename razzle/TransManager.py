@@ -177,6 +177,28 @@ class TransManager(SectionManager):
         trans_body = self.swap_map[self.swap_list[-2]]
         trans_body.dump_trigger_block(train_fold)
 
+        cp_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
+            )
+        gen_asm = ShellCommand("cp", [])
+        cp_baker.add_cmd(
+            gen_asm.save_cmd(
+                [
+                    f'{self.repo_path}/*.log',
+                    f'{new_template}'
+                ]
+            )
+        )
+        cp_baker.add_cmd(
+            gen_asm.save_cmd(
+                [
+                    f'{self.repo_path}/*.csv',
+                    f'{new_template}'
+                ]
+            )
+        )
+        cp_baker.run()
+
     def store_leak(self):
         if not os.path.exists(self.leak_repo_path):
             os.makedirs(self.leak_repo_path)

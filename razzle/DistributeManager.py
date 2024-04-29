@@ -406,6 +406,28 @@ class DistributeManager:
         cover_expand = False
         if not is_trigger:
             return is_trigger, is_leak, cover_expand
+        else:
+            cp_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
+            )
+            gen_asm = ShellCommand("cp", [])
+            cp_baker.add_cmd(
+                gen_asm.save_cmd(
+                    [
+                        f'{self.taint_log}.log',
+                        f'{self.repo_path}'
+                    ]
+                )
+            )
+            cp_baker.add_cmd(
+                gen_asm.save_cmd(
+                    [
+                        f'{self.taint_log}.csv',
+                        f'{self.repo_path}'
+                    ]
+                )
+            )
+            cp_baker.run()
         
         base_windows_list = base_list[windows_begin:sync_time]
         variant_windows_list = variant_list[windows_begin:sync_time]
@@ -423,9 +445,7 @@ class DistributeManager:
         
         if cosim_result > 0.1:
             is_leak = True
-        elif cosim_result > 0.0000001:
-            is_leak = False
-        elif max(base_spread_list) > 40:
+        elif max(base_windows_list) > 40:
             is_leak = True
         else:
             is_leak = False
@@ -458,7 +478,12 @@ class DistributeManager:
         self._generate_frame_block()
         self.trans.move_data_section()
 
-        victim_fuzz_iter = 2
+        VICTIM_FUZZ_MAX_ITER = 200
+        TRAIN_GEN_MAX_ITER = 4
+        REORDER_SWAP_LIST_MAX_ITER = 6
+        ENCODE_MUTATE_MAX_ITER = 1
+
+        victim_fuzz_iter = VICTIM_FUZZ_MAX_ITER
         for _ in range(victim_fuzz_iter):
             self.trans.gen_victim()
             self.file_list = self.frame_file_list + \
@@ -466,14 +491,14 @@ class DistributeManager:
             
             self._generate_body_block()
 
-            max_train_gen = 2 if self.trans.need_train() else 1
+            max_train_gen = TRAIN_GEN_MAX_ITER if self.trans.need_train() else 1
             for _ in range(max_train_gen):
                 for _ in self.trans.gen_victim_train():
                     self.file_list = self.frame_file_list + \
                         self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
                     self._generate_body_block()
 
-                max_reorder_swap_list = 2 if self.trans.need_train() else 1
+                max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans.need_train() else 1
                 for _ in range(max_reorder_swap_list):
                     self._reorder_swap_list(stage=1)
                     is_trigger, is_leak, cover_expand = self._sim_and_analysis()
@@ -493,7 +518,7 @@ class DistributeManager:
             if is_leak and cover_expand:
                 self.trans.store_leak()
             else:
-                max_mutate_time = 2
+                max_mutate_time = ENCODE_MUTATE_MAX_ITER
                 for _ in range(max_mutate_time):
                     self.trans.mutate_victim()
                     self.file_list = self.frame_file_list + \
