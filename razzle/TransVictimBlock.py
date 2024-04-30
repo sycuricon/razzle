@@ -431,6 +431,7 @@ class TransVictimManager(TransBaseManager):
         old_data_list = self.load_init_block.data_list
         
         new_inst_list.append(old_inst_list[0])
+        new_data_list.append(old_data_list[0])
         for inst, data in zip(old_inst_list[1:], old_data_list[1:]):
             if inst['NAME'] == 'C.LDSP':
                 if inst['RD'] in need_inited:
