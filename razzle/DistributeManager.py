@@ -486,7 +486,7 @@ class DistributeManager:
         VICTIM_FUZZ_MAX_ITER = 200
         TRAIN_GEN_MAX_ITER = 2
         REORDER_SWAP_LIST_MAX_ITER = 3
-        ENCODE_MUTATE_MAX_ITER = 1
+        ENCODE_MUTATE_MAX_ITER = 5
 
         stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
         if not os.path.exists(stage1_iter_num_file):
@@ -497,7 +497,7 @@ class DistributeManager:
 
         victim_fuzz_iter = VICTIM_FUZZ_MAX_ITER
         for iter_num in range(begin_iter_num, begin_iter_num + victim_fuzz_iter):
-            self.trans.gen_victim()
+            self.trans.gen_victim(strategy='default')
             self.file_list = self.frame_file_list + \
                 self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
             
@@ -524,10 +524,8 @@ class DistributeManager:
             
             if is_trigger:
                 self._trigger_reduce()
-                self.trans.store_trigger(iter_num)
-
-                if is_leak and cover_expand:
-                    self.trans.store_leak(iter_num)
+                if is_leak:
+                    self.trans.store_trigger(iter_num)
                 else:
                     max_mutate_time = ENCODE_MUTATE_MAX_ITER
                     for _ in range(max_mutate_time):
@@ -537,8 +535,9 @@ class DistributeManager:
                         self._generate_body_block()
 
                         is_trigger, is_leak, cover_expand = self._sim_and_analysis()
-                        if is_leak and cover_expand:
-                            self.trans.store_leak(iter_num)
+                        if is_leak:
+                            self.trans.store_trigger(iter_num)
+                            break
             
             self.record_fuzz_stage1(iter_num, is_trigger, is_leak)
 

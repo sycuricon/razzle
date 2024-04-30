@@ -198,12 +198,21 @@ class AccessSecretBlock(TransBlock):
         return 7 * 4
 
 class EncodeBlock(TransBlock):
-    def __init__(self, extension, output_path, secret_reg):
+    def __init__(self, extension, output_path, secret_reg, strategy):
         super().__init__('encode_block', extension, output_path)
         self.leak_kind = random.choice(["cache"])
         self.secret_reg = secret_reg
+        self.strategy = strategy
 
     def _gen_block_end(self):
+
+        inst_len = self._get_inst_len()
+        assert inst_len < 120
+        inst_dummy = [
+            "encode_nop_fill:",
+        ]
+        inst_dummy.extend(['c.nop' for _ in range((120 - inst_len)//2)])
+        self._load_inst_str(inst_dummy)
 
         inst_exit = [
             "encode_exit:",
@@ -213,13 +222,22 @@ class EncodeBlock(TransBlock):
         self._load_inst_str(inst_exit)
 
     def gen_instr(self):
-        match (self.leak_kind):
-            case "cache" | "FPUport" | "LSUport":
+        match (self.strategy):
+            case 'default':
+                self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
             case _:
                 self._gen_random(3)
             
         self._gen_block_end()
+
+    def mutate(self):
+        if self.strategy == 'default':
+            pass
+        else:
+            # sonething
+            self._gen_block_end()
+            raise Exception("this branch has not been implementaion!!!")
 
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block):
@@ -316,9 +334,9 @@ class SecretMigrateBlock(TransBlock):
 
     def gen_instr(self):
         secret_migrate_prob = {
-            SecretMigrateType.MEMORY: 0.7,
-            SecretMigrateType.CACHE: 0.2,
-            SecretMigrateType.LOAD_BUFFER: 0.1
+            SecretMigrateType.MEMORY: 0.55,
+            SecretMigrateType.CACHE: 0.35,
+            SecretMigrateType.LOAD_BUFFER: 0.2
         }
         self.secret_migrate_type = random_choice(secret_migrate_prob)
 
@@ -343,7 +361,7 @@ class SecretMigrateBlock(TransBlock):
             inst_list.extend(
                 [
                     f'la {used_reg[0]}, dummy_data_block_data',
-                    f'li {used_reg[1]}, 0x1000',
+                    f'lui {used_reg[1]}, 0x1',
                     f'sd zero, 0({used_reg[0]})',
                     f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
                     f'sd zero, 0({used_reg[0]})',
@@ -354,17 +372,19 @@ class SecretMigrateBlock(TransBlock):
                 ]
             )
         else:
-            inst_list.extend(['c.nop'] * 22)
+            inst_list.extend(['c.nop'] * 20)
 
         self._load_inst_str(inst_list)
     
     def _get_inst_len(self):
-        return (22 + 6) * 2
+        return (20 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, strategy):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
+        assert strategy in ['default', 'fuzz']
+        self.strategy = strategy
     
     def gen_block(self):
         self.delay_block = DelayBlock(self.extension, self.output_path)
@@ -376,7 +396,7 @@ class TransVictimManager(TransBaseManager):
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path)
         self.access_secret_block.gen_instr()
 
-        self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg)
+        self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
         self.encode_block.gen_instr()
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg,\
@@ -445,7 +465,7 @@ class TransVictimManager(TransBaseManager):
         load_init_block.inst_block_list[0].inst_list = new_inst_list
         load_init_block.data_list = new_data_list
 
-        self._dump_trans_block(folder, [load_init_block, self.delay_block,\
+        self._dump_trans_block(folder, [load_init_block, self.secret_migrate_block, self.delay_block,\
             self.trigger_block], self.return_front)
         
         trigger_type_file = os.path.join(folder, 'trigger_type')
@@ -466,7 +486,25 @@ class TransVictimManager(TransBaseManager):
         file.write(f'return_front:\t{self.return_front}\n')
 
     def mutate(self):
-        pass
+        old_inst_len = self.load_init_block._get_inst_len() +\
+                self.delay_block._get_inst_len()
+        
+        self.delay_block = DelayBlock(self.extension, self.output_path)
+        self.delay_block.gen_instr()
+
+        self.encode_block.mutate()
+
+        block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block.gen_instr()
+        
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)
+        self.secret_migrate_block.gen_instr()
+
+        new_inst_len = self.load_init_block._get_inst_len() +\
+                self.delay_block._get_inst_len()
+        self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
+        self.nop_block.gen_instr()
 
     def _generate_sections(self):
 

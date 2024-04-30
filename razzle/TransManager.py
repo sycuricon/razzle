@@ -125,10 +125,10 @@ class TransManager(SectionManager):
     def update_symbol_table(self, symbol_table):
         self.trans_body.add_symbol_table(symbol_table)
     
-    def gen_victim(self):
+    def gen_victim(self, strategy):
         if self.trans_victim is None:
             self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
-                self.victim_privilege, self.virtual, self.output_path, self.data_victim_section)
+                self.victim_privilege, self.virtual, self.output_path, self.data_victim_section, strategy)
             self._distr_swap_id(self.trans_victim)
         self.trans_body = self.trans_victim
         self.trans_body.gen_block()

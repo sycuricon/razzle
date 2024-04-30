@@ -170,6 +170,7 @@ class DelayBlock(TransBlock):
 class NopBlock(TransBlock):
     def __init__(self, extension, output_path, c_nop_len):
         super().__init__('nop_block', extension, output_path)
+        assert c_nop_len >= 0
         self.c_nop_len = c_nop_len
 
     def gen_instr(self):
