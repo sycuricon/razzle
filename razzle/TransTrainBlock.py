@@ -146,10 +146,10 @@ class LoadInitTrainBlock(LoadInitBlock):
         self.GPR_init_list = need_inited
 
         inst_list = [
-            f"la sp, {self.name}_delay_data_table",
+            f"la sp, {self.name}_data_table",
         ]
         data_list = [
-            f"{self.name}_delay_data_table:"
+            f"{self.name}_data_table:"
         ]
 
         table_index = 0
