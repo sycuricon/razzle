@@ -477,7 +477,7 @@ class DistributeManager:
         self.mem_cfg.dump_conf(self.output_path)
 
     
-    def fuzz_stage1(self):
+    def fuzz_stage1(self, do_fuzz = True):
         # get frame and exit
         self._generate_frame()
         self._generate_frame_block()
@@ -514,6 +514,8 @@ class DistributeManager:
                 for _ in range(max_reorder_swap_list):
                     self._reorder_swap_list(stage=1)
                     is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                    if not do_fuzz:
+                        return
                     if not is_trigger:
                         continue
                     else:
