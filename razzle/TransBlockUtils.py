@@ -216,7 +216,9 @@ class TransBlock:
         return file_list_format
 
     def _load_inst_str(self, str_list, mutate=False):
-        if str_list[0].endswith(':'):
+        if len(str_list) == 0:
+            block = BaseBlock(self.entry, self.extension, mutate)
+        elif str_list[0].endswith(':'):
             block = BaseBlock(str_list[0][0:-1], self.extension, mutate)
             str_list.pop(0)
         else:
@@ -312,7 +314,7 @@ class TransBlock:
         inst_asm_list = []
         rvc_open = True
         inst_asm_list.append('.option rvc\n')
-        inst_asm_list.append(f"{self.name}:\n")
+        # inst_asm_list.append(f"{self.name}:\n")
         for block in self.inst_block_list:
             inst_asm_list.append(f'{block.name}:\n')
             for inst in block.inst_list:
@@ -382,6 +384,9 @@ class TransBaseManager(SectionManager):
     
     def register_memory_region(self, mem_region):
         self.mem_region = mem_region
+    
+    def record_fuzz(self,file):
+        raise Exception("the record_fuzz is not implemented!!!")
 
 class FuzzSection(Section):
     def __init__(self, name, flag):

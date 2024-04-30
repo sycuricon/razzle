@@ -333,6 +333,9 @@ class TransExitManager(TransBaseManager):
 
         self.decode_block.gen_instr()
         self.exit_block.gen_instr()
+    
+    def record_fuzz(self,file):
+        pass
 
     def _generate_sections(self):
 

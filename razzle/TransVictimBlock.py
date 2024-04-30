@@ -459,6 +459,11 @@ class TransVictimManager(TransBaseManager):
         trigger_type_file = os.path.join(folder, 'trigger_type')
         with open(trigger_type_file, "wt") as file:
             file.write(f'{self.trigger_block.trigger_type}')
+    
+    def record_fuzz(self,file):
+        file.write(f'trigger_type:\t{self.trigger_block.trigger_type}\t')
+        file.write(f'trigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\t')
+        file.write(f'return_front:\t{self.return_front}\n')
 
     def mutate(self):
         pass

@@ -473,6 +473,9 @@ class DistributeManager:
             else:
                 break
         self.trans.swap_block_list = swap_block_list
+        self.mem_cfg.add_swap_list(swap_block_list)
+        self.mem_cfg.dump_conf(self.output_path)
+
     
     def fuzz_stage1(self):
         # get frame and exit
@@ -485,8 +488,15 @@ class DistributeManager:
         REORDER_SWAP_LIST_MAX_ITER = 3
         ENCODE_MUTATE_MAX_ITER = 1
 
+        stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
+        if not os.path.exists(stage1_iter_num_file):
+            begin_iter_num = 0
+        else:
+            with open(stage1_iter_num_file, "rt") as file:
+                begin_iter_num = 1 + int(file.readline().strip())
+
         victim_fuzz_iter = VICTIM_FUZZ_MAX_ITER
-        for _ in range(victim_fuzz_iter):
+        for iter_num in range(begin_iter_num, begin_iter_num + victim_fuzz_iter):
             self.trans.gen_victim()
             self.file_list = self.frame_file_list + \
                 self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
@@ -511,25 +521,37 @@ class DistributeManager:
                 else:
                     continue
                 break
-            else:
-                continue
+            
+            if is_trigger:
+                self._trigger_reduce()
+                self.trans.store_trigger(iter_num)
 
-            self._trigger_reduce()
-            self.trans.store_trigger()
+                if is_leak and cover_expand:
+                    self.trans.store_leak(iter_num)
+                else:
+                    max_mutate_time = ENCODE_MUTATE_MAX_ITER
+                    for _ in range(max_mutate_time):
+                        self.trans.mutate_victim()
+                        self.file_list = self.frame_file_list + \
+                            self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
+                        self._generate_body_block()
 
-            if is_leak and cover_expand:
-                self.trans.store_leak()
-            else:
-                max_mutate_time = ENCODE_MUTATE_MAX_ITER
-                for _ in range(max_mutate_time):
-                    self.trans.mutate_victim()
-                    self.file_list = self.frame_file_list + \
-                        self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
-                    self._generate_body_block()
+                        is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                        if is_leak and cover_expand:
+                            self.trans.store_leak(iter_num)
+            
+            self.record_fuzz_stage1(iter_num, is_trigger, is_leak)
 
-                    is_trigger, is_leak, cover_expand = self._sim_and_analysis()
-                    if is_leak and cover_expand:
-                        self.trans.store_leak()
+    def record_fuzz_stage1(self, iter_num, is_trigger, is_leak):
+        with open(os.path.join(self.repo_path, 'stage1_iter_record'), "at") as file:
+            file.write(f'iter_num:\t{iter_num}\n')
+            file.write(f'is_trigger:\t{is_trigger}\n')
+            file.write(f'is_leak:\t{is_leak}\n')
+            self.trans.record_fuzz(file)
+
+        with open(os.path.join(self.repo_path, "stage1_iter_num"), "wt") as file:
+            file.write(str(iter_num))
+
 
     def run(self, cmd=None):
         self.baker.run(cmd)

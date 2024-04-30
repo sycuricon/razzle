@@ -66,6 +66,12 @@ class TransManager(SectionManager):
         self.data_tte_section = data_tte_section
         self.data_tte_train_section = data_tte_train_section
         self.data_victim_section = data_victim_section
+    
+    def record_fuzz(self, file):
+        for swap_block in self.swap_block_list:
+            trans_body = self.swap_map[swap_block['swap_id']]
+            trans_body.record_fuzz(file)
+        file.write('\n')
 
     def _gen_train_swap_list(self, train_target, train_dict):
         train_prob = {
@@ -152,7 +158,7 @@ class TransManager(SectionManager):
     def need_train(self):
         return self.trans_victim.need_train()
     
-    def store_trigger(self):
+    def store_trigger(self, iter_num):
         self.swap_list = []
         for swap_block in self.swap_block_list:
             self.swap_list.append(swap_block['swap_id'])
@@ -160,8 +166,7 @@ class TransManager(SectionManager):
         if not os.path.exists(self.trigger_repo_path):
             os.makedirs(self.trigger_repo_path)
 
-        template_names = os.listdir(self.trigger_repo_path)
-        new_template = os.path.join(self.trigger_repo_path, str(len(template_names)))
+        new_template = os.path.join(self.trigger_repo_path, str(iter_num))
         if not os.path.exists(new_template):
             os.makedirs(new_template)
         for i,swap_id in enumerate(self.swap_list[:-2]):
@@ -199,12 +204,11 @@ class TransManager(SectionManager):
         )
         cp_baker.run()
 
-    def store_leak(self):
+    def store_leak(self, iter_num):
         if not os.path.exists(self.leak_repo_path):
             os.makedirs(self.leak_repo_path)
 
-        template_names = os.listdir(self.leak_repo_path)
-        new_template = os.path.join(self.leak_repo_path, str(len(template_names)))
+        new_template = os.path.join(self.leak_repo_path, str(iter_num))
         if not os.path.exists(new_template):
             os.makedirs(new_template)
         for i,swap_id in enumerate(self.swap_list[:-2]):

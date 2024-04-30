@@ -226,6 +226,11 @@ class TransTrainManager(TransBaseManager):
         train_type_file = os.path.join(folder, 'train_type')
         with open(train_type_file, "wt") as file:
             file.write(f'{self.train_block.train_type}')
+    
+    def record_fuzz(self,file):
+        file.write(f'train_type:\t{self.train_block.train_type}\t')
+        file.write(f'train_inst:\t{self.train_block.train_inst.to_asm()}\t')
+        file.write(f'return_front:\t{self.return_front}\n')
 
     def _generate_sections(self):
 
