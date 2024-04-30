@@ -280,7 +280,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
                 trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
             case TriggerType.JMP:
-                trigger_param = random.randint(0, 2**64-1)
+                trigger_param = f'{random.randint(0, 2**64-1)}'
             case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL:
                 trigger_param = None
             case _:
@@ -431,7 +431,7 @@ class TransVictimManager(TransBaseManager):
         old_data_list = self.load_init_block.data_list
         
         new_inst_list.append(old_inst_list[0])
-        for inst, data in zip(old_inst_list[1:], old_data_list):
+        for inst, data in zip(old_inst_list[1:], old_data_list[1:]):
             if inst['NAME'] == 'C.LDSP':
                 if inst['RD'] in need_inited:
                     new_inst_list.append(inst)
@@ -446,10 +446,18 @@ class TransVictimManager(TransBaseManager):
 
         self._dump_trans_block(folder, [load_init_block, self.delay_block,\
             self.trigger_block], self.return_front)
+        
+        trigger_type_file = os.path.join(folder, 'trigger_type')
+        with open(trigger_type_file, "wt") as file:
+            file.write(f'{self.trigger_block.trigger_type}')
     
     def dump_leak_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.secret_migrate_block, self.delay_block,\
             self.trigger_block, self.access_secret_block, self.encode_block], self.return_front)
+        
+        trigger_type_file = os.path.join(folder, 'trigger_type')
+        with open(trigger_type_file, "wt") as file:
+            file.write(f'{self.trigger_block.trigger_type}')
 
     def mutate(self):
         pass

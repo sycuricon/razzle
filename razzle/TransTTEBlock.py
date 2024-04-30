@@ -234,6 +234,10 @@ class TransTTEManager(TransBaseManager):
     def dump_trigger_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.adjust_block], self.return_front)
+        
+        trigger_type_file = os.path.join(folder, 'trigger_type')
+        with open(trigger_type_file, "wt") as file:
+            file.write(f'{self.trigger_block.trigger_type}')
     
     def _generate_sections(self):
 

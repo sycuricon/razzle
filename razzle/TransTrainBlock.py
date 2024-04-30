@@ -223,6 +223,10 @@ class TransTrainManager(TransBaseManager):
     def dump_trigger_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
 
+        train_type_file = os.path.join(folder, 'train_type')
+        with open(train_type_file, "wt") as file:
+            file.write(f'{self.train_block.train_type}')
+
     def _generate_sections(self):
 
         text_swap_section = self.section[".text_swap"] = FuzzSection(

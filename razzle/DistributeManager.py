@@ -84,6 +84,8 @@ class DistributeManager:
             self.repo_path = self.output_path
         else:
             self.repo_path = repo_path
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path)
 
         if do_fuzz:
             self.trans = self.code["payload"] = TransManager(
@@ -479,8 +481,8 @@ class DistributeManager:
         self.trans.move_data_section()
 
         VICTIM_FUZZ_MAX_ITER = 200
-        TRAIN_GEN_MAX_ITER = 4
-        REORDER_SWAP_LIST_MAX_ITER = 6
+        TRAIN_GEN_MAX_ITER = 2
+        REORDER_SWAP_LIST_MAX_ITER = 3
         ENCODE_MUTATE_MAX_ITER = 1
 
         victim_fuzz_iter = VICTIM_FUZZ_MAX_ITER

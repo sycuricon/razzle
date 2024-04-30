@@ -340,5 +340,6 @@ class TransExitManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
-        self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.decode_block, self.exit_block])
+        self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.exit_block])
+        # self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.decode_block, self.exit_block])
 
