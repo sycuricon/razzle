@@ -5,6 +5,10 @@ from DistributeManager import *
 if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
+def genonly_entry(args):
+    dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz, args.debug)
+    dist.generate()
+
 def stage1_entry(args):
     dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz, args.debug)
     dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)
@@ -31,7 +35,10 @@ if __name__ == "__main__":
         "--debug", dest="debug", action="store_true", help="the code can print some debug info"
     )
 
-    parser_stage1 = subparsers.add_parser('stage1')
+    parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
+    parser_genonly.set_defaults(func=genonly_entry)
+
+    parser_stage1 = subparsers.add_parser('stage1', aliases=['s1'])
     parser_stage1.set_defaults(func=stage1_entry)
     parser_stage1.add_argument(
         "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"

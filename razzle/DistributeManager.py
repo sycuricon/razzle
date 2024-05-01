@@ -473,6 +473,17 @@ class DistributeManager:
         self.mem_cfg.add_swap_list(swap_block_list)
         self.mem_cfg.dump_conf(self.output_path)
 
+    def generate(self):
+        self._generate_frame()
+        self._generate_frame_block()
+        self.trans.move_data_section()
+
+        self.trans.gen_victim(strategy='default')
+        self.file_list = self.frame_file_list + self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
+            
+        self._generate_body_block()
+
+
     
     def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
         if repo_path is None:
