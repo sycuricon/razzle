@@ -1,7 +1,7 @@
 from BuildManager import *
 from ChannelManger import *
 from InitManager import *
-from LoaderManager import *
+from LinkerManager import *
 from PageTableManager import *
 from PocManager import *
 from PayloadManager import *
@@ -101,7 +101,7 @@ class DistributeManager:
         self.page_table = PageTableManager(
             self.config["page_table"], self.attack_privilege == "U"
         )
-        self.loader = LoaderManager(self.virtual)
+        self.linker = LinkerManager(self.virtual)
 
         self.file_list = []
 
@@ -130,8 +130,8 @@ class DistributeManager:
             )
             self.section_list.extend(self.page_table.get_section_list())
 
-        self.loader.append_section_list(self.section_list)
-        self.loader.file_generate(self.output_path, ld_name)
+        self.linker.append_section_list(self.section_list)
+        self.linker.file_generate(self.output_path, ld_name)
 
         self.frame_file_list = []
         for file in self.file_list:

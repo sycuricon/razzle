@@ -1,7 +1,7 @@
 import os
 
 
-class LoaderManager:
+class LinkerManager:
     def __init__(self, virtual):
         self.section = []
         self.virtual = virtual
@@ -46,7 +46,7 @@ class LoaderManager:
 
 
 if __name__ == "__main__":
-    loader = LoaderManager()
+    loader = LinkerManager(True)
     loader.append_section_list(
         [
             (".bss", 0x10000, 0x80001000, 0x3000, 2),
@@ -59,4 +59,4 @@ if __name__ == "__main__":
             (".data", 0x2000, 0x80002000, 0x1000, 4),
         ]
     )
-    loader.file_generate("link.ld")
+    loader.file_generate("", "link.ld")
