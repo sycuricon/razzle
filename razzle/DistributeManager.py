@@ -66,6 +66,8 @@ class DistributeManager:
         self.attack_privilege = self.config["attack"]
         self.victim_privilege = self.config["victim"]
         privilege_stage = {"M": 3, "S": 1, "U": 0}
+
+        # TODO: is this really necessary ?
         assert (
             privilege_stage[self.attack_privilege]
             <= privilege_stage[self.victim_privilege]
@@ -89,6 +91,7 @@ class DistributeManager:
             )
             self.code["payload"] = self.trans
         else:
+            # TODO: I'd like to remove this default template
             self.code["payload"] = PayloadManager(self.config["payload"])
             self.code["poc"] = PocManager(self.config["poc"])
         self.code["init"] = InitManager(
