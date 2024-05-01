@@ -80,8 +80,14 @@ class DistributeManager:
         self.code["stack"] = StackManager(self.config["stack"])
 
         if do_fuzz:
-            self.trans = self.code["payload"] = TransManager(
-                self.config["trans"], self.victim_privilege, self.virtual, self.output_path, self.do_debug)
+            self.trans = TransManager(
+                self.config["trans"],
+                self.victim_privilege,
+                self.virtual,
+                self.output_path,
+                self.do_debug
+            )
+            self.code["payload"] = self.trans
         else:
             self.code["payload"] = PayloadManager(self.config["payload"])
             self.code["poc"] = PocManager(self.config["poc"])

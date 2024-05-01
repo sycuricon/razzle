@@ -347,7 +347,7 @@ class TransBaseManager(SectionManager):
         self.output_path = output_path
     
     def gen_block(self):
-        raise "gen_block has not been implemented!!!"
+        raise Exception("gen_block has not been implemented!!!")
     
     def _set_section(self, text_section, data_section, block_list):
         for block in block_list:
