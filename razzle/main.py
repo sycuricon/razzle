@@ -43,7 +43,5 @@ if __name__ == "__main__":
     if not os.path.exists(args.output):
         os.makedirs(args.output)
 
-    dist = DistributeManager(args.input, args.output, args.virtual,\
-        args.do_fuzz, args.debug, args.rtl_sim, args.rtl_sim_mode, args.taint_log,\
-        args.repo_path)
-    dist.fuzz_stage1()
+    dist = DistributeManager(args.input, args.output, args.virtual, args.do_fuzz, args.debug)
+    dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)

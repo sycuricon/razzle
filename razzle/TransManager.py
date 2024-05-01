@@ -11,7 +11,7 @@ from TransFrameBlock import *
 from enum import *
 
 class TransManager(SectionManager):
-    def __init__(self, config, victim_privilege, virtual, output_path, do_debug, repo_path):
+    def __init__(self, config, victim_privilege, virtual, output_path, do_debug):
         self.section = {}
         self.dut_file_list = []
         self.extension = [
@@ -39,10 +39,6 @@ class TransManager(SectionManager):
         self.swap_block_list = []
         self.swap_id = 0
         self.swap_map = {}
-
-        self.repo_path = repo_path
-        self.trigger_repo_path = os.path.join(self.repo_path, "trigger_template")
-        self.leak_repo_path = os.path.join(self.repo_path, "leak_template")
 
         self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
         self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.trans_frame)
@@ -158,15 +154,17 @@ class TransManager(SectionManager):
     def need_train(self):
         return self.trans_victim.need_train()
     
-    def store_trigger(self, iter_num):
+    def store_trigger(self, iter_num, repo_path):
+        trigger_repo_path = os.path.join(repo_path, "trigger_template")
+
         self.swap_list = []
         for swap_block in self.swap_block_list:
             self.swap_list.append(swap_block['swap_id'])
 
-        if not os.path.exists(self.trigger_repo_path):
-            os.makedirs(self.trigger_repo_path)
+        if not os.path.exists(trigger_repo_path):
+            os.makedirs(trigger_repo_path)
 
-        new_template = os.path.join(self.trigger_repo_path, str(iter_num))
+        new_template = os.path.join(trigger_repo_path, str(iter_num))
         if not os.path.exists(new_template):
             os.makedirs(new_template)
         for i,swap_id in enumerate(self.swap_list[:-2]):
@@ -183,13 +181,13 @@ class TransManager(SectionManager):
         trans_body.dump_trigger_block(train_fold)
 
         cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
         gen_asm = ShellCommand("cp", [])
         cp_baker.add_cmd(
             gen_asm.save_cmd(
                 [
-                    f'{self.repo_path}/*.log',
+                    f'{repo_path}/*.log',
                     f'{new_template}'
                 ]
             )
@@ -197,18 +195,20 @@ class TransManager(SectionManager):
         cp_baker.add_cmd(
             gen_asm.save_cmd(
                 [
-                    f'{self.repo_path}/*.csv',
+                    f'{repo_path}/*.csv',
                     f'{new_template}'
                 ]
             )
         )
         cp_baker.run()
 
-    def store_leak(self, iter_num):
-        if not os.path.exists(self.leak_repo_path):
-            os.makedirs(self.leak_repo_path)
+    def store_leak(self, iter_num, repo_path):
+        leak_repo_path = os.path.join(repo_path, "leak_template")
 
-        new_template = os.path.join(self.leak_repo_path, str(iter_num))
+        if not os.path.exists(leak_repo_path):
+            os.makedirs(leak_repo_path)
+
+        new_template = os.path.join(leak_repo_path, str(iter_num))
         if not os.path.exists(new_template):
             os.makedirs(new_template)
         for i,swap_id in enumerate(self.swap_list[:-2]):
@@ -225,13 +225,13 @@ class TransManager(SectionManager):
         trans_body.dump_leak_block(train_fold)
 
         cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
         gen_asm = ShellCommand("cp", [])
         cp_baker.add_cmd(
             gen_asm.save_cmd(
                 [
-                    f'{self.repo_path}/*.log',
+                    f'{repo_path}/*.log',
                     f'{new_template}'
                 ]
             )
@@ -239,7 +239,7 @@ class TransManager(SectionManager):
         cp_baker.add_cmd(
             gen_asm.save_cmd(
                 [
-                    f'{self.repo_path}/*.csv',
+                    f'{repo_path}/*.csv',
                     f'{new_template}'
                 ]
             )

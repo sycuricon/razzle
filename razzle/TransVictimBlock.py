@@ -271,7 +271,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 address_base = 'page_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.V4:
-                trigger_param = f'access_secret_block_target_offset - {hex(self.dep_reg_result)}'
+                trigger_param = f'access_secret_block_target_offset - {hex(self.dep_reg_result)} - {trigger_inst["IMM"]}'
             case TriggerType.BRANCH:
                 branch_success = trigger_inst['LABEL'] == self.ret_label
                 match((branch_success, trigger_inst['NAME'])):

@@ -53,8 +53,7 @@ class MemCfg:
             self.mem_cfg = libconf.load(file)
 
 class DistributeManager:
-    def __init__(self, hjson_filename, output_path, virtual, do_fuzz, do_debug,\
-        rtl_sim, rtl_sim_mode, taint_log, repo_path):
+    def __init__(self, hjson_filename, output_path, virtual, do_fuzz, do_debug):
         hjson_file = open(hjson_filename)
         self.config = hjson.load(hjson_file)
         hjson_file.close()
@@ -80,17 +79,9 @@ class DistributeManager:
         self.code["channel"] = ChannelManager(self.config["channel"])
         self.code["stack"] = StackManager(self.config["stack"])
 
-        if repo_path is None:
-            self.repo_path = self.output_path
-        else:
-            self.repo_path = repo_path
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
-
         if do_fuzz:
             self.trans = self.code["payload"] = TransManager(
-                self.config["trans"], self.victim_privilege, self.virtual, self.output_path, self.do_debug, self.repo_path
-            )
+                self.config["trans"], self.victim_privilege, self.virtual, self.output_path, self.do_debug)
         else:
             self.code["payload"] = PayloadManager(self.config["payload"])
             self.code["poc"] = PocManager(self.config["poc"])
@@ -106,11 +97,6 @@ class DistributeManager:
         self.file_list = []
 
         self.mem_cfg = MemCfg(0x80000000, 0x40000)
-
-        self.rtl_sim = rtl_sim
-        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
-        self.rtl_sim_mode = rtl_sim_mode
-        self.taint_log = taint_log
 
         self.coverage = {}
 
@@ -394,7 +380,9 @@ class DistributeManager:
         vicitm_end = 0
         is_trigger = False
         for line in open(f'{self.taint_log}.log', 'r'):
-            exec_info, exec_time = list(map(str.strip ,line.strip().split(',')))
+            exec_time, exec_info, exec_id = list(map(str.strip ,line.strip().split(',')))
+            exec_time = int(exec_time)
+            id = int(exec_id)
             if exec_info == "DELAY_END_ENQ":
                 windows_begin = int(exec_time)
             if exec_info == 'DELAY_END_DEQ':
@@ -477,7 +465,19 @@ class DistributeManager:
         self.mem_cfg.dump_conf(self.output_path)
 
     
-    def fuzz_stage1(self, do_fuzz = True):
+    def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+        if repo_path is None:
+            self.repo_path = self.output_path
+        else:
+            self.repo_path = repo_path
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path)
+        
+        self.rtl_sim = rtl_sim
+        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
+        self.rtl_sim_mode = rtl_sim_mode
+        self.taint_log = taint_log
+        
         # get frame and exit
         self._generate_frame()
         self._generate_frame_block()
@@ -527,7 +527,7 @@ class DistributeManager:
             if is_trigger:
                 self._trigger_reduce()
                 if is_leak:
-                    self.trans.store_trigger(iter_num)
+                    self.trans.store_trigger(iter_num, self.repo_path)
                 else:
                     max_mutate_time = ENCODE_MUTATE_MAX_ITER
                     for _ in range(max_mutate_time):
@@ -538,7 +538,7 @@ class DistributeManager:
 
                         is_trigger, is_leak, cover_expand = self._sim_and_analysis()
                         if is_leak:
-                            self.trans.store_trigger(iter_num)
+                            self.trans.store_trigger(iter_num, self.repo_path)
                             break
             
             self.record_fuzz_stage1(iter_num, is_trigger, is_leak)
