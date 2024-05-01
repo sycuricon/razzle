@@ -448,18 +448,18 @@ def inst_simlutor(baker, block_list):
             "-T$RAZZLE_ROOT/template/tmp/link.ld",
         ],
     )
-    baker.add_cmd(gen_elf.save_cmd([file_name, "-o", "$OUTPUT_PATH/tmp"]))
+    baker.add_cmd(gen_elf.gen_cmd([file_name, "-o", "$OUTPUT_PATH/tmp"]))
 
     inst_cnt = ShellCommand(
         "riscv64-unknown-elf-objdump",
         ["-d", "$OUTPUT_PATH/tmp", "| grep -cE '^[[:space:]]+'"],
     )
-    baker.add_cmd(inst_cnt.save_output("INST_CNT"))
+    baker.add_cmd(inst_cnt.gen_result("INST_CNT"))
 
     gen_dump = ShellCommand(
         "spike-solve", ["$OUTPUT_PATH/tmp", "$INST_CNT", "$OUTPUT_PATH/dump"]
     )
-    baker.add_cmd(gen_dump.save_cmd())
+    baker.add_cmd(gen_dump.gen_cmd())
     baker.run()
 
     with open(os.path.join(baker.output_path, "dump"), "rt") as file:

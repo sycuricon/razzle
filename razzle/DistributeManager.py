@@ -135,6 +135,7 @@ class DistributeManager:
 
         self.frame_file_list = []
         for file in self.file_list:
+            # TODO: emmm, this is a little bit tricky
             if not file.endswith('payload.S'):
                 self.frame_file_list.append(file)
     
@@ -159,29 +160,18 @@ class DistributeManager:
                 f"-T$OUTPUT_PATH/link.ld",
             ],
         )
-        baker.add_cmd(
-            gen_elf.save_cmd([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench_{swap_idx}"])
-        )
+
+        output_name_base = f"$OUTPUT_PATH/Testbench_{swap_idx}"
+        baker.add_cmd(gen_elf.gen_cmd([*self.file_list], "-o", output_name_base))
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
-        baker.add_cmd(
-            gen_bin.save_cmd(
-                [f"$OUTPUT_PATH/Testbench_{swap_idx}", f"$OUTPUT_PATH/Testbench_{swap_idx}.bin"]
-            )
-        )
+        baker.add_cmd(gen_bin.gen_cmd([gen_elf.last_output, f"{output_name_base}.bin"]))
 
-        dump_symbol = ShellCommand("nm")
-        baker.add_cmd(
-            dump_symbol.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench_{swap_idx}",
-                    f"> $OUTPUT_PATH/Testbench_{swap_idx}.symbol",
-                ]
-            )
-        )
+        gen_sym = ShellCommand("nm")
+        baker.add_cmd(gen_sym.gen_cmd([gen_elf.last_output, ">", f"{output_name_base}.symbol"]))
 
         return baker
-    
+
     def _generate_frame_block(self):
         swap_idx = self.trans.get_swap_idx()
 
@@ -237,7 +227,7 @@ class DistributeManager:
         )
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         baker.add_cmd(
-            gen_asm.save_cmd(
+            gen_asm.gen_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench_{swap_idx}",
                     "-j .init",
@@ -245,9 +235,10 @@ class DistributeManager:
                     "-j .strap",
                     "-j .text_frame",
                     "-j .data_frame",
-                    "-j .swap_text",
-                    f"> $OUTPUT_PATH/Testbench_frame.asm",
-                ]
+                    "-j .swap_text"
+                ],
+                ">",
+                f"$OUTPUT_PATH/Testbench_frame.asm"
             )
         )
         baker.run()
@@ -317,13 +308,14 @@ class DistributeManager:
         )
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         baker.add_cmd(
-            gen_asm.save_cmd(
+            gen_asm.gen_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench_{swap_idx}",
                     f"-j .text_swap",
-                    f'-j .{data_name}',
-                    f"> $OUTPUT_PATH/Testbench_body_{swap_idx}.asm",
-                ]
+                    f'-j .{data_name}'
+                ],
+                ">",
+                f"$OUTPUT_PATH/Testbench_body_{swap_idx}.asm"
             )
         )
         baker.run()
@@ -364,13 +356,7 @@ class DistributeManager:
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
         )
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
-        baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-
-                ]
-            )
-        )
+        baker.add_cmd(gen_asm.gen_cmd())
         baker.run()
 
         with open(f'{self.taint_log}.csv', "r") as file:
@@ -406,26 +392,13 @@ class DistributeManager:
         if not is_trigger:
             return is_trigger, is_leak, cover_expand
         else:
+            # TODO: this baker is repeated, and it not necessary
             cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
             )
             gen_asm = ShellCommand("cp", [])
-            cp_baker.add_cmd(
-                gen_asm.save_cmd(
-                    [
-                        f'{self.taint_log}.log',
-                        f'{self.repo_path}'
-                    ]
-                )
-            )
-            cp_baker.add_cmd(
-                gen_asm.save_cmd(
-                    [
-                        f'{self.taint_log}.csv',
-                        f'{self.repo_path}'
-                    ]
-                )
-            )
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.log', f'{self.repo_path}']))
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.csv', f'{self.repo_path}']))
             cp_baker.run()
         
         base_windows_list = base_list[windows_begin:sync_time]

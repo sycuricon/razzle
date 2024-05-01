@@ -180,26 +180,13 @@ class TransManager(SectionManager):
         trans_body = self.swap_map[self.swap_list[-2]]
         trans_body.dump_trigger_block(train_fold)
 
+        # this baker is repeated, and it not necessary
         cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
         gen_asm = ShellCommand("cp", [])
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.log',
-                    f'{new_template}'
-                ]
-            )
-        )
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.csv',
-                    f'{new_template}'
-                ]
-            )
-        )
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.log', f'{new_template}']))
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.csv', f'{new_template}']))
         cp_baker.run()
 
     def store_leak(self, iter_num, repo_path):
@@ -224,28 +211,15 @@ class TransManager(SectionManager):
         trans_body = self.swap_map[self.swap_list[-2]]
         trans_body.dump_leak_block(train_fold)
 
+        # this baker is repeated, and it not necessary
         cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
         gen_asm = ShellCommand("cp", [])
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.log',
-                    f'{new_template}'
-                ]
-            )
-        )
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.csv',
-                    f'{new_template}'
-                ]
-            )
-        )
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.log', f'{new_template}']))
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.csv', f'{new_template}']))
         cp_baker.run()
-    
+
     def mutate_victim(self):
         self.trans_victim.mutate()
         self.trans_body = self.trans_victim
