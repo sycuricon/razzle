@@ -35,7 +35,8 @@ class MemCfg:
         self.swap_list = []
         self.mem_regions['swap'] = []
         for swap_block in swap_block_list:
-            self.mem_regions['swap'].append(swap_block)
+            if swap_block['swap_id'] not in self.swap_list:
+                self.mem_regions['swap'].append(swap_block)
             self.swap_list.append(swap_block['swap_id'])
     
     def dump_conf(self, output_path):
@@ -195,7 +196,7 @@ class DistributeManager:
         self.frame_file_list = []
         for file in self.file_list:
             # TODO: emmm, this is a little bit tricky
-            if not file.endswith('payload.S'):
+            if not file.endswith('trans_exit.S'):
                 self.frame_file_list.append(file)
     
     def _generate_compile_shell(self, swap_idx):
@@ -674,6 +675,7 @@ class DistributeManager:
 
             max_train_gen = TRAIN_GEN_MAX_ITER if self.trans_victim.need_train() else 1
             for _ in range(max_train_gen):
+                self.data_train_section.clear()
                 for train_type,trans_block in self.victim_train.items():
                     trans_block.gen_block(train_type, self.trans_victim, None)
                     self._generate_body_block(trans_block)

@@ -154,7 +154,7 @@ class TriggerBlock(TransBlock):
         super().store_template(folder)
         type_name = os.path.join(folder, f'{self.name}.type')
         with open(type_name, "wt") as file:
-            file.write(self.trigger_type)
+            file.write(f'{self.trigger_type}')
     
     def load_template(self, template):
         super().load_template(template)
@@ -360,7 +360,7 @@ class SecretMigrateBlock(TransBlock):
     def store_template(self, folder):
         type_name = os.path.join(folder, f'{self.name}.type')
         with open(type_name, "wt") as file:
-            file.write(self.secret_migrate_type)
+            file.write(f'{self.secret_migrate_type}')
     
     def load_template(self, template):
         with open(f'{template}.type', "rt") as file:
@@ -549,21 +549,21 @@ class TransVictimManager(TransBaseManager):
                 self.delay_block._get_inst_len()
         
         self.delay_block = DelayBlock(self.extension, self.output_path)
-        self.delay_block.gen_instr()
+        self.delay_block.gen_instr(None)
 
         self.encode_block.mutate()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-        self.load_init_block.gen_instr()
+        self.load_init_block.gen_instr(None)
         
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)
-        self.secret_migrate_block.gen_instr()
+        self.secret_migrate_block.gen_instr(None)
 
         new_inst_len = self.load_init_block._get_inst_len() +\
                 self.delay_block._get_inst_len()
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
-        self.nop_block.gen_instr()
+        self.nop_block.gen_instr(None)
 
     def _generate_sections(self):
 

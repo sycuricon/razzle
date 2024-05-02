@@ -74,7 +74,7 @@ class trainTrainBlock(TransBlock):
         super().store_template(folder)
         type_name = os.path.join(folder, f'{self.name}.type')
         with open(type_name, "wt") as file:
-            file.write(self.train_type)
+            file.write(f'{self.train_type}')
     
     def load_template(self, template):
         super().load_template(template)
@@ -158,10 +158,10 @@ class LoadInitTrainBlock(LoadInitBlock):
         self.GPR_init_list = need_inited
 
         inst_list = [
-            f"la sp, {self.name}_data_table",
+            f"la sp, {self.name}_{self.depth}_data_table",
         ]
         data_list = [
-            f"{self.name}_data_table:"
+            f"{self.name}_{self.depth}_data_table:"
         ]
 
         table_index = 0

@@ -330,8 +330,8 @@ class TransBlock:
             block_list[i].add_succeed(block_list[i+1])
 
         return block_list
-
-    def gen_asm(self):
+    
+    def gen_inst_asm(self):
         inst_asm_list = []
         rvc_open = True
         inst_asm_list.append('.option rvc\n')
@@ -345,11 +345,20 @@ class TransBlock:
                     inst_asm_list.append('.option rvc\n' if rvc_open else '.option norvc\n')
                 inst_asm_list.append(inst.to_asm()+'\n')
             inst_asm_list.append('\n')
-
+        
+        return inst_asm_list
+    
+    def gen_data_asm(self):
         data_asm_list = []
         data_asm_list.append(f"{self.name}_data:\n")
         for item in self.data_list:
             data_asm_list.append(item.to_asm() + "\n")
+        
+        return data_asm_list
+
+    def gen_asm(self):
+        inst_asm_list = self.gen_inst_asm()
+        data_asm_list = self.gen_data_asm()
         return inst_asm_list, data_asm_list
 
     def work(self):

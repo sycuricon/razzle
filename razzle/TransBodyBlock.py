@@ -333,6 +333,14 @@ class LoadInitBlock(TransBlock):
 
             self.GPR_init_list.append(GPR_init_list)
             self.float_init_list.append(float_init_list)
+    
+    def gen_data_asm(self):
+        data_asm_list = []
+        data_asm_list.append(f"{self.name}_{self.depth}_data:\n")
+        for item in self.data_list:
+            data_asm_list.append(item.to_asm() + "\n")
+        
+        return data_asm_list
 
 
 
