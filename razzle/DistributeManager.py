@@ -1,12 +1,7 @@
 from BuildManager import *
-from ChannelManger import *
 from InitManager import *
 from LoaderManager import *
 from PageTableManager import *
-from PocManager import *
-from PayloadManager import *
-from SecretManager import *
-from StackManager import *
 from TransManager import *
 from SectionUtils import *
 import libconf
@@ -79,21 +74,14 @@ class DistributeManager:
         self.code["channel"] = ChannelManager(self.config["channel"])
         self.code["stack"] = StackManager(self.config["stack"])
 
-        if do_fuzz:
-            self.trans = TransManager(
-                self.config["trans"],
-                self.victim_privilege,
-                self.virtual,
-                self.output_path,
-                self.do_debug
-            )
-            self.code["payload"] = self.trans
-        else:
-            self.code["payload"] = PayloadManager(self.config["payload"])
-            self.code["poc"] = PocManager(self.config["poc"])
-        self.code["init"] = InitManager(
-            self.config["init"], do_fuzz, self.virtual, self.attack_privilege, output_path
+        self.trans = TransManager(
+            self.config["trans"],
+            self.victim_privilege,
+            self.virtual,
+            self.output_path,
+            self.do_debug
         )
+        self.code["payload"] = self.trans
 
         self.page_table = PageTableManager(
             self.config["page_table"], self.attack_privilege == "U"

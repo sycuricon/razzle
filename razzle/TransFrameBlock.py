@@ -10,6 +10,27 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
+class StackBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('stack_block', extension, output_path)
+
+    def gen_default(self):
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/stack_block.data.S"))
+
+class ChannelBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('channel_block', extension, output_path)
+
+    def gen_default(self):
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/channel_block.data.S"))
+
+class SecretBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('secret_block', extension, output_path)
+
+    def gen_default(self):
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_block.data.S"))
+
 class InitBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('init_block', extension, output_path)
@@ -96,6 +117,8 @@ class TransFrameManager(TransBaseManager):
         self.dist = False
 
     def gen_block(self):
+        self.secret_block = SecretBlock(self.extension, self.output_path)
+        self.channel_block = ChannelBlock(self.extension, self.output_path)
         self.init_block = InitBlock(self.extension, self.output_path)
         self.mtrap_block = MTrapBlock(self.extension, self.output_path)
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, self.victim_privilege, self.virtual)
@@ -103,8 +126,11 @@ class TransFrameManager(TransBaseManager):
         self.random_data_block = RandomDataBlock(self.extension, self.output_path)
         self.access_fault_block = AccessFaultDataBlock(self.extension, self.output_path)
         self.page_fault_block = PageFaultDataBlock(self.extension, self.output_path)
+        self.stack_block = StackBlock(self.extension, self.output_path)
         self.dummy_data_block = DummyDataBlock(self.extension, self.output_path)
 
+        self.secret_block.gen_instr(None)
+        self.channel_block.gen_instr(None)
         self.init_block.gen_instr(None)
         self.mtrap_block.gen_instr(None)
         self.secret_protect_block.gen_instr(None)
@@ -112,6 +138,7 @@ class TransFrameManager(TransBaseManager):
         self.random_data_block.gen_instr(None)
         self.access_fault_block.gen_instr(None)
         self.page_fault_block.gen_instr(None)
+        self.stack_block.gen_instr(None)
         self.dummy_data_block.gen_instr(None)
     
     def move_data_section(self):
@@ -125,6 +152,12 @@ class TransFrameManager(TransBaseManager):
         if len(self.section) != 0:
             return
 
+        secret_section = self.section[".secret"] = FuzzSection(
+            ".secret", Flag.U | Flag.W | Flag.R
+        )
+        channel_section = self.section[".channel"] = FuzzSection(
+            ".channel", Flag.U | Flag.W | Flag.R
+        )
         mtrap_section = self.section[".mtrap"] = FuzzSection(
             ".mtrap", Flag.X | Flag.R | Flag.W
         )
@@ -163,10 +196,15 @@ class TransFrameManager(TransBaseManager):
         page_fault_data_section = self.section[".page_fault_data"] = FuzzSection(
             ".page_fault_data", 0
         )
+        stack_section = self.section[".stack"] = FuzzSection(
+            ".stack", Flag.U | Flag.W | Flag.R
+        )
         empty_section = FuzzSection(
             "", 0
         )
 
+        self._set_section(empty_section, secret_section, [self.secret_block])
+        self._set_section(empty_section, channel_section, [self.channel_block])
         self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
         self._set_section(empty_section, random_data_section, [self.random_data_block])
@@ -174,7 +212,24 @@ class TransFrameManager(TransBaseManager):
         self._set_section(empty_section, dummy_data_section, [self.dummy_data_block])
         self._set_section(empty_section, access_fault_data_section, [self.access_fault_block])
         self._set_section(empty_section, page_fault_data_section, [self.page_fault_block])
+        self._set_section(empty_section, stack_section, [self.stack_block])
 
+        secret_section.add_global_label(
+            [
+                'secret',
+                'secret_page_base',
+            ]
+        )
+        channel_section.add_global_label(
+            [
+                'trapoline',
+                'array',
+                'channel_page_base_0',
+                'channel_page_base_1',
+                'channel_page_base_2',
+                'channel_page_base_3',
+            ]
+        )
         mtrap_section.add_global_label(
             [
                 self.mtrap_block.entry,
@@ -183,9 +238,18 @@ class TransFrameManager(TransBaseManager):
             ]
         )
         strap_section.add_global_label(
-            [self.strap_block.entry, "strap_stack_bottom"]
+            [
+                self.strap_block.entry,
+                "strap_stack_bottom",
+            ]
         )
         text_frame_section.add_global_label([self.init_block.entry])
+        stack_section.add_global_label(
+            [
+                'stack_top',
+                'stack_bottom',
+            ]
+        )
 
     def _distribute_address(self):
         if self.dist == True:
@@ -194,6 +258,22 @@ class TransFrameManager(TransBaseManager):
             self.dist = True
 
         offset = 0
+        length = Page.size
+        self.section[".secret"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size * 4
+        self.section[".channel"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
         length = Page.size
         self.section[".mtrap"].get_bound(
             self.memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length, must_m=True
@@ -266,6 +346,14 @@ class TransFrameManager(TransBaseManager):
         #-------------------------------------------
 
         offset = 0
+        length = Page.size * 2
+        offset += length
+        self.section[".stack"].get_bound(
+            self.virtual_memory_bound[1][1] - offset,
+            self.memory_bound[1][1] - offset,
+            length,
+        )
+
         length = Page.size
         offset += length
         self.section[".page_fault_data"].get_bound(

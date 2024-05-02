@@ -30,111 +30,28 @@
         pg_level: 3
         xLen: 64
     }
-    secret: {
+    trans_frame: {
         bound: [
             0x80004000
-            0x80005000
-        ]
-        virtual_bound: [
-            0x0000000000004000
-            0x0000000000005000
-        ]
-        secret_value: [
-            100,
-            101,
-            97,
-            100,
-            98,
-            101,
-            101,
-            102
-        ]
-        secret_value_variant: [
-            0,
-            1,
-            2,
-            3,
-            4,
-            5,
-            6,
-            7
-        ]
-    }
-    channel: {
-        bound: [
-            0x80005000
-            0x80009000
-        ]
-        virtual_bound: [
-            0x0000000000005000
-            0x0000000000009000
-        ]
-        image_value: 0x1e
-    }
-    payload: {
-        bound: [
-            0x80009000
             0x80020000
-        ]
-        virtual_bound: [
-            0x0000000000009000
-            0x0000000000020000
-        ]
-        folder: [
-            template/default/payload_code
-        ]
-        file: [
-            template/default/testcase_code/spectre-v1.c
-        ]
-    }
-    trans:{
-        trans_frame: {
-            bound: [
-                0x80009000
-                0x80020000
-                0x80030000
-                0x8003E000
-            ]
-            virtual_bound: [
-                0x0000000000009000
-                0x0000000000020000
-                0x0000000000030000
-                0x000000000003E000
-            ]
-        }
-        trans_body: {
-            bound: [
-                0x80020000
-                0x80030000
-            ]
-            virtual_bound: [
-                0x0000000000020000
-                0x0000000000030000
-            ]
-        }
-    }
-    poc: {
-        bound: [
-            0x80020000
-            0x8003E000
-        ]
-        virtual_bound: [
-            0x0000000000020000
-            0x000000000003E000
-        ]
-        folder: [
-            template/default/poc_code
-        ]
-        file: []
-    }
-    stack: {
-        bound: [
-            0x8003E000
+            0x80030000
             0x80040000
         ]
         virtual_bound: [
-            0x000000000003E000
+            0x0000000000004000
+            0x0000000000020000
+            0x0000000000030000
             0x0000000000040000
+        ]
+    }
+    trans_body: {
+        bound: [
+            0x80020000
+            0x80030000
+        ]
+        virtual_bound: [
+            0x0000000000020000
+            0x0000000000030000
         ]
     }
 }
