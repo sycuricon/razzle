@@ -188,13 +188,13 @@ class NopRetBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TransTrainManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_victim):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        assert type(trans_victim) in [TransVictimManager, TransTTEManager]
-        self.trans_victim = trans_victim
         self.data_section = data_section
 
-    def gen_block(self, train_type, template_path):
+    def gen_block(self, train_type, trans_victim, template_path):
+        assert type(trans_victim) in [TransVictimManager, TransTTEManager]
+        self.trans_victim = trans_victim
         if template_path is not None:
             template_list = os.listdir(template_path)
             load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_list, 'load_init_block')

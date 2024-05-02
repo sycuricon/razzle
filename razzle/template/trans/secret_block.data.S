@@ -1,3 +1,5 @@
+.global secret
+.global secret_page_base
 secret:
 secret_begin:
 	.byte 100,101,97,100,98,101,101,102

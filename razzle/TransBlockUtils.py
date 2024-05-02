@@ -402,6 +402,14 @@ class TransBaseManager(SectionManager):
     
     def record_fuzz(self,file):
         raise Exception("the record_fuzz is not implemented!!!")
+    
+    def _write_headers(self, f):
+        f.write(f'#include "parafuzz.h"\n')
+        f.write(f'#include "fuzzing.h"\n')
+        if self.virtual:
+            f.write('#define __VIRTUAL__\n')
+        f.write('\n')
+
 
 class FuzzSection(Section):
     def __init__(self, name, flag):

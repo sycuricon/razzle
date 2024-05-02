@@ -186,7 +186,7 @@ class NopBlock(TransBlock):
         assert c_nop_len >= 0
         self.c_nop_len = c_nop_len
 
-    def gen_instr(self):
+    def gen_default(self):
         inst_list = [
             'c.nop' for _ in range(self.c_nop_len//2)
         ]

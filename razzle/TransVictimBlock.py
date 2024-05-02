@@ -173,19 +173,16 @@ class AccessSecretBlock(TransBlock):
         self._load_inst_str(inst_list_begin)
     
     def store_template(self, folder):
-        super().store_template(folder)
         type_name = os.path.join(folder, f'{self.name}.type')
         with open(type_name, "wt") as file:
             file.write(f'{self.li_offset}')
     
     def load_template(self, template):
-        super().load_template(template)
         with open(f'{template}.type', "rt") as file:
             self.li_offset = eval(file.readline().strip())
+        self.gen_code()
     
-    def gen_default(self):
-        self.li_offset = True if random.random() < 0.8 else False
-
+    def gen_code(self):
         self._gen_block_begin()
         
         if self.li_offset:
@@ -217,6 +214,10 @@ class AccessSecretBlock(TransBlock):
         self._load_data_str(data_list)
 
         self.secret_reg = 'T0'
+    
+    def gen_default(self):
+        self.li_offset = True if random.random() < 0.8 else False
+        self.gen_code()
     
     def _get_inst_len(self):
         return 7 * 4
@@ -334,7 +335,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
         dump_result = inst_simlutor(self.baker, [self, self.delay_block])
         return dump_result[self.delay_block.result_reg]
 
-    def gen_instr(self):
+    def gen_default(self):
         self._gen_init_code()
         self.dep_reg_result = self._simulate_dep_reg_result()
         self.trigger_param = self._compute_trigger_param()
@@ -448,7 +449,7 @@ class TransVictimManager(TransBaseManager):
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr(None)
 
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, None)
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path)
         self.access_secret_block.gen_instr(access_secret_template)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)

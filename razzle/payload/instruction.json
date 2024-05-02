@@ -3003,41 +3003,47 @@
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_DELAY_START"
+        "format": "INFO_DELAY_START",
+        "variables": []
     },
     "INFO_DELAY_END": {
         "extension": [
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_DELAY_END"
+        "format": "INFO_DELAY_END",
+        "variables": []
     },
     "INFO_TEXE_START": {
         "extension": [
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_TEXE_START"
+        "format": "INFO_TEXE_START",
+        "variables": []
     },
     "INFO_TEXE_END": {
         "extension": [
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_TEXE_END"
+        "format": "INFO_TEXE_END",
+        "variables": []
     },
     "INFO_TRAIN_START": {
         "extension": [
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_TRAIN_START"
+        "format": "INFO_TRAIN_START",
+        "variables": []
     },
     "INFO_TRAIN_END": {
         "extension": [
             "INFO"
         ],
         "category": "INFO",
-        "format": "INFO_TRAIN_END"
+        "format": "INFO_TRAIN_END",
+        "variables": []
     }
 }

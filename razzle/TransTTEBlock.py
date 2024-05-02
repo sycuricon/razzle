@@ -173,13 +173,14 @@ class AdjustBlock(TransBlock):
         self._gen_block_end()
 
 class TransTTEManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_victim):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        assert type(trans_victim) == TransVictimManager
-        self.trans_victim = trans_victim
         self.data_section = data_section
 
-    def gen_block(self, template_path):
+    def gen_block(self, template_path, trans_victim):
+        assert type(trans_victim) == TransVictimManager
+        self.trans_victim = trans_victim
+
         if template_path is not None:
             template_list = os.listdir(template_path)
             with open(template_list, 'rt') as file:

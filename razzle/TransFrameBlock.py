@@ -75,25 +75,21 @@ class DummyDataBlock(TransBlock):
         super().__init__('dummy_data_block', extension, output_path)
 
     def gen_default(self):
-        self.data_list.append(RawInstruction('.space 0x4000'))
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/dummy_data_block.data.S"))
 
 class AccessFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('access_fault_data_block', extension, output_path)
 
     def gen_default(self):
-        self.data_list.append(RawInstruction('.space 0x800'))
-        self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
-        self.data_list.append(RawInstruction('.space 0x800'))
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/access_fault_data_block.data.S"))
 
 class PageFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('page_fault_data_block', extension, output_path)
 
     def gen_default(self):
-        self.data_list.append(RawInstruction('.space 0x800'))
-        self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
-        self.data_list.append(RawInstruction('.space 0x800'))
+        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/page_fault_data_block.data.S"))
 
 class RandomDataBlock(TransBlock):
     def __init__(self, extension, output_path):
@@ -107,6 +103,7 @@ class RandomDataBlock(TransBlock):
                 dataline = " ,".join(data)
                 self.data_list.append(RawInstruction(f'.dword {dataline}'))
 
+        self.data_list.append(RawInstruction(f'.global {self.name}_page_base'))
         random_data_line(0x800)
         self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
         random_data_line(0x800)
@@ -115,6 +112,22 @@ class TransFrameManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.dist = False
+
+        self.section[".data_frame"] = FuzzSection(
+            ".data_frame", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_victim"] = FuzzSection(
+            ".data_victim", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_tte"] = FuzzSection(
+            ".data_tte", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_tte_train"] = FuzzSection(
+            ".data_tte_train", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_train"] = FuzzSection(
+            ".data_train", Flag.U | Flag.W | Flag.R
+        )
 
     def gen_block(self):
         self.secret_block = SecretBlock(self.extension, self.output_path)
@@ -141,17 +154,21 @@ class TransFrameManager(TransBaseManager):
         self.stack_block.gen_instr(None)
         self.dummy_data_block.gen_instr(None)
     
+    def get_data_section(self):
+        data_frame_section = self.section['.data_frame']
+        data_train_section = self.section['.data_train']
+        data_tte_section = self.section['.data_tte']
+        data_tte_train_section = self.section['.data_tte_train']
+        data_victim_section = self.section['.data_victim']
+        return  data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section
+
     def move_data_section(self):
-        data_train_section = self.section.pop('.data_train')
-        data_tte_section = self.section.pop('.data_tte')
-        data_tte_train_section = self.section.pop('.data_tte_train')
-        data_victim_section = self.section.pop('.data_victim')
-        return  data_train_section, data_tte_section, data_tte_train_section, data_victim_section
+        self.section.pop('.data_train')
+        self.section.pop('.data_tte')
+        self.section.pop('.data_tte_train')
+        self.section.pop('.data_victim')
 
     def _generate_sections(self):
-        if len(self.section) != 0:
-            return
-
         secret_section = self.section[".secret"] = FuzzSection(
             ".secret", Flag.U | Flag.W | Flag.R
         )
@@ -169,22 +186,6 @@ class TransFrameManager(TransBaseManager):
         )
         random_data_section = self.section[".random_data"] = FuzzSection(
             ".random_data", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_frame"] = FuzzSection(
-            ".data_frame", Flag.U | Flag.W | Flag.R
-        )
-
-        self.section[".data_victim"] = FuzzSection(
-            ".data_victim", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_tte"] = FuzzSection(
-            ".data_tte", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_tte_train"] = FuzzSection(
-            ".data_tte_train", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_train"] = FuzzSection(
-            ".data_train", Flag.U | Flag.W | Flag.R
         )
 
         dummy_data_section = self.section[".dummy_data"] = FuzzSection(
@@ -214,22 +215,7 @@ class TransFrameManager(TransBaseManager):
         self._set_section(empty_section, page_fault_data_section, [self.page_fault_block])
         self._set_section(empty_section, stack_section, [self.stack_block])
 
-        secret_section.add_global_label(
-            [
-                'secret',
-                'secret_page_base',
-            ]
-        )
-        channel_section.add_global_label(
-            [
-                'trapoline',
-                'array',
-                'channel_page_base_0',
-                'channel_page_base_1',
-                'channel_page_base_2',
-                'channel_page_base_3',
-            ]
-        )
+        
         mtrap_section.add_global_label(
             [
                 self.mtrap_block.entry,
@@ -244,12 +230,7 @@ class TransFrameManager(TransBaseManager):
             ]
         )
         text_frame_section.add_global_label([self.init_block.entry])
-        stack_section.add_global_label(
-            [
-                'stack_top',
-                'stack_bottom',
-            ]
-        )
+        
 
     def _distribute_address(self):
         if self.dist == True:
@@ -411,9 +392,9 @@ class DecodeBlock(TransBlock):
         self._gen_block_end()
 
 class TransExitManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, trans_frame):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
-        self.trans_frame = trans_frame
+        self.data_section = data_section
     
     def gen_block(self):
         self.decode_block = DecodeBlock(self.extension, self.output_path)
@@ -431,6 +412,6 @@ class TransExitManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
-        self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.exit_block])
+        self._set_section(text_swap_section, self.data_section, [self.exit_block])
         # self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.decode_block, self.exit_block])
 

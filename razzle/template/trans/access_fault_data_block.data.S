@@ -1,0 +1,4 @@
+.global access_fault_data_block_page_base
+.space 0x800
+access_fault_block_page_base:
+.space 0x800

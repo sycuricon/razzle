@@ -13,11 +13,8 @@ class ShellCommand:
 
     def gen_cmd(self, extra_args=[], output_option="", output_file=None):
         self._last_output = output_file
-        return " ".join(
-            self.args + 
-            extra_args + 
-            [output_option, output_file] if output_file is not None else []
-        )
+        cmd_seq = self.args + extra_args + ([output_option, output_file] if output_file is not None else [])
+        return " ".join(cmd_seq)
 
     def gen_result(self, name, extra_args=[]):
         return f"{name}=$({self.gen_cmd(extra_args)})"

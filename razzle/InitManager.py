@@ -4,16 +4,15 @@ from razzle.snapshot.riscv_state import *
 
 
 class InitManager(SectionManager):
-    def __init__(self, config, do_fuzz, virtual, privilege, output_path):
+    def __init__(self, config, virtual, privilege, output_path):
         super().__init__(config)
-        self.do_fuzz = do_fuzz
         self.virtual = virtual
         self.privilege = privilege
         self.output_path = output_path
         self.init_input = config["init_input"]
 
         pmp = config["pmp"]
-        self.design = RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, do_fuzz)
+        self.design = RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, True)
         self.output_format = config["format"]
         self.asm = config["asm"]
         self.image = config["image"]
@@ -23,27 +22,14 @@ class InitManager(SectionManager):
         self.reg_init_config["xreg"][1] = "stack_bottom"
         # tp
         self.reg_init_config["xreg"][3] = "stack_top"
-        # gp
-        if not self.do_fuzz:
-            self.reg_init_config["xreg"][2] = "__global_pointer$"
         # mtvec/stvec
-        if self.do_fuzz:
-            self.reg_init_config["csr"]["mtvec"]["BASE"] = "secret_protect_block_entry"
-            self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
-            self.reg_init_config["csr"]["stvec"]["BASE"] = "strap_block_entry  + 0xfffffffffff00000"
-            self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
-        else:
-            self.reg_init_config["csr"]["mtvec"]["BASE"] = "trap_entry"
-            self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
-            self.reg_init_config["csr"]["stvec"]["BASE"] = "abort"
-            self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
+        self.reg_init_config["csr"]["mtvec"]["BASE"] = "secret_protect_block_entry"
+        self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
+        self.reg_init_config["csr"]["stvec"]["BASE"] = "strap_block_entry  + 0xfffffffffff00000"
+        self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
         # mepc/sepc
-        if self.do_fuzz:
-            self.reg_init_config["csr"]["mepc"]["EPC"] = "init_block_entry"
-            self.reg_init_config["csr"]["sepc"]["EPC"] = "init_block_entry"
-        else:
-            self.reg_init_config["csr"]["mepc"]["EPC"] = "_init"
-            self.reg_init_config["csr"]["sepc"]["EPC"] = "_init"
+        self.reg_init_config["csr"]["mepc"]["EPC"] = "init_block_entry"
+        self.reg_init_config["csr"]["sepc"]["EPC"] = "init_block_entry"
         # satp
         if self.virtual:
             self.reg_init_config["csr"]["satp"]["PPN"] = "0x80001000"
@@ -64,13 +50,10 @@ class InitManager(SectionManager):
             case _:
                 raise "privilege must be M, S or U"
         # mscratch
-        if self.do_fuzz:
-            self.reg_init_config["csr"]["mscratch"]["SCRATCH"] = "mtrap_stack_bottom"
-            self.reg_init_config["csr"]["sscratch"][
-                "SCRATCH"
-            ] = "strap_stack_bottom + 0xfffffffffff00000"
-        else:
-            self.reg_init_config["csr"]["mscratch"]["SCRATCH"] = "0x80003800"
+        self.reg_init_config["csr"]["mscratch"]["SCRATCH"] = "mtrap_stack_bottom"
+        self.reg_init_config["csr"]["sscratch"][
+            "SCRATCH"
+        ] = "strap_stack_bottom + 0xfffffffffff00000"
         # pmp
         self.reg_init_config["pmp"]["pmp2"]["R"] = "0b1"
         self.reg_init_config["pmp"]["pmp2"]["W"] = "0b1"

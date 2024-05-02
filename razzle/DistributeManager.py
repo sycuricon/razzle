@@ -2,12 +2,19 @@ from BuildManager import *
 from InitManager import *
 from LinkerManager import *
 from PageTableManager import *
-from TransManager import *
 from SectionUtils import *
+from TransBlockUtils import *
+from TransVictimBlock import *
+from TransTTEBlock import *
+from TransTrainBlock import *
+from TransFrameBlock import *
 import libconf
 import csv
 import numpy as np
 import struct
+import os
+import random
+from enum import *
 
 class MemCfg:
     def __init__(self, mem_start, mem_len):
@@ -48,11 +55,10 @@ class MemCfg:
             self.mem_cfg = libconf.load(file)
 
 class DistributeManager:
-    def __init__(self, hjson_filename, output_path, virtual, do_fuzz, do_debug):
+    def __init__(self, hjson_filename, output_path, virtual):
         hjson_file = open(hjson_filename)
         self.config = hjson.load(hjson_file)
         hjson_file.close()
-        self.do_debug = do_debug
 
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
@@ -71,19 +77,29 @@ class DistributeManager:
         self.output_path = output_path
         self.virtual = virtual if self.attack_privilege != "M" else False
 
-        self.code = {}
-        self.code["secret"] = SecretManager(self.config["secret"])
-        self.code["channel"] = ChannelManager(self.config["channel"])
-        self.code["stack"] = StackManager(self.config["stack"])
+        self.extension = [
+            "RV_I",
+            "RV64_I",
+            "RV_ZICSR",
+            "RV_F",
+            "RV64_F",
+            "RV_D",
+            "RV64_D",
+            "RV_A",
+            "RV64_A",
+            "RV_M",
+            "RV64_M",
+            "RV_C",
+            "RV64_C",
+            "RV_C_D",
+        ]
 
-        self.trans = TransManager(
-            self.config["trans"],
-            self.victim_privilege,
+        self.init = InitManager(
+            self.config['init'],
             self.virtual,
-            self.output_path,
-            self.do_debug
+            self.victim_privilege, 
+            self.output_path
         )
-        self.code["payload"] = self.trans
 
         self.page_table = PageTableManager(
             self.config["page_table"], self.attack_privilege == "U"
@@ -91,10 +107,56 @@ class DistributeManager:
         self.linker = LinkerManager(self.virtual)
 
         self.file_list = []
-
         self.mem_cfg = MemCfg(0x80000000, 0x40000)
-
         self.coverage = {}
+
+        self.swap_block_list = []
+        self.swap_victim_list = []
+        self.swap_tte_list = []
+        self.swap_id = 0
+        self.swap_map = {}
+
+        self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
+        self.get_data_section()
+
+        self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_frame_section)
+        self._distr_swap_id(self.trans_exit)
+
+        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_section)
+        self._distr_swap_id(self.trans_victim)
+
+        self.trans_tte = TransTTEManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_tte_section)
+        self._distr_swap_id(self.trans_tte)
+
+        self.victim_train = {}
+        for train_type in TrainType:
+            self.victim_train[train_type] = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section)
+            self._distr_swap_id(self.victim_train[train_type])
+            
+        self.victim_trigger_pool = []
+        for _ in range(3):
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_tte_train_section)
+            self.victim_trigger_pool.append(trans_train)
+            self._distr_swap_id(trans_train)
+
+        self.tte_trigger_pool = []
+        for _ in range(3):
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_tte_train_section)
+            self.tte_trigger_pool.append(trans_train)
+            self._distr_swap_id(trans_train)
+    
+    def _distr_swap_id(self, trans_swap):
+        trans_swap.register_swap_idx(self.swap_id)
+        self.swap_map[self.swap_id] = trans_swap
+        self.swap_id += 1
+
+    def get_data_section(self):
+        data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section = self.trans_frame.get_data_section()
+        self.data_frame_section = data_frame_section
+        self.data_train_section = data_train_section
+        self.data_tte_section = data_tte_section
+        self.data_tte_train_section = data_tte_train_section
+        self.data_victim_section = data_victim_section
 
     def _collect_compile_file(self, file_list):
         self.file_list.extend(file_list)
@@ -103,12 +165,22 @@ class DistributeManager:
         page_table_name = "page_table.S"
         ld_name = "link.ld"
 
+        self.trans_frame.gen_block()
+        self.trans_exit.gen_block()
+
         self.section_list = []
-        for key, value in self.code.items():
-            self._collect_compile_file(
-                value.file_generate(self.output_path, f"{key}.S")
-            )
-            self.section_list.extend(value.get_section_list())
+        self._collect_compile_file(
+            self.init.file_generate(self.output_path, f"init.S")
+        )
+        self._collect_compile_file(
+            self.trans_exit.file_generate(self.output_path, 'trans_exit.S')
+        )
+        self._collect_compile_file(
+            self.trans_frame.file_generate(self.output_path, 'trans_frame.S')
+        )
+        self.section_list.extend(self.init.get_section_list())
+        self.section_list.extend(self.trans_frame.get_section_list())
+        self.section_list.extend(self.trans_exit.get_section_list())
 
         if self.virtual:
             self.page_table.register_sections(self.section_list)
@@ -160,7 +232,7 @@ class DistributeManager:
         return baker
 
     def _generate_frame_block(self):
-        swap_idx = self.trans.get_swap_idx()
+        swap_idx = self.trans_exit.swap_idx
 
         baker = self._generate_compile_shell(swap_idx)
         baker.run()
@@ -193,9 +265,9 @@ class DistributeManager:
             file.write(common_byte_array)
 
         dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':file_origin_common, 'swap_id':self.trans.get_swap_idx()}
+                    'max_len':up_align(common_end, Page.size), 'init_file':file_origin_common, 'swap_id':self.trans_exit.swap_idx}
         vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':file_variant_common, 'swap_id':self.trans.get_swap_idx()}
+                    'max_len':up_align(common_end, Page.size), 'init_file':file_variant_common, 'swap_id':self.trans_exit.swap_idx}
         self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
 
         file_text_swap = os.path.join(self.output_path, f'text_swap_{swap_idx}.bin')
@@ -207,7 +279,7 @@ class DistributeManager:
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
                     'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
-        self.trans.trans_body.register_memory_region(mem_region)
+        self.trans_exit.register_memory_region(mem_region)
 
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
@@ -230,14 +302,17 @@ class DistributeManager:
         )
         baker.run()
 
-    def _generate_body_block(self):
-        swap_idx = self.trans.get_swap_idx()
+        self.trans_frame.move_data_section()
 
+    def _generate_body_block(self, trans_block):
+        swap_idx = trans_block.swap_idx
+
+        self.file_list = self.frame_file_list + trans_block.file_generate(self.output_path, f'payload_{trans_block.swap_idx}.S')
         baker = self._generate_compile_shell(swap_idx)
         baker.run()
 
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
-        self.trans.update_symbol_table(symbol_table)
+        trans_block.add_symbol_table(symbol_table)
 
         file_origin = os.path.join(self.output_path, f'Testbench_{swap_idx}.bin')
         with open(file_origin, "rb") as file:
@@ -259,15 +334,15 @@ class DistributeManager:
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
                     'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
-        self.trans.trans_body.register_memory_region(mem_region)
+        trans_block.register_memory_region(mem_region)
 
-        trans_body_type = type(self.trans.trans_body)
+        trans_body_type = type(trans_block)
         if trans_body_type == TransVictimManager:
             data_name = 'data_victim'
         elif trans_body_type == TransTTEManager:
             data_name = 'data_tte'
         elif trans_body_type == TransTrainManager:
-            if type(self.trans.trans_body.trans_victim) == TransVictimManager:
+            if type(trans_block.trans_victim) == TransVictimManager:
                 data_name = 'data_train'
             else:
                 data_name = 'data_tte_train'
@@ -410,13 +485,132 @@ class DistributeManager:
             is_leak = False
 
         return is_trigger, is_leak, cover_expand
+    
+    def _gen_train_swap_list(self):
+        train_prob = {
+            TrainType.BRANCH_NOT_TAKEN: 0.15,
+            TrainType.JALR: 0.1,
+            TrainType.CALL: 0.15,
+            TrainType.RETURN: 0.15,
+            TrainType.JMP: 0.05
+        }
+        match self.trans_victim.trigger_type:
+            case TriggerType.BRANCH:
+                train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
+            case TriggerType.JALR | TriggerType.JMP:
+                train_prob[TrainType.JALR] += 0.4
+            case TriggerType.RETURN:
+                train_prob[TrainType.CALL] += 0.2
+                train_prob[TrainType.RETURN] += 0.2
+        train_type = random_choice(train_prob)
+        match(train_type):
+            case TrainType.BRANCH_NOT_TAKEN:
+                not_taken_swap_idx = self.victim_train[TrainType.BRANCH_NOT_TAKEN].mem_region
+                taken_swap_idx = self.victim_train[TrainType.BRANCH_TAKEN].mem_region
+                branch_not_taken_1 = [not_taken_swap_idx]
+                branch_not_taken_2 = [not_taken_swap_idx, not_taken_swap_idx]
+                branch_taken_1 = [taken_swap_idx]
+                branch_taken_2 = [taken_swap_idx, taken_swap_idx]
+                branch_balance = random.choice([[not_taken_swap_idx, taken_swap_idx], [taken_swap_idx, not_taken_swap_idx]])
+                return random.choice([branch_not_taken_1, branch_not_taken_2, branch_taken_1, branch_taken_2, branch_balance])
+            case _:
+                return [self.victim_train[train_type].mem_region]
 
-    def _reorder_swap_list(self, stage):
-        self.mem_cfg.add_swap_list(self.trans.generate_swap_list(stage))
+    def _stage1_reorder_swap_list(self):
+        swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
+        if self.trans_victim.need_train():
+            for _ in range(0, 4):
+                if random.random() < 0.2:
+                    break
+                swap_block_list[0:0] = self._gen_train_swap_list()
+        self.swap_block_list = swap_block_list
+        self.mem_cfg.add_swap_list(self.swap_block_list)
         self.mem_cfg.dump_conf(self.output_path)
     
+    def store_tte(self, swap_list, template_folder):
+        file_list = []
+        for i,swap_id in enumerate(swap_list[:-1]):
+            train_fold = os.path.join(template_folder, f'train_{i}')
+            file_list.append(train_fold)
+            if not os.path.exists(train_fold):
+                os.makedirs(train_fold)
+            trans_body = self.swap_map[swap_id]
+            trans_body.dump_trigger_block(train_fold)
+        
+        train_fold = os.path.join(template_folder, f'tte')
+        file_list.append(train_fold)
+        if not os.path.exists(train_fold):
+            os.makedirs(train_fold)
+        trans_body = self.swap_map[swap_list[-1]]
+        trans_body.dump_trigger_block(train_fold)
+
+        block_order = os.path.join(template_folder, f'block_order')
+        with open(block_order, "wt") as file:
+            for file_name in file_list:
+                file.write(f'{file_name}\n')
+    
+    def store_template(self, iter_num, repo_path, template_folder, only_trigger):
+        self.swap_list = []
+        for swap_block in self.swap_block_list:
+            if type(swap_block) == list:
+                sub_swap_list = []
+                for swap_sub_block in swap_block:
+                    sub_swap_list.append(swap_sub_block['swap_id'])
+                self.swap_list.append(sub_swap_list)
+            else:
+                self.swap_list.append(swap_block['swap_id'])
+
+        trigger_repo_path = os.path.join(repo_path, template_folder)
+        if not os.path.exists(trigger_repo_path):
+            os.makedirs(trigger_repo_path)
+
+        file_list = []
+
+        new_template = os.path.join(trigger_repo_path, str(iter_num))
+        if not os.path.exists(new_template):
+            os.makedirs(new_template)
+        for i,swap_id in enumerate(self.swap_list[:-2]):
+            if type(swap_id) == list:
+                train_fold = os.path.join(new_template, f'tte')
+                file_list.append(train_fold)
+                if not os.path.exists(train_fold):
+                    os.makedirs(train_fold)
+                self.store_tte(self, swap_id, train_fold)
+            else:
+                train_fold = os.path.join(new_template, f'train_{i}')
+                file_list.append(train_fold)
+                if not os.path.exists(train_fold):
+                    os.makedirs(train_fold)
+                trans_body = self.swap_map[swap_id]
+                trans_body.dump_trigger_block(train_fold)
+        
+        train_fold = os.path.join(new_template, f'victim')
+        file_list.append(train_fold)
+        if not os.path.exists(train_fold):
+            os.makedirs(train_fold)
+        trans_body = self.swap_map[self.swap_list[-2]]
+
+        if only_trigger:
+            trans_body.dump_trigger_block(train_fold)
+        else:
+            trans_body.dump_leak_block(train_fold)
+
+        block_order = os.path.join(new_template, f'block_order')
+        with open(block_order, "wt") as file:
+            for file_name in file_list:
+                file.write(f'{file_name}\n')
+
+        # this baker is repeated, and it not necessary
+        cp_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
+            )
+        gen_asm = ShellCommand("cp", [])
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.log', f'{new_template}']))
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.csv', f'{new_template}']))
+        cp_baker.run()
+    
     def _trigger_reduce(self):
-        swap_block_list = self.trans.swap_block_list
+        swap_block_list = self.swap_block_list
         for _ in range(len(swap_block_list)-2):
             for i in range(0, len(swap_block_list)-2):
                 tmp_swap_block_list = copy.copy(swap_block_list)
@@ -429,21 +623,19 @@ class DistributeManager:
                     break
             else:
                 break
-        self.trans.swap_block_list = swap_block_list
+        self.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(swap_block_list)
         self.mem_cfg.dump_conf(self.output_path)
 
     def generate(self):
         self._generate_frame()
         self._generate_frame_block()
-        self.trans.move_data_section()
 
-        self.trans.gen_victim(strategy='default')
-        self.file_list = self.frame_file_list + self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
-            
-        self._generate_body_block()
+        self.trans_victim.gen_block('default', None)
+        self._generate_body_block(self.trans_victim)
 
-
+        self.mem_cfg.add_swap_list([self.trans_victim.mem_region, self.trans_exit.mem_region])
+        self.mem_cfg.dump_conf(self.output_path)
     
     def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
         if repo_path is None:
@@ -462,7 +654,6 @@ class DistributeManager:
         # get frame and exit
         self._generate_frame()
         self._generate_frame_block()
-        self.trans.move_data_section()
 
         VICTIM_FUZZ_MAX_ITER = 200
         TRAIN_GEN_MAX_ITER = 2
@@ -478,22 +669,18 @@ class DistributeManager:
 
         victim_fuzz_iter = VICTIM_FUZZ_MAX_ITER
         for iter_num in range(begin_iter_num, begin_iter_num + victim_fuzz_iter):
-            self.trans.gen_victim(strategy='default')
-            self.file_list = self.frame_file_list + \
-                self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
-            
-            self._generate_body_block()
+            self.trans_victim.gen_block('default', None)
+            self._generate_body_block(self.trans_victim)
 
-            max_train_gen = TRAIN_GEN_MAX_ITER if self.trans.need_train() else 1
+            max_train_gen = TRAIN_GEN_MAX_ITER if self.trans_victim.need_train() else 1
             for _ in range(max_train_gen):
-                for _ in self.trans.gen_victim_train():
-                    self.file_list = self.frame_file_list + \
-                        self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
-                    self._generate_body_block()
+                for train_type,trans_block in self.victim_train.items():
+                    trans_block.gen_block(train_type, self.trans_victim, None)
+                    self._generate_body_block(trans_block)
 
-                max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans.need_train() else 1
+                max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans_victim.need_train() else 1
                 for _ in range(max_reorder_swap_list):
-                    self._reorder_swap_list(stage=1)
+                    self._stage1_reorder_swap_list()
                     is_trigger, is_leak, cover_expand = self._sim_and_analysis()
                     if not do_fuzz:
                         return
@@ -508,30 +695,30 @@ class DistributeManager:
             if is_trigger:
                 self._trigger_reduce()
                 if is_leak:
-                    self.trans.store_template(iter_num, self.repo_path, template_folder, True)
+                    self.store_template(iter_num, self.repo_path, template_folder, True)
                 else:
                     max_mutate_time = ENCODE_MUTATE_MAX_ITER
                     for _ in range(max_mutate_time):
-                        self.trans.mutate_victim()
-                        self.file_list = self.frame_file_list + \
-                            self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
-                        self._generate_body_block()
-
+                        self.trans_victim.mutate()
+                        self._generate_body_block(self.trans_victim)
                         is_trigger, is_leak, cover_expand = self._sim_and_analysis()
                         if is_leak:
-                            self.trans.store_template(iter_num, self.repo_path, template_folder, True)
+                            self.store_template(iter_num, self.repo_path, template_folder, True)
                             break
             
-            self.record_fuzz_stage1(iter_num, is_trigger, is_leak)
+            self.record_fuzz(iter_num, is_trigger, is_leak, stage_num=1)
 
-    def record_fuzz_stage1(self, iter_num, is_trigger, is_leak):
-        with open(os.path.join(self.repo_path, 'stage1_iter_record'), "at") as file:
+    def record_fuzz(self, iter_num, is_trigger, is_leak, stage_num):
+        with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'is_trigger:\t{is_trigger}\n')
             file.write(f'is_leak:\t{is_leak}\n')
-            self.trans.record_fuzz(file)
+            for swap_block in self.swap_block_list:
+                trans_body = self.swap_map[swap_block['swap_id']]
+                trans_body.record_fuzz(file)
+            file.write('\n')
 
-        with open(os.path.join(self.repo_path, "stage1_iter_num"), "wt") as file:
+        with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
             file.write(str(iter_num))
 
 

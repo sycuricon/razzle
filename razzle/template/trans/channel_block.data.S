@@ -1,3 +1,9 @@
+.global array
+.global trapoline
+.global channel_page_base_0
+.global channel_page_base_1
+.global channel_page_base_2
+.global channel_page_base_3
 array:
 trapoline:
 	.fill 0x800, 0x1, 0x1e
