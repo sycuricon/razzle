@@ -1,6 +1,6 @@
 from BuildManager import *
 from InitManager import *
-from LoaderManager import *
+from LinkerManager import *
 from PageTableManager import *
 from TransManager import *
 from SectionUtils import *
@@ -61,6 +61,8 @@ class DistributeManager:
         self.attack_privilege = self.config["attack"]
         self.victim_privilege = self.config["victim"]
         privilege_stage = {"M": 3, "S": 1, "U": 0}
+
+        # TODO: is this really necessary ?
         assert (
             privilege_stage[self.attack_privilege]
             <= privilege_stage[self.victim_privilege]
@@ -86,7 +88,7 @@ class DistributeManager:
         self.page_table = PageTableManager(
             self.config["page_table"], self.attack_privilege == "U"
         )
-        self.loader = LoaderManager(self.virtual)
+        self.linker = LinkerManager(self.virtual)
 
         self.file_list = []
 
@@ -115,11 +117,12 @@ class DistributeManager:
             )
             self.section_list.extend(self.page_table.get_section_list())
 
-        self.loader.append_section_list(self.section_list)
-        self.loader.file_generate(self.output_path, ld_name)
+        self.linker.append_section_list(self.section_list)
+        self.linker.file_generate(self.output_path, ld_name)
 
         self.frame_file_list = []
         for file in self.file_list:
+            # TODO: emmm, this is a little bit tricky
             if not file.endswith('payload.S'):
                 self.frame_file_list.append(file)
     
@@ -144,29 +147,18 @@ class DistributeManager:
                 f"-T$OUTPUT_PATH/link.ld",
             ],
         )
-        baker.add_cmd(
-            gen_elf.save_cmd([*self.file_list, "-o", f"$OUTPUT_PATH/Testbench_{swap_idx}"])
-        )
+
+        output_name_base = f"$OUTPUT_PATH/Testbench_{swap_idx}"
+        baker.add_cmd(gen_elf.gen_cmd([*self.file_list], "-o", output_name_base))
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
-        baker.add_cmd(
-            gen_bin.save_cmd(
-                [f"$OUTPUT_PATH/Testbench_{swap_idx}", f"$OUTPUT_PATH/Testbench_{swap_idx}.bin"]
-            )
-        )
+        baker.add_cmd(gen_bin.gen_cmd([gen_elf.last_output, f"{output_name_base}.bin"]))
 
-        dump_symbol = ShellCommand("nm")
-        baker.add_cmd(
-            dump_symbol.save_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench_{swap_idx}",
-                    f"> $OUTPUT_PATH/Testbench_{swap_idx}.symbol",
-                ]
-            )
-        )
+        gen_sym = ShellCommand("nm")
+        baker.add_cmd(gen_sym.gen_cmd([gen_elf.last_output, ">", f"{output_name_base}.symbol"]))
 
         return baker
-    
+
     def _generate_frame_block(self):
         swap_idx = self.trans.get_swap_idx()
 
@@ -222,7 +214,7 @@ class DistributeManager:
         )
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         baker.add_cmd(
-            gen_asm.save_cmd(
+            gen_asm.gen_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench_{swap_idx}",
                     "-j .init",
@@ -230,9 +222,10 @@ class DistributeManager:
                     "-j .strap",
                     "-j .text_frame",
                     "-j .data_frame",
-                    "-j .swap_text",
-                    f"> $OUTPUT_PATH/Testbench_frame.asm",
-                ]
+                    "-j .swap_text"
+                ],
+                ">",
+                f"$OUTPUT_PATH/Testbench_frame.asm"
             )
         )
         baker.run()
@@ -302,13 +295,14 @@ class DistributeManager:
         )
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         baker.add_cmd(
-            gen_asm.save_cmd(
+            gen_asm.gen_cmd(
                 [
                     f"$OUTPUT_PATH/Testbench_{swap_idx}",
                     f"-j .text_swap",
-                    f'-j .{data_name}',
-                    f"> $OUTPUT_PATH/Testbench_body_{swap_idx}.asm",
-                ]
+                    f'-j .{data_name}'
+                ],
+                ">",
+                f"$OUTPUT_PATH/Testbench_body_{swap_idx}.asm"
             )
         )
         baker.run()
@@ -349,13 +343,7 @@ class DistributeManager:
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
         )
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
-        baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-
-                ]
-            )
-        )
+        baker.add_cmd(gen_asm.gen_cmd())
         baker.run()
 
         with open(f'{self.taint_log}.csv', "r") as file:
@@ -391,26 +379,13 @@ class DistributeManager:
         if not is_trigger:
             return is_trigger, is_leak, cover_expand
         else:
+            # TODO: this baker is repeated, and it not necessary
             cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
             )
             gen_asm = ShellCommand("cp", [])
-            cp_baker.add_cmd(
-                gen_asm.save_cmd(
-                    [
-                        f'{self.taint_log}.log',
-                        f'{self.repo_path}'
-                    ]
-                )
-            )
-            cp_baker.add_cmd(
-                gen_asm.save_cmd(
-                    [
-                        f'{self.taint_log}.csv',
-                        f'{self.repo_path}'
-                    ]
-                )
-            )
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.log', f'{self.repo_path}']))
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.csv', f'{self.repo_path}']))
             cp_baker.run()
         
         base_windows_list = base_list[windows_begin:sync_time]
@@ -457,6 +432,17 @@ class DistributeManager:
         self.trans.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(swap_block_list)
         self.mem_cfg.dump_conf(self.output_path)
+
+    def generate(self):
+        self._generate_frame()
+        self._generate_frame_block()
+        self.trans.move_data_section()
+
+        self.trans.gen_victim(strategy='default')
+        self.file_list = self.frame_file_list + self.trans.file_generate(self.output_path, f'payload_{self.trans.get_swap_idx()}.S')
+            
+        self._generate_body_block()
+
 
     
     def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):

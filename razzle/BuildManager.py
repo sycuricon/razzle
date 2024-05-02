@@ -1,3 +1,4 @@
+from typing import Optional
 from SectionManager import *
 from SectionUtils import *
 
@@ -5,15 +6,26 @@ class ShellCommand:
     def __init__(self, cmd, args=[]):
         self.args = [cmd]
         self.args.extend(args)
+        self._last_output = None
 
     def add_options(self, extra_args=[]):
         self.args.extend(extra_args)
 
-    def save_cmd(self, extra_args=[]):
-        return " ".join(self.args + extra_args)
+    def gen_cmd(self, extra_args=[], output_option="", output_file=None):
+        self._last_output = output_file
+        return " ".join(
+            self.args + 
+            extra_args + 
+            [output_option, output_file] if output_file is not None else []
+        )
 
-    def save_output(self, name, extra_args=[]):
-        return f"{name}=$({self.save_cmd(extra_args)})"
+    def gen_result(self, name, extra_args=[]):
+        return f"{name}=$({self.gen_cmd(extra_args)})"
+
+    @property
+    def last_output(self):
+        assert self._last_output is not None
+        return self._last_output
 
 
 class BuildManager:

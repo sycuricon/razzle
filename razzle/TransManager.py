@@ -242,6 +242,7 @@ class TransManager(SectionManager):
         if not os.path.exists(train_fold):
             os.makedirs(train_fold)
         trans_body = self.swap_map[self.swap_list[-2]]
+        
         if only_trigger:
             trans_body.dump_trigger_block(train_fold)
         else:
@@ -252,28 +253,15 @@ class TransManager(SectionManager):
             for file_name in file_list:
                 file.write(f'{file_name}\n')
 
+        # this baker is repeated, and it not necessary
         cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
         gen_asm = ShellCommand("cp", [])
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.log',
-                    f'{new_template}'
-                ]
-            )
-        )
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.csv',
-                    f'{new_template}'
-                ]
-            )
-        )
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.log', f'{new_template}']))
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.csv', f'{new_template}']))
         cp_baker.run()
-    
+
     def mutate_victim(self):
         self.trans_victim.mutate()
         self.trans_body = self.trans_victim
