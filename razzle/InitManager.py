@@ -13,9 +13,6 @@ class InitManager(SectionManager):
 
         pmp = config["pmp"]
         self.design = RISCVSnapshot("rv64gc", int(pmp), SUPPORTED_CSR, True)
-        self.output_format = config["format"]
-        self.asm = config["asm"]
-        self.image = config["image"]
 
     def _set_symbol_relate_register(self):
         # sp
@@ -93,26 +90,14 @@ class InitManager(SectionManager):
         #     print(f"[*] The init file is overwritten, check {output_path}")
         #     hjson.dump(self.reg_init_config, output_file)
 
-    def _reg_asm_generate(self):
+    def _reg_asm_generate(self, path, name):
         self.design.load_state(self.reg_init_config)
-        image_name = f"{self.output_path}/{self.image}"
-        self.design.save(image_name, output_format=self.output_format, output_width=64)
-
-        if self.output_format == "hex":
-            self.design.gen_loader(f"{self.output_path}/{self.asm}", with_rom=0x20000)
-        elif self.output_format == "asm":
-            self.design.gen_loader(
-                f"{self.output_path}/{self.asm}", with_asm=image_name
-            )
-        else:
-            self.design.gen_loader(
-                f"{self.output_path}/{self.asm}", with_bin=image_name
-            )
+        image_name = os.path.join(path, "reg_init.h")
+        os.makedirs(path, exist_ok=True)
+        self.design.save(image_name, output_format="asm", output_width=64)
+        self.design.gen_loader(os.path.join(path, name), with_asm=image_name)
 
     def _generate_sections(self):
-        self._reg_init_generate()
-        self._reg_asm_generate()
-
         init_link = [
             "\t\t*(.text.init)\n"
             "\t\t*(.data.init)\n"
@@ -125,5 +110,7 @@ class InitManager(SectionManager):
         )
 
     def _write_file(self, path, name):
-        self.dut_file_list.append(f"$OUTPUT_PATH/{self.asm}")
+        self._reg_init_generate()
+        self._reg_asm_generate(path, name)
+        self.dut_file_list.append(f"$OUTPUT_PATH/{name}")
 

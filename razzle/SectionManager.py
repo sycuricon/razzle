@@ -127,6 +127,7 @@ class SectionManager:
 
     def _write_file(self, path, name):
         filename = os.path.join(path, name)
+        os.makedirs(os.path.dirname(filename), exist_ok=True)
         with open(filename, "wt") as f:
             self._write_headers(f)
             self._write_sections(f)
