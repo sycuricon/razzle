@@ -15,7 +15,7 @@ class ReturnBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('return_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._load_inst_str(['ebreak'])
 
 class DelayBlock(TransBlock):
@@ -134,18 +134,16 @@ class DelayBlock(TransBlock):
         self._load_inst_str(inst_begin)
     
     def _gen_block_end(self):
-        reg = self.result_reg.lower()
-        imm = random.randint(-0x800, 0x7ff)
 
         inst_end = [
             f'{self.name}_delay_end:',
-            f'addi {reg}, {reg}, {imm}',
             'INFO_DELAY_END',
         ]
         self._load_inst_str(inst_end)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._gen_block_begin()
+
         do_random = random.choice([True, False, False, False])
         if do_random:
             dep_list = self._gen_dep_list()
@@ -165,7 +163,22 @@ class DelayBlock(TransBlock):
             ]
             self._load_inst_str(inst_list, mutate=True)
             self.result_reg = 'T0'
+
+        reg = self.result_reg.lower()
+        imm = random.randint(-0x800, 0x7ff)
+        inst_offset = [
+            'delay_offset:',
+            f'addi {reg}, {reg}, {imm}',
+        ]
+        self._load_inst_str(inst_offset)
+
         self._gen_block_end()
+    
+    def load_template(self, template):
+        
+        super().load_template(template)
+        final_inst = self.inst_block_list[-2][-1]
+        self.result_reg = final_inst['RD']
 
 class NopBlock(TransBlock):
     def __init__(self, extension, output_path, c_nop_len):
@@ -209,10 +222,12 @@ class TriggerType(Enum):
 
 class LoadInitBlock(TransBlock):
     def __init__(self, depth, extension, output_path, init_block_list):
-        super().__init__(f'load_init_block_{depth}', extension, output_path)
+        super().__init__(f'load_init_block', extension, output_path)
+        self.depth = depth
+        self.entry = f'{self.name}_{self.depth}_entry'
         self.init_block_list = init_block_list
-
-    def _gen_init_code(self):
+    
+    def _need_init_compute(self):
         for block in self.init_block_list:
             block._compute_need_inited()
         for i in range(1, len(self.init_block_list)):
@@ -221,6 +236,11 @@ class LoadInitBlock(TransBlock):
         need_inited = set()
         for block in self.init_block_list:
             need_inited.update(block.need_inited)
+
+        return need_inited
+
+    def _gen_init_code(self):
+        need_inited = self._need_init_compute()
         need_inited.difference_update({'A0', 'ZERO'})
 
         self.float_init_list = []
@@ -241,10 +261,10 @@ class LoadInitBlock(TransBlock):
             self.GPR_init_list.append('SP')
         
         inst_list = [
-            f"la sp, {self.name}_data_table",
+            f"la sp, {self.name}_{self.depth}_data_table",
         ]
         data_list = [
-            f"{self.name}_data_table:"
+            f"{self.name}_{self.depth}_data_table:"
         ]
 
         table_index = 0
@@ -262,3 +282,57 @@ class LoadInitBlock(TransBlock):
 
     def _compute_trigger_param(self):
         raise Exception("the _compute_trigger_param is not implemented!!!")
+
+    def load_template(self, template):
+        super().load_template(template)
+        self.inst_block_list[0].name = self.entry
+        self.inst_block_list[0].inst_list[1] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
+        self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
+        self.float_init_list = []
+        self.GPR_init_list = []
+        for inst in self.inst_block_list[0].inst_list[1:]:
+            if inst.has('RD'):
+                self.GPR_init_list.append(inst['RD'])
+            else:
+                self.float_init_list.append(inst['FRD'])
+        
+        need_inited = self._need_init_compute()
+        has_inited = set(self.GPR_init_list) | set(self.float_init_list)
+        need_inited.difference_update(has_inited)
+
+        if len(need_inited) != 0:
+            float_init_list = []
+            GPR_init_list = []
+            for reg in need_inited:
+                if reg.startswith('F'):
+                    float_init_list.append(reg)
+                else:
+                    GPR_init_list.append(reg)
+            
+            inst_list = []
+            data_list = []
+            for freg in self.float_init_list:
+                inst_list.append(f"c.fldsp {freg.lower()}, 0(sp)")
+                data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            for reg in self.GPR_init_list:
+                inst_list.append(f"c.ldsp {reg.lower()}, 0(sp)")
+                data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+
+            i = 1
+            list_len = len(self.inst_block_list[0].inst_list)
+            while i < list_len:
+                if self.inst_block_list[0].inst_list[i].has('RD'):
+                    break
+                else:
+                    i += 1
+            self.inst_block_list[0].inst_list[i:i] = inst_list
+            self.data_list[i:i] = data_list
+
+            for i, inst in enumerate(self.init_block_list[0].inst_list[1:]):
+                inst['IMM'] = i*8
+
+            self.GPR_init_list.append(GPR_init_list)
+            self.float_init_list.append(float_init_list)
+
+
+

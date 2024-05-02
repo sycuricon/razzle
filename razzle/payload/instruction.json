@@ -2997,5 +2997,47 @@
         ],
         "imm_length": 32,
         "imm_type": "IMM"
+    },
+    "INFO_DELAY_START": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_DELAY_START"
+    },
+    "INFO_DELAY_END": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_DELAY_END"
+    },
+    "INFO_TEXE_START": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_TEXE_START"
+    },
+    "INFO_TEXE_END": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_TEXE_END"
+    },
+    "INFO_TRAIN_START": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_TRAIN_START"
+    },
+    "INFO_TRAIN_END": {
+        "extension": [
+            "INFO"
+        ],
+        "category": "INFO",
+        "format": "INFO_TRAIN_END"
     }
 }

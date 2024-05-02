@@ -14,14 +14,14 @@ class InitBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('init_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.text.S"))
 
 class MTrapBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('mtrap_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.data.S"))
 
@@ -29,7 +29,7 @@ class STrapBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('strap_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.data.S"))
 
@@ -39,7 +39,7 @@ class SecretProtectBlock(TransBlock):
         self.victim_privilege = victim_privilege
         self.virtual = virtual
 
-    def gen_instr(self):
+    def gen_default(self):
         self._add_inst_block(BaseBlock(self.entry, self.extension, False))
         if (
             self.victim_privilege == "M" or self.victim_privilege == "S"
@@ -53,14 +53,14 @@ class DummyDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('dummy_data_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self.data_list.append(RawInstruction('.space 0x4000'))
 
 class AccessFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('access_fault_data_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self.data_list.append(RawInstruction('.space 0x800'))
         self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
         self.data_list.append(RawInstruction('.space 0x800'))
@@ -69,7 +69,7 @@ class PageFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('page_fault_data_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self.data_list.append(RawInstruction('.space 0x800'))
         self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
         self.data_list.append(RawInstruction('.space 0x800'))
@@ -78,7 +78,7 @@ class RandomDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('random_data_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         def random_data_line(byte_num = 0x800):
             assert byte_num%64==0, "byte_num must be aligned to 64"
             for i in range(0, byte_num, 64):
@@ -105,14 +105,14 @@ class TransFrameManager(TransBaseManager):
         self.page_fault_block = PageFaultDataBlock(self.extension, self.output_path)
         self.dummy_data_block = DummyDataBlock(self.extension, self.output_path)
 
-        self.init_block.gen_instr()
-        self.mtrap_block.gen_instr()
-        self.secret_protect_block.gen_instr()
-        self.strap_block.gen_instr()
-        self.random_data_block.gen_instr()
-        self.access_fault_block.gen_instr()
-        self.page_fault_block.gen_instr()
-        self.dummy_data_block.gen_instr()
+        self.init_block.gen_instr(None)
+        self.mtrap_block.gen_instr(None)
+        self.secret_protect_block.gen_instr(None)
+        self.strap_block.gen_instr(None)
+        self.random_data_block.gen_instr(None)
+        self.access_fault_block.gen_instr(None)
+        self.page_fault_block.gen_instr(None)
+        self.dummy_data_block.gen_instr(None)
     
     def move_data_section(self):
         data_train_section = self.section.pop('.data_train')
@@ -296,7 +296,7 @@ class ExitBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('exit_block', extension, output_path)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
@@ -317,7 +317,7 @@ class DecodeBlock(TransBlock):
         ]
         self._load_inst_str(inst_end)
 
-    def gen_instr(self):
+    def gen_default(self):
         self._gen_block_begin()
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), mutate=True)
         self._gen_block_end()
@@ -331,8 +331,8 @@ class TransExitManager(TransBaseManager):
         self.decode_block = DecodeBlock(self.extension, self.output_path)
         self.exit_block = ExitBlock(self.extension, self.output_path)
 
-        self.decode_block.gen_instr()
-        self.exit_block.gen_instr()
+        self.decode_block.gen_instr(None)
+        self.exit_block.gen_instr(None)
     
     def record_fuzz(self,file):
         pass
@@ -343,6 +343,6 @@ class TransExitManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
-        # self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.exit_block])
-        self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.decode_block, self.exit_block])
+        self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.exit_block])
+        # self._set_section(text_swap_section, self.trans_frame.section['.data_frame'], [self.decode_block, self.exit_block])
 

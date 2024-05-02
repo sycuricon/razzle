@@ -28,7 +28,7 @@ class AdjustBlock(TransBlock):
     
     def _gen_block_begin(self):
         inst_list_begin = [
-            'INFO_TEXE_START',
+            'INFO_TRAIN_START',
             'auipc t0, 0',
             'add ra, t0, zero'
         ]
@@ -37,7 +37,7 @@ class AdjustBlock(TransBlock):
     def _gen_block_end(self):
         inst_exit = [
             "adjust_exit:",
-            "INFO_TEXE_END",
+            "INFO_TRAIN_END",
             f"ebreak",
         ]
         self._load_inst_str(inst_exit)
@@ -84,7 +84,7 @@ class AdjustBlock(TransBlock):
             case _:
                 raise Exception("invalid adjust type")
 
-    def gen_instr(self):
+    def gen_default(self):
         def update_jalr_offset(jalr_offset, inst):
             return jalr_offset + (2 if inst['NAME'].startswith('C.') else 4)
 
@@ -179,22 +179,37 @@ class TransTTEManager(TransBaseManager):
         self.trans_victim = trans_victim
         self.data_section = data_section
 
-    def gen_block(self):
+    def gen_block(self, template_path):
+        if template_path is not None:
+            template_list = os.listdir(template_path)
+            with open(template_list, 'rt') as file:
+                return_front = bool(file.readline().strip())
+            delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_list, 'delay_block')
+            adjust_template = None if 'adjust_block.text' not in template_list else os.path.join(template_list, 'adjust_block')
+            trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_list, 'trigger_block')
+            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_list, 'load_init_block')
+        else:
+            return_front = False
+            delay_template = None
+            adjust_template = None
+            trigger_template = None
+            load_init_template = None
+
         self.delay_block = DelayBlock(self.extension, self.output_path)
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.adjust_block = AdjustBlock(self.extension, self.output_path, self.trans_victim.trigger_block.trigger_type)
 
-        self.delay_block.gen_instr()
-        self.return_block.gen_instr()
-        self.adjust_block.gen_instr()
+        self.delay_block.gen_instr(delay_template)
+        self.return_block.gen_instr(None)
+        self.adjust_block.gen_instr(adjust_template)
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg, self.return_block.entry, self.return_block.entry, True)
-        self.trigger_block.gen_instr()
+        self.trigger_block.gen_instr(trigger_template)
         assert self.trigger_block.trigger_type != TriggerType.V4
 
         block_list = [self.delay_block, self.trigger_block, self.adjust_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-        self.load_init_block.gen_instr()
+        self.load_init_block.gen_instr(load_init_template)
 
         front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
         nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
@@ -213,6 +228,8 @@ class TransTTEManager(TransBaseManager):
         tte_front_len = self.load_init_block._get_inst_len() + \
             self.delay_block._get_inst_len() + \
             self.trigger_block._get_inst_len() + (3 + random.randint(2, 4)) * 4
+        if return_front == True:
+            tte_front_len += self.return_block._get_inst_len()
         
         nop_inst_len = victim_front_len - tte_front_len
 
@@ -225,19 +242,13 @@ class TransTTEManager(TransBaseManager):
                 print(inst)
 
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
-        self.nop_block.gen_instr()
+        self.nop_block.gen_instr(None)
 
         self.trigger_type = self.trigger_block.trigger_type
-
-        self.return_front = False
     
     def dump_trigger_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.adjust_block], self.return_front)
-        
-        trigger_type_file = os.path.join(folder, 'trigger_type')
-        with open(trigger_type_file, "wt") as file:
-            file.write(f'{self.trigger_block.trigger_type}')
     
     def _generate_sections(self):
 
@@ -254,7 +265,11 @@ class TransTTEManager(TransBaseManager):
         self.data_section.clear()
         self._set_section(text_swap_section, self.data_section,[self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block,\
-                            self.trigger_block, self.adjust_block, self.return_block])
+                            self.trigger_block])
+        if self.return_front:
+            self._set_section(text_swap_section, empty_section, [self.return_block, self.adjust_block])
+        else:
+            self._set_section(text_swap_section, empty_section, [self.adjust_block, self.return_block])
     
     def need_train(self):
         return TriggerType.need_train(self.trigger_block.trigger_type)

@@ -49,7 +49,8 @@ class TransManager(SectionManager):
         self.trans_victim = None
         self.trans_tte = None
         self.victim_train = {}
-        self.tte_train = {}
+        self.victim_trigger = []
+        self.tte_trigger = []
 
     def _distr_swap_id(self, trans_swap):
         trans_swap.register_swap_idx(self.swap_id)
@@ -121,13 +122,20 @@ class TransManager(SectionManager):
     def update_symbol_table(self, symbol_table):
         self.trans_body.add_symbol_table(symbol_table)
     
-    def gen_victim(self, strategy):
+    def gen_victim(self, strategy, template):
         if self.trans_victim is None:
             self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension,\
                 self.victim_privilege, self.virtual, self.output_path, self.data_victim_section, strategy)
             self._distr_swap_id(self.trans_victim)
         self.trans_body = self.trans_victim
-        self.trans_body.gen_block()
+        self.trans_body.gen_block(strategy, template)
+    
+    def gen_tte(self, template):
+        if self.trans_tte is None:
+            self.trans_tte = TransTTEManager(self.config['trans_body'], self.extension,\
+                self.victim_privilege, self.virtual, self.output_path, self.data_tte_section, self.trans_victim)
+        self.trans_body = self.trans_victim
+        self.trans_body.gen_block(template)
 
     def gen_victim_train(self):
         if not self.trans_victim.need_train():
@@ -140,89 +148,109 @@ class TransManager(SectionManager):
             for train_type in [member for member in TrainType]:
                 self.trans_body = TransTrainManager(self.config['trans_body'], self.extension,\
                     self.victim_privilege, self.virtual, self.output_path, self.data_train_section,\
-                    train_target, train_type)
+                    train_target)
                 self._distr_swap_id(self.trans_body)
                 self.victim_train[train_type] = self.trans_body
-                self.trans_body.gen_block()
+                self.trans_body.gen_block(train_type)
                 yield
         else:
             for trans_body in self.victim_train.values():
                 self.trans_body = trans_body
-                self.trans_body.gen_block()
+                self.trans_body.gen_block(train_type)
                 yield
     
     def need_train(self):
         return self.trans_victim.need_train()
     
-    def store_trigger(self, iter_num, repo_path):
-        trigger_repo_path = os.path.join(repo_path, "trigger_template")
+    def load_template(self, template_path):
+        order_name = os.path.join(template_path, 'block_order')
+        file_list = []
+        for line in open(order_name, "rt"):
+            file_name = line.strip()
+            if file_name == '':
+                continue
+            else:
+                file_list.insert(0, file_name)
+        
+        for file_name in file_list:
+            file_path = os.path.join(template_path, file_name)
+            if file_name == 'tte':
+                self.load_tte(file_path)
+            elif file_name == 'victim':
+                self.gen_victim('default', file_path)
+            else:
+    
+    def store_tte(self, swap_list, template_folder):
+        file_list = []
+        for i,swap_id in enumerate(swap_list[:-1]):
+            train_fold = os.path.join(template_folder, f'train_{i}')
+            file_list.append(train_fold)
+            if not os.path.exists(train_fold):
+                os.makedirs(train_fold)
+            trans_body = self.swap_map[swap_id]
+            trans_body.dump_trigger_block(train_fold)
+        
+        train_fold = os.path.join(template_folder, f'tte')
+        file_list.append(train_fold)
+        if not os.path.exists(train_fold):
+            os.makedirs(train_fold)
+        trans_body = self.swap_map[swap_list[-1]]
+        trans_body.dump_trigger_block(train_fold)
 
+        block_order = os.path.join(template_folder, f'block_order')
+        with open(block_order, "wt") as file:
+            for file_name in file_list:
+                file.write(f'{file_name}\n')
+    
+    def store_template(self, iter_num, repo_path, template_folder, only_trigger):
         self.swap_list = []
         for swap_block in self.swap_block_list:
-            self.swap_list.append(swap_block['swap_id'])
+            if type(swap_block) == list:
+                sub_swap_list = []
+                for swap_sub_block in swap_block:
+                    sub_swap_list.append(swap_sub_block['swap_id'])
+                self.swap_list.append(sub_swap_list)
+            else:
+                self.swap_list.append(swap_block['swap_id'])
 
+        trigger_repo_path = os.path.join(repo_path, template_folder)
         if not os.path.exists(trigger_repo_path):
             os.makedirs(trigger_repo_path)
+
+        file_list = []
 
         new_template = os.path.join(trigger_repo_path, str(iter_num))
         if not os.path.exists(new_template):
             os.makedirs(new_template)
         for i,swap_id in enumerate(self.swap_list[:-2]):
-            train_fold = os.path.join(new_template, f'train_{i}')
-            if not os.path.exists(train_fold):
-                os.makedirs(train_fold)
-            trans_body = self.swap_map[swap_id]
-            trans_body.dump_trigger_block(train_fold)
+            if type(swap_id) == list:
+                train_fold = os.path.join(new_template, f'tte')
+                file_list.append(train_fold)
+                if not os.path.exists(train_fold):
+                    os.makedirs(train_fold)
+                self.store_tte(self, swap_id, train_fold)
+            else:
+                train_fold = os.path.join(new_template, f'train_{i}')
+                file_list.append(train_fold)
+                if not os.path.exists(train_fold):
+                    os.makedirs(train_fold)
+                trans_body = self.swap_map[swap_id]
+                trans_body.dump_trigger_block(train_fold)
         
-        train_fold = os.path.join(new_template, f'trigger')
+        train_fold = os.path.join(new_template, f'victim')
+        file_list.append(train_fold)
         if not os.path.exists(train_fold):
             os.makedirs(train_fold)
         trans_body = self.swap_map[self.swap_list[-2]]
-        trans_body.dump_trigger_block(train_fold)
-
-        cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
-            )
-        gen_asm = ShellCommand("cp", [])
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.log',
-                    f'{new_template}'
-                ]
-            )
-        )
-        cp_baker.add_cmd(
-            gen_asm.save_cmd(
-                [
-                    f'{repo_path}/*.csv',
-                    f'{new_template}'
-                ]
-            )
-        )
-        cp_baker.run()
-
-    def store_leak(self, iter_num, repo_path):
-        leak_repo_path = os.path.join(repo_path, "leak_template")
-
-        if not os.path.exists(leak_repo_path):
-            os.makedirs(leak_repo_path)
-
-        new_template = os.path.join(leak_repo_path, str(iter_num))
-        if not os.path.exists(new_template):
-            os.makedirs(new_template)
-        for i,swap_id in enumerate(self.swap_list[:-2]):
-            train_fold = os.path.join(new_template, f'train_{i}')
-            if not os.path.exists(train_fold):
-                os.makedirs(train_fold)
-            trans_body = self.swap_map[swap_id]
+        if only_trigger:
             trans_body.dump_trigger_block(train_fold)
-        
-        train_fold = os.path.join(new_template, f'trigger')
-        if not os.path.exists(train_fold):
-            os.makedirs(train_fold)
-        trans_body = self.swap_map[self.swap_list[-2]]
-        trans_body.dump_leak_block(train_fold)
+        else:
+            trans_body.dump_leak_block(train_fold)
+
+        block_order = os.path.join(new_template, f'block_order')
+        with open(block_order, "wt") as file:
+            for file_name in file_list:
+                file.write(f'{file_name}\n')
 
         cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"

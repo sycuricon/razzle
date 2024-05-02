@@ -478,6 +478,7 @@ class DistributeManager:
             self.repo_path = repo_path
         if not os.path.exists(self.repo_path):
             os.makedirs(self.repo_path)
+        template_folder = "trigger_template"
         
         self.rtl_sim = rtl_sim
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
@@ -533,7 +534,7 @@ class DistributeManager:
             if is_trigger:
                 self._trigger_reduce()
                 if is_leak:
-                    self.trans.store_trigger(iter_num, self.repo_path)
+                    self.trans.store_template(iter_num, self.repo_path, template_folder, True)
                 else:
                     max_mutate_time = ENCODE_MUTATE_MAX_ITER
                     for _ in range(max_mutate_time):
@@ -544,7 +545,7 @@ class DistributeManager:
 
                         is_trigger, is_leak, cover_expand = self._sim_and_analysis()
                         if is_leak:
-                            self.trans.store_trigger(iter_num, self.repo_path)
+                            self.trans.store_template(iter_num, self.repo_path, template_folder, True)
                             break
             
             self.record_fuzz_stage1(iter_num, is_trigger, is_leak)
