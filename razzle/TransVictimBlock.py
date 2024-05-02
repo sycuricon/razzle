@@ -21,7 +21,7 @@ class TriggerBlock(TransBlock):
         self.train_label = train_label
         self.li_offset = li_offset
     
-    def gen_instr(self):
+    def gen_default(self):
         block = BaseBlock(self.entry, self.extension, True)
         inst = Instruction()
         inst.set_extension_constraint(self.extension)
@@ -149,11 +149,22 @@ class TriggerBlock(TransBlock):
         self.trigger_inst = inst
         block.inst_list.append(inst)
         self._add_inst_block(block)
+    
+    def store_template(self, folder):
+        super().store_template(folder)
+        type_name = os.path.join(folder, f'{self.name}.type')
+        with open(type_name, "wt") as file:
+            file.write(self.trigger_type)
+    
+    def load_template(self, template):
+        super().load_template(template)
+        with open(f'{template}.type', "rt") as file:
+            self.trigger_type = eval(file.readline().strip())
+            self.trigger_inst = self.inst_block_list[0].inst_list[-1]
 
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('access_secret_block', extension, output_path)
-        self.li_offset = True if random.random() < 0.8 else False
 
     def _gen_block_begin(self):
         inst_list_begin = [
@@ -161,7 +172,20 @@ class AccessSecretBlock(TransBlock):
         ]
         self._load_inst_str(inst_list_begin)
     
-    def gen_instr(self):
+    def store_template(self, folder):
+        super().store_template(folder)
+        type_name = os.path.join(folder, f'{self.name}.type')
+        with open(type_name, "wt") as file:
+            file.write(f'{self.li_offset}')
+    
+    def load_template(self, template):
+        super().load_template(template)
+        with open(f'{template}.type', "rt") as file:
+            self.li_offset = eval(file.readline().strip())
+    
+    def gen_default(self):
+        self.li_offset = True if random.random() < 0.8 else False
+
         self._gen_block_begin()
         
         if self.li_offset:
@@ -221,7 +245,7 @@ class EncodeBlock(TransBlock):
         ]
         self._load_inst_str(inst_exit)
 
-    def gen_instr(self):
+    def gen_default(self):
         match (self.strategy):
             case 'default':
                 self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
@@ -332,14 +356,17 @@ class SecretMigrateBlock(TransBlock):
         super().__init__('secret_migrate_block', extension, output_path)
         self.protected_gpr_list = protect_gpr_list
 
-    def gen_instr(self):
-        secret_migrate_prob = {
-            SecretMigrateType.MEMORY: 0.55,
-            SecretMigrateType.CACHE: 0.35,
-            SecretMigrateType.LOAD_BUFFER: 0.2
-        }
-        self.secret_migrate_type = random_choice(secret_migrate_prob)
-
+    def store_template(self, folder):
+        type_name = os.path.join(folder, f'{self.name}.type')
+        with open(type_name, "wt") as file:
+            file.write(self.secret_migrate_type)
+    
+    def load_template(self, template):
+        with open(f'{template}.type', "rt") as file:
+            self.secret_migrate_type = eval(file.readline().strip())
+        self.gen_code()
+    
+    def gen_code(self):
         if len(self.protected_gpr_list) >= 30:
             self.secret_migrate_type = SecretMigrateType.MEMORY
 
@@ -375,40 +402,68 @@ class SecretMigrateBlock(TransBlock):
             inst_list.extend(['c.nop'] * 20)
 
         self._load_inst_str(inst_list)
+
+    def gen_default(self):
+        secret_migrate_prob = {
+            SecretMigrateType.MEMORY: 0.55,
+            SecretMigrateType.CACHE: 0.35,
+            SecretMigrateType.LOAD_BUFFER: 0.2
+        }
+        self.secret_migrate_type = random_choice(secret_migrate_prob)
+        self.gen_code()
     
     def _get_inst_len(self):
         return (20 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, strategy):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
+    
+    def gen_block(self, strategy, template_path):
         assert strategy in ['default', 'fuzz']
         self.strategy = strategy
-    
-    def gen_block(self):
+
+        if template_path is not None:
+            template_list = os.listdir(template_path)
+            with open(template_list, 'rt') as file:
+                return_front = bool(file.readline().strip())
+            delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_list, 'delay_block')
+            secret_migrate_template = None if 'secret_migrate_block.text' not in template_list else os.path.join(template_list, 'secret_migrate_block')
+            access_secret_template = None if 'access_secret_block.text' not in template_list else os.path.join(template_list, 'access_secret_block')
+            encode_template = None if 'encode_block.text' not in template_list else os.path.join(template_list, 'encode_block')
+            trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_list, 'trigger_block')
+            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_list, 'load_init_block')
+        else:
+            delay_template = None
+            secret_migrate_template = None
+            access_secret_template = None
+            encode_template = None
+            trigger_template = None
+            load_init_template = None
+
         self.delay_block = DelayBlock(self.extension, self.output_path)
-        self.delay_block.gen_instr()
+        self.delay_block.gen_instr(delay_template)
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr()
+        self.return_block.gen_instr(None)
 
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path)
-        self.access_secret_block.gen_instr()
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, None)
+        self.access_secret_block.gen_instr(access_secret_template)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
-        self.encode_block.gen_instr()
+        self.encode_block.gen_instr(encode_template)
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg,\
             self.return_block.entry, self.access_secret_block.entry, self.access_secret_block.li_offset)
-        self.trigger_block.gen_instr()
+        self.trigger_block.gen_instr(trigger_template)
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-        self.load_init_block.gen_instr()
+        self.load_init_block.gen_instr(load_init_template)
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list)
-        self.secret_migrate_block.gen_instr()
+        self.secret_migrate_block.gen_instr(secret_migrate_template)
 
         inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
               + self.secret_migrate_block._get_inst_len() + self.trigger_block._get_inst_len()
@@ -419,25 +474,28 @@ class TransVictimManager(TransBaseManager):
         nop_inst_len = (inst_len + 16*4 + 8 - 1) // 8 * 8 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
-        self.nop_block.gen_instr()
+        self.nop_block.gen_instr(None)
 
         self.trigger_type = self.trigger_block.trigger_type
 
-        do_follow = True
-        if self.trigger_block.trigger_type == TriggerType.BRANCH and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
-            do_follow = False
-        else:
-            if self.trigger_block.trigger_type == TriggerType.JALR:
-                tend_follow = False
+        if template_path is None:
+            do_follow = True
+            if self.trigger_block.trigger_type == TriggerType.BRANCH and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
+                do_follow = False
             else:
-                tend_follow = True
+                if self.trigger_block.trigger_type == TriggerType.JALR:
+                    tend_follow = False
+                else:
+                    tend_follow = True
 
-            if tend_follow:
-                do_follow = random.choice([True, True, True, True, False])
-            else:
-                do_follow = random.choice([True, False, False, False, False])
-        
-        self.return_front = not do_follow
+                if tend_follow:
+                    do_follow = random.choice([True, True, True, True, False])
+                else:
+                    do_follow = random.choice([True, False, False, False, False])
+
+            self.return_front = not do_follow
+        else:
+            self.return_front = return_front
     
     def dump_trigger_block(self, folder):
         need_inited = set()
@@ -465,10 +523,10 @@ class TransVictimManager(TransBaseManager):
         load_init_block.inst_block_list[0].inst_list = new_inst_list
         load_init_block.data_list = new_data_list
 
-        self._dump_trans_block(folder, [load_init_block, self.secret_migrate_block, self.delay_block,\
-            self.trigger_block], self.return_front)
+        self._dump_trans_block(folder, [load_init_block, self.delay_block,\
+            self.trigger_block, self.access_secret_block], self.return_front)
         
-        trigger_type_file = os.path.join(folder, 'trigger_type')
+        trigger_type_file = os.path.join(folder, 'trigger_block.type')
         with open(trigger_type_file, "wt") as file:
             file.write(f'{self.trigger_block.trigger_type}')
     
@@ -476,7 +534,7 @@ class TransVictimManager(TransBaseManager):
         self._dump_trans_block(folder, [self.load_init_block, self.secret_migrate_block, self.delay_block,\
             self.trigger_block, self.access_secret_block, self.encode_block], self.return_front)
         
-        trigger_type_file = os.path.join(folder, 'trigger_type')
+        trigger_type_file = os.path.join(folder, 'trigger_block.type')
         with open(trigger_type_file, "wt") as file:
             file.write(f'{self.trigger_block.trigger_type}')
     
