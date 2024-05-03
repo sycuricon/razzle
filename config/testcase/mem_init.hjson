@@ -11,12 +11,7 @@
             0x0000000080001000
         ]
         pmp: 4
-        image: reg_init.h
-        format: asm
-        asm: init.S
         init_input: config/snapshot/dummy_state.hjson
-        folder: []
-        file: []
     }
     page_table: {
         bound: [
