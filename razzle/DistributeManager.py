@@ -138,7 +138,7 @@ class DistributeManager:
             
         self.victim_trigger_pool = []
         for _ in range(3):
-            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_tte_train_section)
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_train_section)
             self.victim_trigger_pool.append(trans_train)
             self._distr_swap_id(trans_train)
 
@@ -154,12 +154,13 @@ class DistributeManager:
         self.swap_id += 1
 
     def get_data_section(self):
-        data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section = self.trans_frame.get_data_section()
+        data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section, data_victim_train_section = self.trans_frame.get_data_section()
         self.data_frame_section = data_frame_section
         self.data_train_section = data_train_section
         self.data_tte_section = data_tte_section
         self.data_tte_train_section = data_tte_train_section
         self.data_victim_section = data_victim_section
+        self.data_victim_train_section = data_victim_train_section
 
     def _collect_compile_file(self, file_list):
         self.file_list.extend(file_list)
@@ -731,6 +732,8 @@ class DistributeManager:
         self._generate_body_block(self.trans_tte)
         self.swap_tte_list.insert(0, self.trans_tte.mem_region)
 
+        self.data_tte_train_section.clear()
+
         self.swap_tte_dist_id = 0
         for file in file_list[1:]:
             folder = os.path.join(template_path, file)
@@ -754,6 +757,7 @@ class DistributeManager:
         folder_list.reverse()
 
         self.swap_victim_list = [self.trans_exit.mem_region]
+        self.data_victim_train_section.clear()
 
         self.swap_victim_dist_id = 0
         for folder in folder_list:
@@ -861,28 +865,32 @@ class DistributeManager:
                 begin_iter_num = 1 + int(file.readline().strip())
 
         trigger_template = 'trigger_template'
-        VICTIM_FUZZ_MAX_ITER = 2
+        VICTIM_FUZZ_MAX_ITER = 20
         VICTIM_TRAIN_GEN_MAX_ITER = 2
         for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
             while True:
                 folder_num, need_train = self.choose_template(repo_path, trigger_template)
                 if need_train:
-                    break
-            self.load_template(folder_num, repo_path, trigger_template, 'default')
+                    self.load_template(folder_num, repo_path, trigger_template, 'default')
+                    self.mem_cfg.add_swap_list(self.swap_victim_list)
+                    self.mem_cfg.dump_conf(self.output_path)
+                    is_trigger, is_leak, cov_expand = self._sim_and_analysis()
+                    if is_trigger:
+                        break
             self.swap_block_list = self.swap_victim_list
             self.store_template(iter_num, repo_path, f'{template_folder}_test', True)
 
-            for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
-                self.gen_victim_train()
-                break_success = self.break_trigger()
-                if break_success:
-                    break
-            else:
-                continue
+            # for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
+            #     self.gen_victim_train()
+            #     break_success = self.break_trigger()
+            #     if break_success:
+            #         break
+            # else:
+            #     continue
 
-            self.store_template(iter_num, repo_path, template_folder, True)
+            # self.store_template(iter_num, repo_path, template_folder, True)
         
-            self.record_fuzz(iter_num, False, False, stage_num=2)
+            # self.record_fuzz(iter_num, False, False, stage_num=2)
 
 
     def record_fuzz(self, iter_num, is_trigger, is_leak, stage_num):

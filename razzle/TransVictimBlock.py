@@ -210,7 +210,7 @@ class AccessSecretBlock(TransBlock):
             '.dword secret + LEAK_TARGET - trapoline',
         ]
 
-        self._load_inst_str(inst_list)
+        self._load_inst_str(inst_list, mutate=True)
         self._load_data_str(data_list)
 
         self.secret_reg = 'T0'
@@ -342,7 +342,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
 
         if len(self.trigger_param) != 0:
             a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
-            if self.GPR_init_list[-1] == 'T0':
+            if self.GPR_init_list[-1] == 'SP':
                 self.data_list[-2] = a0_data_asm
             else:
                 self.data_list[-1] = a0_data_asm
@@ -364,7 +364,14 @@ class LoadInitTriggerBlock(LoadInitBlock):
         has_inited = set(self.GPR_init_list) | set(self.float_init_list)
         need_inited.difference_update(has_inited)
 
-        if len(need_inited) != 0:
+        len_need_inited = len(need_inited)
+
+        has_sp = False
+        if 'SP' in need_inited:
+            need_inited.difference_update('SP')
+            has_sp = True
+
+        if len_need_inited != 0:
             float_init_list = []
             GPR_init_list = []
             for reg in need_inited:
@@ -375,10 +382,10 @@ class LoadInitTriggerBlock(LoadInitBlock):
             
             inst_list = []
             data_list = []
-            for freg in self.float_init_list:
+            for freg in float_init_list:
                 inst_list.append(Instruction(f"c.fldsp {freg.lower()}, 0(sp)"))
                 data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
-            for reg in self.GPR_init_list:
+            for reg in GPR_init_list:
                 inst_list.append(Instruction(f"c.ldsp {reg.lower()}, 0(sp)"))
                 data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
 
@@ -391,6 +398,11 @@ class LoadInitTriggerBlock(LoadInitBlock):
                     i += 1
             self.inst_block_list[0].inst_list[i:i] = inst_list
             self.data_list[i:i] = data_list
+
+            if has_sp:
+                inst_list.append(Instruction(f"c.ldsp sp, 0(sp)"))
+                data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
+            self.GPR_init_list.append('SP')
 
             for i, inst in enumerate(self.inst_block_list[0].inst_list[1:]):
                 inst['IMM'] = i*8

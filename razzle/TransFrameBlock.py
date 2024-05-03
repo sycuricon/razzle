@@ -128,6 +128,9 @@ class TransFrameManager(TransBaseManager):
         self.section[".data_train"] = FuzzSection(
             ".data_train", Flag.U | Flag.W | Flag.R
         )
+        self.section[".data_victim_train"] = FuzzSection(
+            ".data_victim_train", Flag.U | Flag.W | Flag.R
+        )
 
     def gen_block(self):
         self.secret_block = SecretBlock(self.extension, self.output_path)
@@ -160,13 +163,15 @@ class TransFrameManager(TransBaseManager):
         data_tte_section = self.section['.data_tte']
         data_tte_train_section = self.section['.data_tte_train']
         data_victim_section = self.section['.data_victim']
-        return  data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section
+        data_victim_train_section = self.section['.data_victim_train']
+        return  data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section, data_victim_train_section
 
     def move_data_section(self):
         self.section.pop('.data_train')
         self.section.pop('.data_tte')
         self.section.pop('.data_tte_train')
         self.section.pop('.data_victim')
+        self.section.pop('.data_victim_train')
 
     def _generate_sections(self):
         secret_section = self.section[".secret"] = FuzzSection(
@@ -295,6 +300,14 @@ class TransFrameManager(TransBaseManager):
         offset += length
         length = Page.size
         self.section[".data_victim"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
+        self.section[".data_victim_train"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,
