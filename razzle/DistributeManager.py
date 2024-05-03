@@ -802,7 +802,7 @@ class DistributeManager:
                 case TriggerType.RETURN:
                     train_prob[TrainType.RETURN] += 0.4
         else:
-            swap_id = self.swap_victim_list[-3]
+            swap_id = self.swap_victim_list[-3]['swap_id']
             match(self.swap_map[swap_id].train_type):
                 case TrainType.BRANCH_NOT_TAKEN:
                     train_prob[TrainType.BRANCH_TAKEN] += 0.4
@@ -821,11 +821,11 @@ class DistributeManager:
         BREAK_TRIGGER_MAX_ITER = 12
         for _ in range(BREAK_TRIGGER_MAX_ITER):
             train_type = random_choice(train_prob)
-            swap_place = random.choice(0, 0 + len(self.swap_victim_list) - 2)
+            swap_place = random.choice(list(range(0, 1 + len(self.swap_victim_list) - 2)))
             self.swap_block_list = copy.copy(self.swap_victim_list)
-            self.swap_block_list.insert(swap_place, self.victim_train[train_type])
+            # self.swap_block_list.insert(swap_place, self.victim_train[train_type].mem_region)
             self.mem_cfg.add_swap_list(self.swap_block_list)
-            self.mem_cfg.dump_conf()
+            self.mem_cfg.dump_conf(self.output_path)
             is_trigger, is_leak, cov_expand = self._sim_and_analysis()
             if not is_trigger:
                 break_success = True

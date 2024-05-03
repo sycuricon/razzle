@@ -279,8 +279,6 @@ class TransBlock:
         return inst_len
 
     def store_template(self, folder):
-        if self.name.startswith('load_init'):
-            pass
         text_name = os.path.join(folder, f'{self.name}.text')
         data_name = os.path.join(folder, f'{self.name}.data')
         text_list, data_list = self.gen_asm()

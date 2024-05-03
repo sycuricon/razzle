@@ -479,7 +479,7 @@ class TransVictimManager(TransBaseManager):
         if template_path is not None:
             template_list = os.listdir(template_path)
             with open(os.path.join(template_path, 'return_front'), 'rt') as file:
-                return_front = bool(file.readline().strip())
+                return_front = eval(file.readline().strip())
             delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_path, 'delay_block')
             secret_migrate_template = None if 'secret_migrate_block.type' not in template_list else os.path.join(template_path, 'secret_migrate_block')
             access_secret_template = None if 'access_secret_block.type' not in template_list else os.path.join(template_path, 'access_secret_block')
