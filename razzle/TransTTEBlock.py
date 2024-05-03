@@ -183,12 +183,12 @@ class TransTTEManager(TransBaseManager):
 
         if template_path is not None:
             template_list = os.listdir(template_path)
-            with open(template_list, 'rt') as file:
+            with open(os.path.join(template_path, 'return_front'), 'rt') as file:
                 return_front = bool(file.readline().strip())
-            delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_list, 'delay_block')
-            adjust_template = None if 'adjust_block.text' not in template_list else os.path.join(template_list, 'adjust_block')
-            trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_list, 'trigger_block')
-            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_list, 'load_init_block')
+            delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_path, 'delay_block')
+            adjust_template = None if 'adjust_block.text' not in template_list else os.path.join(template_path, 'adjust_block')
+            trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_path, 'trigger_block')
+            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
         else:
             return_front = False
             delay_template = None

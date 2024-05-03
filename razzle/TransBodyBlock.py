@@ -175,9 +175,8 @@ class DelayBlock(TransBlock):
         self._gen_block_end()
     
     def load_template(self, template):
-        
         super().load_template(template)
-        final_inst = self.inst_block_list[-2][-1]
+        final_inst = self.inst_block_list[-2].inst_list[-1]
         self.result_reg = final_inst['RD']
 
 class NopBlock(TransBlock):
@@ -282,65 +281,6 @@ class LoadInitBlock(TransBlock):
 
     def _compute_trigger_param(self):
         raise Exception("the _compute_trigger_param is not implemented!!!")
-
-    def load_template(self, template):
-        super().load_template(template)
-        self.inst_block_list[0].name = self.entry
-        self.inst_block_list[0].inst_list[1] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
-        self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
-        self.float_init_list = []
-        self.GPR_init_list = []
-        for inst in self.inst_block_list[0].inst_list[1:]:
-            if inst.has('RD'):
-                self.GPR_init_list.append(inst['RD'])
-            else:
-                self.float_init_list.append(inst['FRD'])
-        
-        need_inited = self._need_init_compute()
-        has_inited = set(self.GPR_init_list) | set(self.float_init_list)
-        need_inited.difference_update(has_inited)
-
-        if len(need_inited) != 0:
-            float_init_list = []
-            GPR_init_list = []
-            for reg in need_inited:
-                if reg.startswith('F'):
-                    float_init_list.append(reg)
-                else:
-                    GPR_init_list.append(reg)
-            
-            inst_list = []
-            data_list = []
-            for freg in self.float_init_list:
-                inst_list.append(f"c.fldsp {freg.lower()}, 0(sp)")
-                data_list.append(f".dword {hex(random.randint(0, 2**64))}")
-            for reg in self.GPR_init_list:
-                inst_list.append(f"c.ldsp {reg.lower()}, 0(sp)")
-                data_list.append(f".dword {hex(random.randint(0, 2**64))}")
-
-            i = 1
-            list_len = len(self.inst_block_list[0].inst_list)
-            while i < list_len:
-                if self.inst_block_list[0].inst_list[i].has('RD'):
-                    break
-                else:
-                    i += 1
-            self.inst_block_list[0].inst_list[i:i] = inst_list
-            self.data_list[i:i] = data_list
-
-            for i, inst in enumerate(self.init_block_list[0].inst_list[1:]):
-                inst['IMM'] = i*8
-
-            self.GPR_init_list.append(GPR_init_list)
-            self.float_init_list.append(float_init_list)
-    
-    def gen_data_asm(self):
-        data_asm_list = []
-        data_asm_list.append(f"{self.name}_{self.depth}_data:\n")
-        for item in self.data_list:
-            data_asm_list.append(item.to_asm() + "\n")
-        
-        return data_asm_list
 
 
 

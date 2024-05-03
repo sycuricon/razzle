@@ -214,7 +214,10 @@ class InstructionBase:
             if variable != 'NAME':
                 var = self._solution[variable]
                 if variable == 'IMM':
-                    var = hex(int(var))
+                    try:
+                        var = hex(int(var))
+                    except ValueError:
+                        var = hex(int(var, base=16))
                 elif variable != 'LABEL' and variable_name_remap[variable] != 'MAGIC_ADDR':
                     var = var.lower()
                 asm = asm.replace(

@@ -13,6 +13,10 @@ def stage1_entry(args):
     dist = DistributeManager(args.input, args.output, args.virtual)
     dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)
 
+def stage2_entry(args):
+    dist = DistributeManager(args.input, args.output, args.virtual)
+    dist.fuzz_stage2(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(required=True)
@@ -44,6 +48,21 @@ if __name__ == "__main__":
         "--taint_log", dest="taint_log", help="the path of the taint log file"
     )
     parser_stage1.add_argument(
+        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
+    )
+
+    parser_stage2 = subparsers.add_parser('stage2', aliases=['s2'])
+    parser_stage2.set_defaults(func=stage2_entry)
+    parser_stage2.add_argument(
+        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
+    )
+    parser_stage2.add_argument(
+        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
+    )
+    parser_stage2.add_argument(
+        "--taint_log", dest="taint_log", help="the path of the taint log file"
+    )
+    parser_stage2.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
     )
 

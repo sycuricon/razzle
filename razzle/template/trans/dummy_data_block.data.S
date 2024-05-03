@@ -1,2 +1,3 @@
-.global dummy_data_block_data
+.global dummy_data_block_data_top
+dummy_data_block_data_top:
 .space 0x4000
