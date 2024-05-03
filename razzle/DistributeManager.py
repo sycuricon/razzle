@@ -638,6 +638,12 @@ class DistributeManager:
         self.mem_cfg.add_swap_list([self.trans_victim.mem_region, self.trans_exit.mem_region])
         self.mem_cfg.dump_conf(self.output_path)
     
+    def gen_victim_train(self):
+        self.data_train_section.clear()
+        for train_type,trans_block in self.victim_train.items():
+            trans_block.gen_block(train_type, self.trans_victim, None)
+            self._generate_body_block(trans_block)
+    
     def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
         if repo_path is None:
             self.repo_path = self.output_path
@@ -675,10 +681,7 @@ class DistributeManager:
 
             max_train_gen = TRAIN_GEN_MAX_ITER if self.trans_victim.need_train() else 1
             for _ in range(max_train_gen):
-                self.data_train_section.clear()
-                for train_type,trans_block in self.victim_train.items():
-                    trans_block.gen_block(train_type, self.trans_victim, None)
-                    self._generate_body_block(trans_block)
+                self.gen_victim_train()
 
                 max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans_victim.need_train() else 1
                 for _ in range(max_reorder_swap_list):
@@ -709,6 +712,9 @@ class DistributeManager:
                             break
             
             self.record_fuzz(iter_num, is_trigger, is_leak, stage_num=1)
+    
+    def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+        
 
     def record_fuzz(self, iter_num, is_trigger, is_leak, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
@@ -722,7 +728,6 @@ class DistributeManager:
 
         with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
             file.write(str(iter_num))
-
 
     def run(self, cmd=None):
         self.baker.run(cmd)
