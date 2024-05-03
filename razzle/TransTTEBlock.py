@@ -167,8 +167,11 @@ class AdjustBlock(TransBlock):
                     jalr_offset = update_jalr_offset(jalr_offset, inst)
                     jalr_offset = recover_t0_ra(inst, block, jalr_offset)
             
-            if self._get_inst_len() > 24:
+            if self._get_inst_len() > 96:
                 break
+        
+        inst_list = ['adjust_fill_nop:']
+        inst_list.extend(['c.nop'] * (120 - self._get_inst_len())//2)
 
         self._gen_block_end()
 
@@ -198,7 +201,7 @@ class TransTTEManager(TransBaseManager):
 
         self.delay_block = DelayBlock(self.extension, self.output_path)
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.adjust_block = AdjustBlock(self.extension, self.output_path, self.trans_victim.trigger_block.trigger_type)
+        self.adjust_block = AdjustBlock(self.extension, self.output_path, self.trans_victim.trigger_type)
 
         self.delay_block.gen_instr(delay_template)
         self.return_block.gen_instr(None)
@@ -247,6 +250,21 @@ class TransTTEManager(TransBaseManager):
 
         self.trigger_type = self.trigger_block.trigger_type
     
+    def mutate(self):
+        self.adjust_block = AdjustBlock(self.extension, self.output_path, self.trans_victim.trigger_type)
+        self.adjust_block.gen_instr(None)
+
+        old_load_init_len = self.load_init_block._get_inst_len()
+
+        block_list = [self.delay_block, self.trigger_block, self.adjust_block, self.return_block]
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block.gen_instr(None)
+
+        new_load_init_len = self.load_init_block._get_inst_len()
+
+        self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_load_init_len - new_load_init_len)
+        self.nop_block.gen_instr(None)
+
     def dump_trigger_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.adjust_block], self.return_front)

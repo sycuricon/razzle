@@ -35,9 +35,15 @@ class MemCfg:
         self.swap_list = []
         self.mem_regions['swap'] = []
         for swap_block in swap_block_list:
-            if swap_block['swap_id'] not in self.swap_list:
-                self.mem_regions['swap'].append(swap_block)
-            self.swap_list.append(swap_block['swap_id'])
+            if type(swap_block) == list:
+                for swap_sub_block in swap_block:
+                    if swap_sub_block['swap_id'] not in self.swap_list:
+                        self.mem_regions['swap'].append(swap_sub_block)
+                    self.swap_list.append(swap_sub_block['swap_id'])
+            else:
+                if swap_block['swap_id'] not in self.swap_list:
+                    self.mem_regions['swap'].append(swap_block)
+                self.swap_list.append(swap_block['swap_id'])
     
     def dump_conf(self, output_path):
         with open(os.path.join(output_path, 'swap_mem.cfg'), "wt") as file:
@@ -440,6 +446,7 @@ class DistributeManager:
         sync_time = 0
         vicitm_end = 0
         is_trigger = False
+        is_tte_trigger = False
         for line in open(f'{self.taint_log}.log', 'r'):
             exec_time, exec_info, exec_id = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
@@ -452,11 +459,13 @@ class DistributeManager:
                 vicitm_end = int(exec_time)
             if exec_info == "TEXE_START_ENQ":
                 is_trigger = True
+            if exec_info == "INFO_TRAIN_START":
+                is_tte_trigger = True
 
         is_leak = False
         cover_expand = False
         if not is_trigger:
-            return is_trigger, is_leak, cover_expand
+            return is_trigger, is_tte_trigger, is_leak, cover_expand
         else:
             # TODO: this baker is repeated, and it not necessary
             cp_baker = BuildManager(
@@ -488,7 +497,7 @@ class DistributeManager:
         else:
             is_leak = False
 
-        return is_trigger, is_leak, cover_expand
+        return is_trigger, is_tte_trigger, is_leak, cover_expand
     
     def _gen_train_swap_list(self):
         train_prob = {
@@ -621,7 +630,7 @@ class DistributeManager:
                 tmp_swap_block_list.pop(i)
                 self.mem_cfg.add_swap_list(tmp_swap_block_list)
                 self.mem_cfg.dump_conf(self.output_path)
-                is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
                 if is_trigger:
                     swap_block_list = tmp_swap_block_list
                     break
@@ -689,7 +698,7 @@ class DistributeManager:
                 max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans_victim.need_train() else 1
                 for _ in range(max_reorder_swap_list):
                     self._stage1_reorder_swap_list()
-                    is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                    is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
                     if not do_fuzz:
                         return
                     if not is_trigger:
@@ -709,12 +718,12 @@ class DistributeManager:
                     for _ in range(max_mutate_time):
                         self.trans_victim.mutate()
                         self._generate_body_block(self.trans_victim)
-                        is_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                        is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
                         if is_leak:
                             self.store_template(iter_num, self.repo_path, template_folder, True)
                             break
             
-            self.record_fuzz(iter_num, is_trigger, is_leak, stage_num=1)
+            self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=1)
     
     def load_tte(self, template_path):
         self.swap_tte_list = []
@@ -827,17 +836,21 @@ class DistributeManager:
             train_type = random_choice(train_prob)
             swap_place = random.choice(list(range(0, 1 + len(self.swap_victim_list) - 2)))
             self.swap_block_list = copy.copy(self.swap_victim_list)
-            # self.swap_block_list.insert(swap_place, self.victim_train[train_type].mem_region)
+            self.swap_block_list.insert(swap_place, self.victim_train[train_type].mem_region)
             self.mem_cfg.add_swap_list(self.swap_block_list)
             self.mem_cfg.dump_conf(self.output_path)
-            is_trigger, is_leak, cov_expand = self._sim_and_analysis()
+            is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
             if not is_trigger:
                 break_success = True
                 self.swap_victim_list = self.swap_block_list
                 break
         
         return break_success
-        
+    
+    def insert_tte_swap_list(self):
+        self.swap_block_list = copy.copy(self.swap_victim_list)
+        place = random.choice(list(range(0, len(self.swap_block_list) - 2 + 1)))
+        self.swap_block_list.insert(place, self.swap_tte_list)
     
     def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
         if repo_path is None:
@@ -867,6 +880,7 @@ class DistributeManager:
         trigger_template = 'trigger_template'
         VICTIM_FUZZ_MAX_ITER = 20
         VICTIM_TRAIN_GEN_MAX_ITER = 2
+        TTE_MUTATE_MAX_ITER = 12
         for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
             while True:
                 folder_num, need_train = self.choose_template(repo_path, trigger_template)
@@ -874,33 +888,57 @@ class DistributeManager:
                     self.load_template(folder_num, repo_path, trigger_template, 'default')
                     self.mem_cfg.add_swap_list(self.swap_victim_list)
                     self.mem_cfg.dump_conf(self.output_path)
-                    is_trigger, is_leak, cov_expand = self._sim_and_analysis()
+                    is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
                     if is_trigger:
                         break
             self.swap_block_list = self.swap_victim_list
-            self.store_template(iter_num, repo_path, f'{template_folder}_test', True)
 
-            # for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
-            #     self.gen_victim_train()
-            #     break_success = self.break_trigger()
-            #     if break_success:
-            #         break
-            # else:
-            #     continue
+            for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
+                self.gen_victim_train()
+                break_success = self.break_trigger()
+                if break_success:
+                    break
+            else:
+                continue
 
-            # self.store_template(iter_num, repo_path, template_folder, True)
+            folder_num, need_train = self.choose_template(repo_path, trigger_template)
+            folder_path = os.path.join(repo_path, trigger_template, folder_num)
+            self.load_tte(folder_path)
+
+            for _ in range(TTE_MUTATE_MAX_ITER):
+                self.insert_tte_swap_list()
+                self.mem_cfg.add_swap_list(self.swap_block_list)
+                self.mem_cfg.dump_conf(self.output_path)
+                is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                if not is_tte_trigger:
+                    folder_num, need_train = self.choose_template(repo_path, trigger_template)
+                    folder_path = os.path.join(repo_path, trigger_template, folder_num)
+                    self.load_tte(folder_path)
+                elif not is_trigger:
+                    self.trans_tte.mutate()
+                elif not is_leak:
+                    self.trans_victim.mutate()
+                else:
+                    self.store_template(iter_num, repo_path, template_folder, True)
+                    break
         
-            # self.record_fuzz(iter_num, False, False, stage_num=2)
+                self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=2)
 
 
-    def record_fuzz(self, iter_num, is_trigger, is_leak, stage_num):
+    def record_fuzz(self, iter_num, is_trigger, is_tte_trigger, is_leak, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'is_trigger:\t{is_trigger}\n')
+            file.write(f'is_tte_trigger:\t{is_tte_trigger}\n')
             file.write(f'is_leak:\t{is_leak}\n')
             for swap_block in self.swap_block_list:
-                trans_body = self.swap_map[swap_block['swap_id']]
-                trans_body.record_fuzz(file)
+                if type(swap_block) == list:
+                    for swap_sub_block in swap_block:
+                        trans_body = self.swap_map[swap_sub_block['swap_id']]
+                        trans_body.record_fuzz(file)
+                else:
+                    trans_body = self.swap_map[swap_block['swap_id']]
+                    trans_body.record_fuzz(file)
             file.write('\n')
 
         with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:

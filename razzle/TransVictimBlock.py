@@ -587,7 +587,7 @@ class TransVictimManager(TransBaseManager):
         load_init_block.inst_block_list[0].inst_list = new_inst_list
         load_init_block.data_list = new_data_list
 
-        self._dump_trans_block(folder, [load_init_block, self.delay_block,\
+        self._dump_trans_block(folder, [load_init_block, self.secret_migrate_block, self.delay_block,\
             self.trigger_block, self.access_secret_block], self.return_front)
         
         trigger_type_file = os.path.join(folder, 'trigger_block.type')
