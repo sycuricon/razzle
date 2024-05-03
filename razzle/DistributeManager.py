@@ -22,7 +22,7 @@ class MemCfg:
         self.mem_len = mem_len
         self.mem_regions = {}
         self.mem_region_kind = ['frame', 'data_train',\
-            'data_tte', 'data_train_tte', 'data_victim', 'swap']
+            'data_tte', 'data_tte_train', 'data_victim', 'data_victim_train', 'swap']
         for kind in self.mem_region_kind:
             self.mem_regions[kind] = []
         self.swap_list = []
@@ -353,7 +353,11 @@ class DistributeManager:
             data_name = 'data_tte'
         elif trans_body_type == TransTrainManager:
             if type(trans_block.trans_victim) == TransVictimManager:
-                data_name = 'data_train'
+                for block in self.victim_train.values():
+                    if block is trans_block:
+                        data_name = 'data_train'
+                else:
+                    data_name = 'data_victim_train'
             else:
                 data_name = 'data_tte_train'
         else:
@@ -459,7 +463,7 @@ class DistributeManager:
                 vicitm_end = int(exec_time)
             if exec_info == "TEXE_START_ENQ":
                 is_trigger = True
-            if exec_info == "INFO_TRAIN_START":
+            if exec_info == "TRAIN_START_ENQ":
                 is_tte_trigger = True
 
         is_leak = False
@@ -588,7 +592,7 @@ class DistributeManager:
                 file_list.append(train_fold)
                 if not os.path.exists(train_fold):
                     os.makedirs(train_fold)
-                self.store_tte(self, swap_id, train_fold)
+                self.store_tte(swap_id, train_fold)
             else:
                 train_fold = os.path.join(new_template, f'train_{i}')
                 file_list.append(train_fold)
@@ -748,7 +752,7 @@ class DistributeManager:
             folder = os.path.join(template_path, file)
             trans_train = self.tte_trigger_pool[self.swap_tte_dist_id]
             self.swap_tte_dist_id += 1
-            trans_train.gen_block(folder, self.trans_victim)
+            trans_train.gen_block(None, self.trans_tte, folder)
             self._generate_body_block(trans_train)
             self.swap_tte_list.insert(0, trans_train.mem_region)
 
@@ -792,7 +796,8 @@ class DistributeManager:
         with open(type_file, "rt") as file:
             trigger_type = eval(file.readline().strip())
         need_train = trigger_type.need_train()
-        return folder_num, need_train
+        not_V4 = trigger_type != TriggerType.V4
+        return folder_num, need_train, not_V4
     
     def break_trigger(self):
         train_prob = {
@@ -831,7 +836,7 @@ class DistributeManager:
         
         break_success = False
 
-        BREAK_TRIGGER_MAX_ITER = 12
+        BREAK_TRIGGER_MAX_ITER = 6
         for _ in range(BREAK_TRIGGER_MAX_ITER):
             train_type = random_choice(train_prob)
             swap_place = random.choice(list(range(0, 1 + len(self.swap_victim_list) - 2)))
@@ -883,7 +888,7 @@ class DistributeManager:
         TTE_MUTATE_MAX_ITER = 12
         for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
             while True:
-                folder_num, need_train = self.choose_template(repo_path, trigger_template)
+                folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
                 if need_train:
                     self.load_template(folder_num, repo_path, trigger_template, 'default')
                     self.mem_cfg.add_swap_list(self.swap_victim_list)
@@ -901,7 +906,10 @@ class DistributeManager:
             else:
                 continue
 
-            folder_num, need_train = self.choose_template(repo_path, trigger_template)
+            while True:
+                folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
+                if not_V4:
+                    break
             folder_path = os.path.join(repo_path, trigger_template, folder_num)
             self.load_tte(folder_path)
 
@@ -911,7 +919,10 @@ class DistributeManager:
                 self.mem_cfg.dump_conf(self.output_path)
                 is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
                 if not is_tte_trigger:
-                    folder_num, need_train = self.choose_template(repo_path, trigger_template)
+                    while True:
+                        folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
+                        if not_V4:
+                            break
                     folder_path = os.path.join(repo_path, trigger_template, folder_num)
                     self.load_tte(folder_path)
                 elif not is_trigger:
@@ -922,7 +933,7 @@ class DistributeManager:
                     self.store_template(iter_num, repo_path, template_folder, True)
                     break
         
-                self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=2)
+            self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=2)
 
 
     def record_fuzz(self, iter_num, is_trigger, is_tte_trigger, is_leak, stage_num):

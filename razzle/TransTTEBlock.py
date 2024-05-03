@@ -23,7 +23,7 @@ class AdjustType(Enum):
 
 class AdjustBlock(TransBlock):
     def __init__(self, extension, output_path, trigger_type):
-        super().__init__('adjust_block', extension, output_path)
+        super().__init__('access_secret_block', extension, output_path)
         self.trigger_type = trigger_type
     
     def _gen_block_begin(self):
@@ -171,7 +171,7 @@ class AdjustBlock(TransBlock):
                 break
         
         inst_list = ['adjust_fill_nop:']
-        inst_list.extend(['c.nop'] * (120 - self._get_inst_len())//2)
+        inst_list.extend(['c.nop'] * ((120 - self._get_inst_len())//2))
 
         self._gen_block_end()
 
@@ -187,13 +187,13 @@ class TransTTEManager(TransBaseManager):
         if template_path is not None:
             template_list = os.listdir(template_path)
             with open(os.path.join(template_path, 'return_front'), 'rt') as file:
-                return_front = eval(file.readline().strip())
+                self.return_front = eval(file.readline().strip())
             delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_path, 'delay_block')
             adjust_template = None if 'adjust_block.text' not in template_list else os.path.join(template_path, 'adjust_block')
             trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_path, 'trigger_block')
             load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
         else:
-            return_front = False
+            self.return_front = False
             delay_template = None
             adjust_template = None
             trigger_template = None
@@ -232,7 +232,7 @@ class TransTTEManager(TransBaseManager):
         tte_front_len = self.load_init_block._get_inst_len() + \
             self.delay_block._get_inst_len() + \
             self.trigger_block._get_inst_len() + (3 + random.randint(2, 4)) * 4
-        if return_front == True:
+        if self.return_front == True:
             tte_front_len += self.return_block._get_inst_len()
         
         nop_inst_len = victim_front_len - tte_front_len
@@ -268,6 +268,11 @@ class TransTTEManager(TransBaseManager):
     def dump_trigger_block(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.adjust_block], self.return_front)
+    
+    def record_fuzz(self,file):
+        file.write(f'trigger_type:\t{self.trigger_block.trigger_type}\t')
+        file.write(f'trigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\t')
+        file.write(f'return_front:\t{self.return_front}\n')
     
     def _generate_sections(self):
 

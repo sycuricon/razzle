@@ -211,24 +211,14 @@ class TransTrainManager(TransBaseManager):
         self.return_front = self.trans_victim.return_front
 
         front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
-        if type(self.trans_victim) == TransTTEManager:
-            if not self.return_front:
-                nop_ret_begin = self.trans_victim.symbol_table['adjust_block_entry']
-                nop_ret_end = self.trans_victim.symbol_table['return_block_entry']
-                front_block_end = nop_ret_begin
-            else:
-                nop_ret_begin = self.trans_victim.symbol_table['adjust_block_entry']
-                nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
-                front_block_end = self.trans_victim.symbol_table['return_block_entry']
+        if self.return_front:
+            nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
+            nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
+            front_block_end = self.trans_victim.symbol_table['return_block_entry']
         else:
-            if self.return_front:
-                nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
-                nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
-                front_block_end = self.trans_victim.symbol_table['return_block_entry']
-            else:
-                nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
-                nop_ret_end = self.trans_victim.symbol_table['return_block_entry']
-                front_block_end = nop_ret_begin
+            nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
+            nop_ret_end = self.trans_victim.symbol_table['return_block_entry']
+            front_block_end = nop_ret_begin
 
         self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin))
         self.nop_ret_block.gen_instr(None)

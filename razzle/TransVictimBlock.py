@@ -342,7 +342,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
 
         if len(self.trigger_param) != 0:
             a0_data_asm = RawInstruction(f'.dword {self.trigger_param["A0"]}')
-            if self.GPR_init_list[-1] == 'SP':
+            if 'SP' in self.GPR_init_list:
                 self.data_list[-2] = a0_data_asm
             else:
                 self.data_list[-1] = a0_data_asm
@@ -363,6 +363,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
         need_inited = self._need_init_compute()
         has_inited = set(self.GPR_init_list) | set(self.float_init_list)
         need_inited.difference_update(has_inited)
+        need_inited.difference_update({'ZERO'})
 
         len_need_inited = len(need_inited)
 
@@ -400,8 +401,8 @@ class LoadInitTriggerBlock(LoadInitBlock):
             self.data_list[i:i] = data_list
 
             if has_sp:
-                inst_list.append(Instruction(f"c.ldsp sp, 0(sp)"))
-                data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
+                self.inst_block_list[0].inst_list.append(Instruction(f"c.ldsp sp, 0(sp)"))
+                self.data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
             self.GPR_init_list.append('SP')
 
             for i, inst in enumerate(self.inst_block_list[0].inst_list[1:]):

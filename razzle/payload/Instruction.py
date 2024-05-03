@@ -30,6 +30,11 @@ class InstructionBase:
                     if variable_name_remap[variable] == format[i]:
                         if format[i] != 'LABEL' and format[i] != 'IMM':
                             self._solution[variable] = vars[i].upper()
+                        elif format[i] == 'IMM':
+                            try:
+                                self._solution[variable] = int(vars[i])
+                            except ValueError:
+                                self._solution[variable] = int(vars[i], base=16)
                         else:
                             self._solution[variable] = vars[i]
             self._solution['NAME'] = name
