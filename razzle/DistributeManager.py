@@ -412,9 +412,9 @@ class DistributeManager:
             idx = min(idx, list_len)
             new_idx = min(idx + interval, list_len)
             sample_base_diff = base_list[int(new_idx)] - base_list[int(idx)]
-            sample_variant_diff = variant_list[int(new_idx)] - variant_list[int(idx)]
-            diff_rate = sample_base_diff - sample_variant_diff
-            diff_rate_byte_array.append(struct.pack('<i', diff_rate))
+            # sample_variant_diff = variant_list[int(new_idx)] - variant_list[int(idx)]
+            # diff_rate = sample_base_diff - sample_variant_diff
+            diff_rate_byte_array.append(struct.pack('<i', sample_base_diff))
             idx = new_idx
         
         coverage_hash = hash(b''.join(diff_rate_byte_array))
@@ -466,10 +466,11 @@ class DistributeManager:
             if exec_info == "TRAIN_START_ENQ":
                 is_tte_trigger = True
 
+        is_access = False
         is_leak = False
         cover_expand = False
         if not is_trigger:
-            return is_trigger, is_tte_trigger, is_leak, cover_expand
+            return is_trigger, is_tte_trigger, is_access, is_leak, cover_expand
         else:
             # TODO: this baker is repeated, and it not necessary
             cp_baker = BuildManager(
@@ -494,14 +495,18 @@ class DistributeManager:
 
         cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
         
-        if cosim_result > 0.1:
-            is_leak = True
-        elif max(base_windows_list) > 40:
-            is_leak = True
-        else:
-            is_leak = False
+        if max(base_windows_list) > 10:
+            is_access = True
 
-        return is_trigger, is_tte_trigger, is_leak, cover_expand
+        if is_access:
+            if cosim_result > 0.1:
+                is_leak = True
+            elif max(base_windows_list) > 40:
+                is_leak = True
+            else:
+                is_leak = False
+
+        return is_trigger, is_tte_trigger, is_access, is_leak, cover_expand
     
     def _gen_train_swap_list(self):
         train_prob = {
@@ -552,21 +557,21 @@ class DistributeManager:
             if not os.path.exists(train_fold):
                 os.makedirs(train_fold)
             trans_body = self.swap_map[swap_id]
-            trans_body.dump_trigger_block(train_fold)
+            trans_body.store_template(train_fold)
         
         train_fold = os.path.join(template_folder, f'tte')
         file_list.append(train_fold)
         if not os.path.exists(train_fold):
             os.makedirs(train_fold)
         trans_body = self.swap_map[swap_list[-1]]
-        trans_body.dump_trigger_block(train_fold)
+        trans_body.store_template(train_fold)
 
         block_order = os.path.join(template_folder, f'block_order')
         with open(block_order, "wt") as file:
             for file_name in file_list:
                 file.write(f'{file_name}\n')
     
-    def store_template(self, iter_num, repo_path, template_folder, only_trigger):
+    def store_template(self, iter_num, repo_path, template_folder):
         self.swap_list = []
         for swap_block in self.swap_block_list:
             if type(swap_block) == list:
@@ -599,7 +604,7 @@ class DistributeManager:
                 if not os.path.exists(train_fold):
                     os.makedirs(train_fold)
                 trans_body = self.swap_map[swap_id]
-                trans_body.dump_trigger_block(train_fold)
+                trans_body.store_template(train_fold)
         
         train_fold = os.path.join(new_template, f'victim')
         file_list.append(train_fold)
@@ -607,10 +612,7 @@ class DistributeManager:
             os.makedirs(train_fold)
         trans_body = self.swap_map[self.swap_list[-2]]
 
-        if only_trigger:
-            trans_body.dump_trigger_block(train_fold)
-        else:
-            trans_body.dump_leak_block(train_fold)
+        trans_body.store_template(train_fold)
 
         block_order = os.path.join(new_template, f'block_order')
         with open(block_order, "wt") as file:
@@ -634,7 +636,7 @@ class DistributeManager:
                 tmp_swap_block_list.pop(i)
                 self.mem_cfg.add_swap_list(tmp_swap_block_list)
                 self.mem_cfg.dump_conf(self.output_path)
-                is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
                 if is_trigger:
                     swap_block_list = tmp_swap_block_list
                     break
@@ -702,7 +704,7 @@ class DistributeManager:
                 max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans_victim.need_train() else 1
                 for _ in range(max_reorder_swap_list):
                     self._stage1_reorder_swap_list()
-                    is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
+                    is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
                     if not do_fuzz:
                         return
                     if not is_trigger:
@@ -715,19 +717,19 @@ class DistributeManager:
             
             if is_trigger:
                 self._trigger_reduce()
-                if is_leak:
-                    self.store_template(iter_num, self.repo_path, template_folder, True)
+                if is_access and is_leak:
+                    self.store_template(iter_num, self.repo_path, template_folder)
                 else:
                     max_mutate_time = ENCODE_MUTATE_MAX_ITER
                     for _ in range(max_mutate_time):
                         self.trans_victim.mutate()
                         self._generate_body_block(self.trans_victim)
-                        is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
-                        if is_leak:
-                            self.store_template(iter_num, self.repo_path, template_folder, True)
+                        is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+                        if is_access and is_leak:
+                            self.store_template(iter_num, self.repo_path, template_folder)
                             break
             
-            self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=1)
+            self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_access, is_leak, stage_num=1)
     
     def load_tte(self, template_path):
         self.swap_tte_list = []
@@ -799,144 +801,144 @@ class DistributeManager:
         not_V4 = trigger_type != TriggerType.V4
         return folder_num, need_train, not_V4
     
-    def break_trigger(self):
-        train_prob = {
-            TrainType.BRANCH_NOT_TAKEN: 0.075,
-            TrainType.BRANCH_TAKEN: 0.075,
-            TrainType.JALR: 0.1,
-            TrainType.CALL: 0.15,
-            TrainType.RETURN: 0.15,
-            TrainType.JMP: 0.05
-        }
-        if len(self.swap_victim_list) == 2:
-            match(self.trans_victim.trigger_type):
-                case TriggerType.BRANCH:
-                    train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.2
-                    train_prob[TrainType.BRANCH_TAKEN] += 0.2
-                case TriggerType.JALR | TriggerType.JMP:
-                    train_prob[TrainType.CALL] += 0.1
-                    train_prob[TrainType.JALR] += 0.2
-                    train_prob[TrainType.JMP] += 0.1
-                case TriggerType.RETURN:
-                    train_prob[TrainType.RETURN] += 0.4
-        else:
-            swap_id = self.swap_victim_list[-3]['swap_id']
-            match(self.swap_map[swap_id].train_type):
-                case TrainType.BRANCH_NOT_TAKEN:
-                    train_prob[TrainType.BRANCH_TAKEN] += 0.4
-                case TrainType.BRANCH_TAKEN:
-                    train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
-                case TrainType.JALR | TrainType.JMP:
-                    train_prob[TrainType.JALR] += 0.2
-                    train_prob[TrainType.JMP] += 0.2
-                case TrainType.RETURN:
-                    train_prob[TrainType.CALL] += 0.4
-                case TrainType.CALL:
-                    train_prob[TrainType.RETURN] += 0.4
+    # def break_trigger(self):
+    #     train_prob = {
+    #         TrainType.BRANCH_NOT_TAKEN: 0.075,
+    #         TrainType.BRANCH_TAKEN: 0.075,
+    #         TrainType.JALR: 0.1,
+    #         TrainType.CALL: 0.15,
+    #         TrainType.RETURN: 0.15,
+    #         TrainType.JMP: 0.05
+    #     }
+    #     if len(self.swap_victim_list) == 2:
+    #         match(self.trans_victim.trigger_type):
+    #             case TriggerType.BRANCH:
+    #                 train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.2
+    #                 train_prob[TrainType.BRANCH_TAKEN] += 0.2
+    #             case TriggerType.JALR | TriggerType.JMP:
+    #                 train_prob[TrainType.CALL] += 0.1
+    #                 train_prob[TrainType.JALR] += 0.2
+    #                 train_prob[TrainType.JMP] += 0.1
+    #             case TriggerType.RETURN:
+    #                 train_prob[TrainType.RETURN] += 0.4
+    #     else:
+    #         swap_id = self.swap_victim_list[-3]['swap_id']
+    #         match(self.swap_map[swap_id].train_type):
+    #             case TrainType.BRANCH_NOT_TAKEN:
+    #                 train_prob[TrainType.BRANCH_TAKEN] += 0.4
+    #             case TrainType.BRANCH_TAKEN:
+    #                 train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
+    #             case TrainType.JALR | TrainType.JMP:
+    #                 train_prob[TrainType.JALR] += 0.2
+    #                 train_prob[TrainType.JMP] += 0.2
+    #             case TrainType.RETURN:
+    #                 train_prob[TrainType.CALL] += 0.4
+    #             case TrainType.CALL:
+    #                 train_prob[TrainType.RETURN] += 0.4
         
-        break_success = False
+    #     break_success = False
 
-        BREAK_TRIGGER_MAX_ITER = 6
-        for _ in range(BREAK_TRIGGER_MAX_ITER):
-            train_type = random_choice(train_prob)
-            swap_place = random.choice(list(range(0, 1 + len(self.swap_victim_list) - 2)))
-            self.swap_block_list = copy.copy(self.swap_victim_list)
-            self.swap_block_list.insert(swap_place, self.victim_train[train_type].mem_region)
-            self.mem_cfg.add_swap_list(self.swap_block_list)
-            self.mem_cfg.dump_conf(self.output_path)
-            is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
-            if not is_trigger:
-                break_success = True
-                self.swap_victim_list = self.swap_block_list
-                break
+    #     BREAK_TRIGGER_MAX_ITER = 6
+    #     for _ in range(BREAK_TRIGGER_MAX_ITER):
+    #         train_type = random_choice(train_prob)
+    #         swap_place = random.choice(list(range(0, 1 + len(self.swap_victim_list) - 2)))
+    #         self.swap_block_list = copy.copy(self.swap_victim_list)
+    #         self.swap_block_list.insert(swap_place, self.victim_train[train_type].mem_region)
+    #         self.mem_cfg.add_swap_list(self.swap_block_list)
+    #         self.mem_cfg.dump_conf(self.output_path)
+    #         is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+    #         if not is_trigger:
+    #             break_success = True
+    #             self.swap_victim_list = self.swap_block_list
+    #             break
         
-        return break_success
+    #     return break_success
     
-    def insert_tte_swap_list(self):
-        self.swap_block_list = copy.copy(self.swap_victim_list)
-        place = random.choice(list(range(0, len(self.swap_block_list) - 2 + 1)))
-        self.swap_block_list.insert(place, self.swap_tte_list)
+    # def insert_tte_swap_list(self):
+    #     self.swap_block_list = copy.copy(self.swap_victim_list)
+    #     place = random.choice(list(range(0, len(self.swap_block_list) - 2 + 1)))
+    #     self.swap_block_list.insert(place, self.swap_tte_list)
     
-    def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
-        if repo_path is None:
-            self.repo_path = self.output_path
-        else:
-            self.repo_path = repo_path
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
-        template_folder = "tte_template"
+    # def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+    #     if repo_path is None:
+    #         self.repo_path = self.output_path
+    #     else:
+    #         self.repo_path = repo_path
+    #     if not os.path.exists(self.repo_path):
+    #         os.makedirs(self.repo_path)
+    #     template_folder = "tte_template"
         
-        self.rtl_sim = rtl_sim
-        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
-        self.rtl_sim_mode = rtl_sim_mode
-        self.taint_log = taint_log
+    #     self.rtl_sim = rtl_sim
+    #     assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
+    #     self.rtl_sim_mode = rtl_sim_mode
+    #     self.taint_log = taint_log
         
-        # get frame and exit
-        self._generate_frame()
-        self._generate_frame_block()
+    #     # get frame and exit
+    #     self._generate_frame()
+    #     self._generate_frame_block()
 
-        stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
-        if not os.path.exists(stage2_iter_num_file):
-            begin_iter_num = 0
-        else:
-            with open(stage2_iter_num_file, "rt") as file:
-                begin_iter_num = 1 + int(file.readline().strip())
+    #     stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
+    #     if not os.path.exists(stage2_iter_num_file):
+    #         begin_iter_num = 0
+    #     else:
+    #         with open(stage2_iter_num_file, "rt") as file:
+    #             begin_iter_num = 1 + int(file.readline().strip())
 
-        trigger_template = 'trigger_template'
-        VICTIM_FUZZ_MAX_ITER = 20
-        VICTIM_TRAIN_GEN_MAX_ITER = 2
-        TTE_MUTATE_MAX_ITER = 12
-        for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
-            while True:
-                folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
-                if need_train:
-                    self.load_template(folder_num, repo_path, trigger_template, 'default')
-                    self.mem_cfg.add_swap_list(self.swap_victim_list)
-                    self.mem_cfg.dump_conf(self.output_path)
-                    is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
-                    if is_trigger:
-                        break
-            self.swap_block_list = self.swap_victim_list
+    #     trigger_template = 'trigger_template'
+    #     VICTIM_FUZZ_MAX_ITER = 20
+    #     VICTIM_TRAIN_GEN_MAX_ITER = 2
+    #     TTE_MUTATE_MAX_ITER = 12
+    #     for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
+    #         while True:
+    #             folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
+    #             if need_train:
+    #                 self.load_template(folder_num, repo_path, trigger_template, 'default')
+    #                 self.mem_cfg.add_swap_list(self.swap_victim_list)
+    #                 self.mem_cfg.dump_conf(self.output_path)
+    #                 is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+    #                 if is_trigger:
+    #                     break
+    #         self.swap_block_list = self.swap_victim_list
 
-            for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
-                self.gen_victim_train()
-                break_success = self.break_trigger()
-                if break_success:
-                    break
-            else:
-                continue
+    #         for _ in range(VICTIM_TRAIN_GEN_MAX_ITER):
+    #             self.gen_victim_train()
+    #             break_success = self.break_trigger()
+    #             if break_success:
+    #                 break
+    #         else:
+    #             continue
 
-            while True:
-                folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
-                if not_V4:
-                    break
-            folder_path = os.path.join(repo_path, trigger_template, folder_num)
-            self.load_tte(folder_path)
+    #         while True:
+    #             folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
+    #             if not_V4:
+    #                 break
+    #         folder_path = os.path.join(repo_path, trigger_template, folder_num)
+    #         self.load_tte(folder_path)
 
-            for _ in range(TTE_MUTATE_MAX_ITER):
-                self.insert_tte_swap_list()
-                self.mem_cfg.add_swap_list(self.swap_block_list)
-                self.mem_cfg.dump_conf(self.output_path)
-                is_trigger, is_tte_trigger, is_leak, cover_expand = self._sim_and_analysis()
-                if not is_tte_trigger:
-                    while True:
-                        folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
-                        if not_V4:
-                            break
-                    folder_path = os.path.join(repo_path, trigger_template, folder_num)
-                    self.load_tte(folder_path)
-                elif not is_trigger:
-                    self.trans_tte.mutate()
-                elif not is_leak:
-                    self.trans_victim.mutate()
-                else:
-                    self.store_template(iter_num, repo_path, template_folder, True)
-                    break
+    #         for _ in range(TTE_MUTATE_MAX_ITER):
+    #             self.insert_tte_swap_list()
+    #             self.mem_cfg.add_swap_list(self.swap_block_list)
+    #             self.mem_cfg.dump_conf(self.output_path)
+    #             is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+    #             if not is_tte_trigger:
+    #                 while True:
+    #                     folder_num, need_train, not_V4 = self.choose_template(repo_path, trigger_template)
+    #                     if not_V4:
+    #                         break
+    #                 folder_path = os.path.join(repo_path, trigger_template, folder_num)
+    #                 self.load_tte(folder_path)
+    #             elif not is_trigger:
+    #                 self.trans_tte.mutate()
+    #             elif not is_leak:
+    #                 self.trans_victim.mutate()
+    #             else:
+    #                 self.store_template(iter_num, repo_path, template_folder, True)
+    #                 break
         
-            self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_leak, stage_num=2)
+    #         self.record_fuzz(iter_num, is_trigger, is_tte_trigger, is_access, is_leak, stage_num=2)
 
 
-    def record_fuzz(self, iter_num, is_trigger, is_tte_trigger, is_leak, stage_num):
+    def record_fuzz(self, iter_num, is_trigger, is_tte_trigger, is_access, is_leak, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'is_trigger:\t{is_trigger}\n')

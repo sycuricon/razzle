@@ -265,7 +265,7 @@ class TransTTEManager(TransBaseManager):
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_load_init_len - new_load_init_len)
         self.nop_block.gen_instr(None)
 
-    def dump_trigger_block(self, folder):
+    def store_template(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.adjust_block], self.return_front)
     
