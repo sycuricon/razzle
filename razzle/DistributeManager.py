@@ -495,7 +495,7 @@ class DistributeManager:
 
         cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
         
-        if max(base_windows_list) > 10:
+        if max(base_windows_list) > 20:
             is_access = True
 
         if is_access:
@@ -941,7 +941,9 @@ class DistributeManager:
     def record_fuzz(self, iter_num, is_trigger, is_tte_trigger, is_access, is_leak, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
+            file.write(f'virtual:\t{self.virtual}\n')
             file.write(f'is_trigger:\t{is_trigger}\n')
+            file.write(f'is_access:\t{is_access}\n')
             file.write(f'is_tte_trigger:\t{is_tte_trigger}\n')
             file.write(f'is_leak:\t{is_leak}\n')
             for swap_block in self.swap_block_list:

@@ -164,7 +164,7 @@ class TriggerBlock(TransBlock):
 
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, output_path, virtual):
-        super().__init__('access_secret_block', extension, output_path, virtual)
+        super().__init__('access_secret_block', extension, output_path)
         self.virtual = virtual
 
     def _gen_block_begin(self):
@@ -218,12 +218,12 @@ class AccessSecretBlock(TransBlock):
     def gen_default(self):
         self.li_offset = True if random.random() < 0.8 else False
         self.mask = 64
-        if not self.li_offset and random.random() < 0.2:
+        if not self.li_offset and random.random() < 0.5:
             self.mask = random.choice(list(range(12, 64, 4)))
         self.mask = (1 << self.mask) - 1
         self.rand_mask = (1 << 64) - 1 - self.mask
         self.address = 0x4001 if self.virtual else 0x80004001
-        self.address = ((0x4001) & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
+        self.address = (self.address & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
         self.gen_code()
 
 class EncodeBlock(TransBlock):
