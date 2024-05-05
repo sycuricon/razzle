@@ -282,5 +282,15 @@ class LoadInitBlock(TransBlock):
     def _compute_trigger_param(self):
         raise Exception("the _compute_trigger_param is not implemented!!!")
 
-
-
+    def load_template(self, template):
+        super().load_template(template)
+        self.inst_block_list[0].name = self.entry
+        self.inst_block_list[0].inst_list[0] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
+        self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
+        self.float_init_list = []
+        self.GPR_init_list = []
+        for inst in self.inst_block_list[0].inst_list[1:]:
+            if inst.has('RD'):
+                self.GPR_init_list.append(inst['RD'])
+            else:
+                self.float_init_list.append(inst['FRD'])

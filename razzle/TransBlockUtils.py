@@ -46,28 +46,52 @@ class BaseBlock:
         else:
             return self._gen_system()
     
-    def get_random_reg(self, normal_reg, taint_reg):
-        if len(normal_reg) == 0:
-            reg = random.choice(list(taint_reg))
-            taint = True
-        elif len(taint_reg) == 0:
-            reg = random.choice(list(normal_reg))
-            taint = False
-        elif random.random() < 0.5:
-            reg = random.choice(list(normal_reg))
-            taint = False
+    def get_random_reg(self, field, normal_reg, taint_reg):
+        if field.endswith('RD'):
+            if len(normal_reg) != 0:
+                reg = random.choice(list(normal_reg))
+                taint = False
+            else:
+                reg = random.choice(list(taint_reg))
+                taint = True
         else:
-            reg = random.choice(list(taint_reg))
-            taint = True
+            if len(normal_reg) == 0:
+                reg = random.choice(list(taint_reg))
+                taint = True
+            elif len(taint_reg) == 0:
+                reg = random.choice(list(normal_reg))
+                taint = False
+            elif random.random() < 0.2:
+                reg = random.choice(list(normal_reg))
+                taint = False
+            else:
+                reg = random.choice(list(taint_reg))
+                taint = True
         
         return reg, taint
     
+    def filter_reg(self, instr, reg):
+        if instr['NAME'].startswith('C.'):
+            return set(rvc_reg_range) & reg
+        else:
+            return reg
+    
+    def filter_freg(self, instr, freg):
+        if instr['NAME'].startswith('C.'):
+            return set(rvc_float_range) & freg
+        else:
+            return freg
+    
     def set_instr_reg(self, instr, field, normal_reg, taint_reg):
         taint = False
+        
         if instr.has(field):
-            reg, taint = self.get_random_reg(normal_reg, taint_reg)
+            if field.startswith('F'):
+                reg, taint = self.get_random_reg(field, self.filter_freg(instr, normal_reg), self.filter_freg(instr, taint_reg))
+            else:
+                reg, taint = self.get_random_reg(field, self.filter_reg(instr, normal_reg), self.filter_reg(instr, taint_reg))
             instr[field] = reg
-        return taint        
+        return taint
 
     def _gen_int_arithmetic(self, normal_reg, taint_reg):
         extension = [extension_i for extension_i in [
@@ -78,6 +102,9 @@ class BaseBlock:
             return name not in ['LA', 'LI']
         instr.add_constraint(instr_c,['NAME'])
         instr.solve()
+
+        if instr['NAME'] == 'C.SRLI':
+            print("here")
 
         taint_rs1 = self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
         taint_rs2 = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
@@ -106,7 +133,7 @@ class BaseBlock:
         inst_list = [instr_la]
         
         if random.random() < 0.5:
-            reg, taint = self.get_random_reg(normal_reg, taint_reg)
+            reg, taint = self.get_random_reg('RS1', normal_reg, taint_reg)
             inst_mask = Instruction(f'andi {reg.lower()}, {reg.lower()}, 0x7f8')
             inst_offset = Instruction(f'add {instr_la["RD"].lower()}, {instr_la["RD"].lower()}, {reg.lower()}')
             inst_list.extend([inst_mask, inst_offset])
@@ -298,26 +325,6 @@ class BaseBlock:
         for inst in self.inst_list:
             sum += inst.get_len()
         return sum
-
-
-class RandomBlock(BaseBlock):
-    def __init__(self, name, extension):
-        super().__init__(name, extension, True)
-        self.gen_func = [
-            BaseBlock._gen_atomic,
-            BaseBlock._gen_float_arithmetic,
-            BaseBlock._gen_float_arithmetic,
-            BaseBlock._gen_int_arithmetic,
-            BaseBlock._gen_int_arithmetic,
-            BaseBlock._gen_load_store,
-        ]
-
-    def gen_instr(self):
-        for _ in range(random.randint(3,6)):
-            gen_func = random.choice(self.gen_func)
-            self.inst_list.extend(gen_func(self))
-            if len(self.inst_list) >= 6:
-                break
 
 class TransBlock:
     def __init__(self, name, extension, output_path):

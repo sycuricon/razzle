@@ -192,17 +192,17 @@ class AccessSecretBlock(TransBlock):
             
             inst_list = [
                 f'begin_access_secret:',
-                f'li t0, {hex(self.address)}',
-                'lb t0, 0(t0)',
+                f'li s0, {hex(self.address)}',
+                'lb s0, 0(s0)',
             ]
 
         else:
 
             inst_list = [
                 f'begin_access_secret:',
-                f'la t0, {self.name}_target_offset',
-                f'ld t0, 0(t0)',
-                'lb t0, 0(t0)',
+                f'la s0, {self.name}_target_offset',
+                f'ld s0, 0(s0)',
+                'lb s0, 0(s0)',
             ]
             
         data_list = [
@@ -213,7 +213,7 @@ class AccessSecretBlock(TransBlock):
         self._load_inst_str(inst_list, mutate=True)
         self._load_data_str(data_list)
 
-        self.secret_reg = 'T0'
+        self.secret_reg = 'S0'
     
     def gen_default(self):
         self.li_offset = True if random.random() < 0.8 else False
@@ -252,12 +252,19 @@ class EncodeBlock(TransBlock):
     def _gen_random(self, block_cnt=4):
         block_list = []
 
-        normal_reg = reg_range[1:]
+        normal_reg = copy.copy(reg_range[1:])
+        normal_rvc_reg = copy.copy(rvc_reg_range)
+        for reg in normal_rvc_reg:
+            normal_reg.remove(reg)
         random.shuffle(normal_reg)
-        normal_data_reg = set(normal_reg[0:24])
+        random.shuffle(normal_rvc_reg)
+        normal_data_reg = set(normal_reg[0:20])
+        normal_data_reg.update(set(normal_rvc_reg[0:6]))
         normal_data_reg.difference_update({self.secret_reg})
-        normal_control_reg = set(normal_reg[24:])
+        normal_control_reg = set(normal_reg[20:])
+        normal_control_reg.update(set(normal_rvc_reg[6:]))
         normal_control_reg.difference_update({self.secret_reg})
+
         normal_freg = set(float_range)
         taint_freg = set()
         if self.strategy == 'fuzz_data':
@@ -271,26 +278,41 @@ class EncodeBlock(TransBlock):
             block = BaseBlock(f'{self.name}_{i}', self.extension, True)
             block_list.append(block)
         
-        for i in [0, 3, 1, 2]:
-            block = block_list[i]
-            block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
-        
-        block_list[0]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[3].name)
-        block_list[3]._gen_jump_to(block_list[1].name)
-        block_list[2]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[1].name)
-        block_list[0].add_succeed(block_list[1])
-        block_list[0].add_succeed(block_list[3])
-        block_list[1].add_succeed(block_list[2])
-        block_list[2].add_succeed(block_list[1])
-        block_list[2].add_succeed(block_list[3])
-        block_list[3].add_succeed(block_list[1])
+        if self.trigger_type != TriggerType.V4:
+            for i in [0, 3, 1, 2]:
+                block = block_list[i]
+                block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
+            
+            block_list[0]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[3].name)
+            block_list[3]._gen_jump_to(block_list[1].name)
+            block_list[2]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[1].name)
+            block_list[0].add_succeed(block_list[1])
+            block_list[0].add_succeed(block_list[3])
+            block_list[1].add_succeed(block_list[2])
+            block_list[2].add_succeed(block_list[1])
+            block_list[2].add_succeed(block_list[3])
+            block_list[3].add_succeed(block_list[1])
+        else:
+            for block in block_list:
+                block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
+            
+            block_list[0]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[2].name)
+            block_list[1]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[3].name)
+            block_list[0].add_succeed(block_list[1])
+            block_list[0].add_succeed(block_list[2])
+            block_list[1].add_succeed(block_list[2])
+            block_list[1].add_succeed(block_list[3])
+            block_list[2].add_succeed(block_list[3])
 
         self._add_inst_block_list(block_list)
 
     def gen_default(self):
         match (self.strategy):
             case 'default':
-                self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
+                if self.trigger_type == TriggerType.V4:
+                    self.leak_kind = 'cache'
+                else:
+                    self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
             case _:
                 self._gen_random(4)
@@ -566,11 +588,13 @@ class TransVictimManager(TransBaseManager):
         self.access_secret_block.gen_instr(access_secret_template)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
-        self.encode_block.gen_instr(encode_template)
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg,\
             self.return_block.entry, self.access_secret_block.entry, self.access_secret_block.li_offset)
         self.trigger_block.gen_instr(trigger_template)
+
+        self.encode_block.trigger_type = self.trigger_block.trigger_type
+        self.encode_block.gen_instr(encode_template)
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
@@ -624,6 +648,7 @@ class TransVictimManager(TransBaseManager):
         file.write(f'trigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\t')
         file.write(f'secret_migrate_type:\t{self.secret_migrate_block.secret_migrate_type}\t')
         file.write(f'access_secret_address:\t{hex(self.access_secret_block.address)}\t')
+        file.write(f'strategy:\t{self.encode_block.strategy}\t')
         file.write(f'return_front:\t{self.return_front}\n')
 
     def mutate(self):

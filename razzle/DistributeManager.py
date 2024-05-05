@@ -495,7 +495,7 @@ class DistributeManager:
 
         cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
         
-        if max(base_windows_list) > 20:
+        if max(base_windows_list) >= 20:
             is_access = True
 
         if is_access:
@@ -809,16 +809,17 @@ class DistributeManager:
         self._generate_frame()
         self._generate_frame_block()
 
+        trigger_template = 'trigger_template'
+        VICTIM_FUZZ_MAX_ITER = 10
+        VICTIM_MUTATE_MAX_ITER = 20
+
         stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
         if not os.path.exists(stage2_iter_num_file):
             begin_iter_num = 0
         else:
             with open(stage2_iter_num_file, "rt") as file:
-                begin_iter_num = 1 + int(file.readline().strip())
+                begin_iter_num = int(file.readline().strip())//VICTIM_MUTATE_MAX_ITER + 1
 
-        trigger_template = 'trigger_template'
-        VICTIM_FUZZ_MAX_ITER = 2
-        VICTIM_MUTATE_MAX_ITER = 2
         for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
             while True:
                 folder = os.path.join(repo_path, trigger_template)
@@ -840,6 +841,9 @@ class DistributeManager:
                 if is_leak and cover_expand:
                     self.store_template(iter_num*VICTIM_MUTATE_MAX_ITER+sub_iter_num, self.repo_path,\
                             template_folder)
+                
+                self.record_fuzz(iter_num*VICTIM_MUTATE_MAX_ITER+sub_iter_num, is_trigger, is_tte_trigger,\
+                                is_access, is_leak, stage_num=2)
     
     # def choose_template(self, repo_path, template_folder):
     #     folder = os.path.join(repo_path, template_folder)
