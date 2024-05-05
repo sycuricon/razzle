@@ -270,9 +270,10 @@ class TransTTEManager(TransBaseManager):
             self.trigger_block, self.adjust_block], self.return_front)
     
     def record_fuzz(self,file):
-        file.write(f'trigger_type:\t{self.trigger_block.trigger_type}\t')
-        file.write(f'trigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\t')
-        file.write(f'return_front:\t{self.return_front}\n')
+        file.write('tte:\n')
+        file.write(f'\ttrigger_type:\t{self.trigger_block.trigger_type}')
+        file.write(f'\ttrigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}')
+        file.write(f'\treturn_front:\t{self.return_front}\n')
     
     def _generate_sections(self):
 

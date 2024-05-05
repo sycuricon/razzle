@@ -240,9 +240,10 @@ class TransTrainManager(TransBaseManager):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
     
     def record_fuzz(self,file):
-        file.write(f'train_type:\t{self.train_block.train_type}\t')
-        file.write(f'train_inst:\t{self.train_block.train_inst.to_asm()}\t')
-        file.write(f'return_front:\t{self.return_front}\n')
+        file.write('train:\n')
+        file.write(f'\ttrain_type:\t{self.train_block.train_type}')
+        file.write(f'\ttrain_inst:\t{self.train_block.train_inst.to_asm()}')
+        file.write(f'\treturn_front:\t{self.return_front}\n')
 
     def _generate_sections(self):
 

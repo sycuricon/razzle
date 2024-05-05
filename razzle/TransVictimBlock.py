@@ -644,12 +644,13 @@ class TransVictimManager(TransBaseManager):
             file.write(f'{self.trigger_block.trigger_type}')
     
     def record_fuzz(self,file):
-        file.write(f'trigger_type:\t{self.trigger_block.trigger_type}\t')
-        file.write(f'trigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\t')
-        file.write(f'secret_migrate_type:\t{self.secret_migrate_block.secret_migrate_type}\t')
-        file.write(f'access_secret_address:\t{hex(self.access_secret_block.address)}\t')
-        file.write(f'strategy:\t{self.encode_block.strategy}\t')
-        file.write(f'return_front:\t{self.return_front}\n')
+        file.write('victim:\n')
+        file.write(f'\ttrigger_type:\t{self.trigger_block.trigger_type}')
+        file.write(f'\ttrigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\n')
+        file.write(f'\tsecret_migrate_type:\t{self.secret_migrate_block.secret_migrate_type}')
+        file.write(f'\taccess_secret_address:\t{hex(self.access_secret_block.address)}\n')
+        file.write(f'\tstrategy:\t{self.encode_block.strategy}')
+        file.write(f'\treturn_front:\t{self.return_front}\n')
 
     def mutate(self):
         if self.strategy == 'default':
