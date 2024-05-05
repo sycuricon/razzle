@@ -103,9 +103,6 @@ class BaseBlock:
         instr.add_constraint(instr_c,['NAME'])
         instr.solve()
 
-        if instr['NAME'] == 'C.SRLI':
-            print("here")
-
         taint_rs1 = self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
         taint_rs2 = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
         taint_rd = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)

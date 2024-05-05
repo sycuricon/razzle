@@ -1963,7 +1963,7 @@
             "RD_RS1_N0"
         ]
     },
-    "`C.SRLI": {
+    "C.SRLI": {
         "extension": [
             "RV64_C"
         ],
