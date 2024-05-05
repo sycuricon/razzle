@@ -22,65 +22,128 @@ class BaseBlock:
         self.previous_inited = set()
         self.need_inited = set()
         self.succeed_inited = set()
+    
+    def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        for _ in range(6):
+            inst_list = self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
+            if self.get_inst_len() + len(inst_list)*4 > 24:
+                break
+            else:
+                self.inst_list.extend(inst_list)
+    
+    def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        random_data = random.random()
+        if random_data < 0.25:
+            return self._gen_int_arithmetic(normal_reg, taint_reg)
+        elif random_data < 0.55:
+            return self._gen_float_arithmetic(normal_reg, taint_reg, normal_freg, taint_freg)
+        elif random_data < 0.9:
+            return self._gen_load_store(normal_reg, taint_reg)
+        elif random_data < 0.93:
+            return self._gen_atomic(normal_reg, taint_reg)
+        elif random_data < 0.97:
+            return self._gen_csr(normal_reg, taint_reg)
+        else:
+            return self._gen_system()
+    
+    def get_random_reg(self, normal_reg, taint_reg):
+        if len(normal_reg) == 0:
+            reg = random.choice(list(taint_reg))
+            taint = True
+        elif len(taint_reg) == 0:
+            reg = random.choice(list(normal_reg))
+            taint = False
+        elif random.random() < 0.5:
+            reg = random.choice(list(normal_reg))
+            taint = False
+        else:
+            reg = random.choice(list(taint_reg))
+            taint = True
+        
+        return reg, taint
+    
+    def set_instr_reg(self, instr, field, normal_reg, taint_reg):
+        taint = False
+        if instr.has(field):
+            reg, taint = self.get_random_reg(normal_reg, taint_reg)
+            instr[field] = reg
+        return taint        
 
-    def _gen_int_arithmetic(self):
+    def _gen_int_arithmetic(self, normal_reg, taint_reg):
         extension = [extension_i for extension_i in [
             'RV64_C', 'RV64_M', 'RV64_I', 'RV_M', 'RV_I', 'RV_C'] if extension_i in self.extension]
         instr = rand_instr(instr_extension=extension, instr_category=['ARITHMETIC'])
-        def instr_c_name(name):
-            return name not in ['LA']
-        instr.add_constraint(instr_c_name,['NAME'])
+        
+        def instr_c(name):
+            return name not in ['LA', 'LI']
+        instr.add_constraint(instr_c,['NAME'])
         instr.solve()
+
+        taint_rs1 = self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
+        taint_rs2 = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
+        taint_rd = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)
+        if instr.has('RD'):
+            if not taint_rd and (taint_rs1 or taint_rs2):
+                normal_reg.difference_update({instr['RD']})
+                taint_reg.add(instr['RD'])
+            if taint_rd and (not taint_rs1 and not taint_rs2):
+                taint_reg.difference_update({instr['RD']})
+                normal_reg.add(instr['RD'])
         return [instr]
     
-    def _gen_load_address(self):
+    def _gen_load_address(self, normal_reg, taint_reg):
         instr_la = Instruction()
-        instr_la.set_label_constraint(['random_data_block_page_base'])
+        instr_la.set_label_constraint(['random_data_block_page_base', 'channel_page_base_0',\
+            'channel_page_base_1', 'channel_page_base_2', 'channel_page_base_3'])
         instr_la.set_name_constraint(['LA'])
         instr_la.solve()
-        return instr_la
+
+        taint_rd = self.set_instr_reg(instr_la, 'RD', normal_reg, taint_reg)
+        if taint_rd:
+            taint_reg.difference_update({instr_la['RD']})
+            normal_reg.add(instr_la['RD'])
+
+        inst_list = [instr_la]
+        
+        if random.random() < 0.5:
+            reg, taint = self.get_random_reg(normal_reg, taint_reg)
+            inst_mask = Instruction(f'andi {reg.lower()}, {reg.lower()}, 0x7f8')
+            inst_offset = Instruction(f'add {instr_la["RD"].lower()}, {instr_la["RD"].lower()}, {reg.lower()}')
+            inst_list.extend([inst_mask, inst_offset])
+            if taint:
+                taint_reg.add(instr_la['RD'])
+                normal_reg.difference_update({instr_la['RD']})
+        
+        return inst_list
     
-    def _gen_load_store(self):
+    def _gen_load_store(self, normal_reg, taint_reg):
         extension = [extension_i for extension_i in [
             'RV_I', 'RV64_I', 'RV_D', 'RV64_D', 'RV_F', 'RV64_F',
             'RV_C', 'RV32_C', 'RV64_C', 'RV32_C_F', 'RV_C_D'] if extension_i in self.extension]
-        instr_la = self._gen_load_address()
+        inst_list = self._gen_load_address(normal_reg, taint_reg)
 
-        rd = instr_la['RD']
-        def instr_c_reg(reg):
-            return reg == rd
+        la_rd = inst_list[0]['RD']
+        def instr_c_reg(rs1):
+            return rs1 == la_rd
         instr = rand_instr(instr_extension=extension, instr_category=[
-            'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7ff))
+            'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7f8, 8))
         instr.add_constraint(instr_c_reg, ['RS1'])
         instr.solve()
-        instr['IMM'] = down_align(instr['IMM'], 8)
 
-        return [instr_la, instr]
+        _ = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
+        taint_rd = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)
+        if instr.has('RD'):
+            if la_rd in taint_reg and not taint_rd:
+                normal_reg.difference_update({instr['RD']})
+                taint_reg.add(instr['RD'])
+            elif la_rd not in taint_reg and taint_rd:
+                taint_reg.difference_update({instr['RD']})
+                normal_reg.add(instr['RD'])
 
-    def _gen_atomic(self):
-        extension = [extension_i for extension_i in ['RV_A', 'RV64_A'] if extension_i in self.extension]
-        instr_la = self._gen_load_address()
-        
-        instr_off = Instruction()
-        instr_off.set_name_constraint(['ADDI'])
-        offset = random.randint(-0x800, 0x7ff)
-        offset = down_align(offset, 8)
-        instr_off.set_imm_constraint(range(offset, offset+1))
-        rd = instr_la['RD']
-        def c_rd_rd1(r1, r2):
-            return r1 == rd and r2 == rd
-        instr_off.add_constraint(c_rd_rd1, ['RD', 'RS1'])
-        instr_off.solve()
+        inst_list.append(instr)
+        return inst_list
 
-        def reg_c(rs1):
-            return rs1 == rd
-        instr_amo = rand_instr(instr_extension=extension, instr_category=['AMO'])
-        instr_amo.add_constraint(reg_c, ['RS1'])
-        instr_amo.solve()
-
-        return [instr_la, instr_off, instr_amo]
-    
-    def _gen_float_arithmetic(self):
+    def _gen_float_arithmetic(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension for extension in [
             'RV_D', 'RV64_D',
             'RV_F', 'RV64_F',
@@ -90,15 +153,74 @@ class BaseBlock:
         instr = rand_instr(instr_extension=extension,instr_category=['FLOAT'])
         instr.solve()
 
+        taint_rs1 = self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
+        taint_rs2 = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
+        taint_rd  = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)
+        taint_frs1 = self.set_instr_reg(instr, 'FRS1', normal_freg, taint_freg)
+        taint_frs2 = self.set_instr_reg(instr, 'FRS2', normal_freg, taint_freg)
+        taint_frs3 = self.set_instr_reg(instr, 'FRS3', normal_freg, taint_freg)
+        taint_frd = self.set_instr_reg(instr, 'FRD', normal_freg, taint_freg)
+        
+        if instr.has('RD'):
+            if not taint_rd and (taint_rs1 or taint_rs2 or taint_frs1 or taint_frs2 or taint_frs3):
+                normal_reg.difference_update({instr['RD']})
+                taint_reg.add(instr['RD'])
+            elif taint_rd and not (taint_rs1 or taint_rs2 or taint_frs1 or taint_frs2 or taint_frs3):
+                taint_reg.difference_update({instr['RD']})
+                normal_reg.add(instr['RD'])
+        
+        if instr.has('FRD'):
+            if not taint_frd and (taint_rs1 or taint_rs2 or taint_frs1 or taint_frs2 or taint_frs3):
+                normal_freg.difference_update({instr['FRD']})
+                taint_freg.add(instr['FRD'])
+            elif taint_frd and not (taint_rs1 or taint_rs2 or taint_frs1 or taint_frs2 or taint_frs3):
+                taint_freg.difference_update({instr['FRD']})
+                normal_freg.add(instr['FRD'])
+
         return [instr]
 
-    def _gen_csr(self):
+    def _gen_atomic(self, normal_reg, taint_reg):
+        extension = [extension_i for extension_i in ['RV_A', 'RV64_A'] if extension_i in self.extension]
+        inst_list = self._gen_load_address(normal_reg, taint_reg)
+        
+        la_rd = inst_list[0]['RD']
+        def instr_c_reg(rs1):
+            return rs1 == la_rd
+        instr = rand_instr(instr_extension=extension, instr_category=[
+            'AMO_LOAD', 'AMO_STORE', 'AMO'], imm_range=range(-0x800, 0x7f8, 8))
+        instr.add_constraint(instr_c_reg, ['RS1'])
+        instr.solve()
+
+        _ = self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
+        taint_rd = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)
+        if instr.has('RD'):
+            if la_rd in taint_reg and not taint_rd:
+                normal_reg.difference_update({instr['RD']})
+                taint_reg.add(instr['RD'])
+            elif la_rd not in taint_reg and taint_rd:
+                taint_reg.difference_update({instr['RD']})
+                normal_reg.add(instr['RD'])
+
+        inst_list.append(instr)
+        return inst_list
+
+    def _gen_csr(self, normal_reg, taint_reg):
         extension = [extension for extension in [
             'RV_ZICSR'] if extension in self.extension]
 
         instr = rand_instr(instr_extension=extension,
                            instr_category=['CSR'])
         instr.solve()
+
+        taint_rs1 = self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
+        taint_rd = self.set_instr_reg(instr, 'RD', normal_reg, taint_reg)
+        if instr.has('RD'):
+            if taint_rs1 and not taint_rd:
+                normal_reg.difference_update({instr['RD']})
+                taint_reg.add(instr['RD'])
+            elif not taint_rs1 and taint_rd:
+                taint_reg.difference_update({instr['RD']})
+                normal_reg.add(instr['RD'])
 
         return [instr]
     
@@ -109,6 +231,23 @@ class BaseBlock:
                            instr_category=['SYSTEM', 'SYNCH'])
         instr.solve()
         return [instr]
+
+    def _gen_branch_to(self, normal_reg, taint_reg, target):
+        extension = [extension_i for extension_i in [
+            'RV_I', 'RV64_I', 'RV_C', 'RV32_C', 'RV64_C'] if extension_i in self.extension]
+        instr = rand_instr(
+            instr_extension=extension, instr_category=['BRANCH'])
+        instr.set_label_constraint([target])
+        instr.solve()
+
+        self.set_instr_reg(instr, 'RS1', normal_reg, taint_reg)
+        self.set_instr_reg(instr, 'RS2', normal_reg, taint_reg)
+
+        self.inst_list.append(instr)
+    
+    def _gen_jump_to(self, target):
+        instr = Instruction(f'jal zero, {target}')
+        self.inst_list.append(instr)
 
     def compute_succeed_inited(self):
         if not self.mutate:
@@ -299,37 +438,6 @@ class TransBlock:
             self.gen_default()
         else:
             self.load_template(template)
-
-    def instr_mutate(self):
-        pass
-    
-    def _gen_random(self, block_cnt=3):
-        block_list = []
-        for i in range(block_cnt):
-            block = RandomBlock(f'{self.name}_{i}', self.extension)
-            block.gen_instr()
-            block_list.append(block)
-
-        start_p = 0
-        while(start_p + 2 < block_cnt - 1):
-            end_p = random.randint(start_p + 2, block_cnt -2)
-            block_list[start_p].inst_list.extend(new_branch_to(self.extension,block_list[end_p].name))
-            block_list[end_p].inst_list.extend(new_jump_to(block_list[start_p + 1].name))
-            block_list[end_p -1].inst_list.extend(new_jump_to(block_list[end_p + 1].name))
-
-            block_list[start_p].add_succeed(block_list[end_p])
-            block_list[start_p].add_succeed(block_list[start_p + 1])
-            block_list[end_p].add_succeed(block_list[start_p + 1])
-            for i in range(start_p + 1, end_p - 1):
-                block_list[i].add_succeed(block_list[i+1])
-            block_list[end_p - 1].add_succeed(block_list[end_p + 1])
-
-            start_p = end_p + 1
-
-        for i in range(start_p, len(block_list)-1):
-            block_list[i].add_succeed(block_list[i+1])
-
-        return block_list
     
     def gen_inst_asm(self):
         inst_asm_list = []

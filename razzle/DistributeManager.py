@@ -791,15 +791,65 @@ class DistributeManager:
                 self.swap_victim_dist_id += 1
                 self.swap_victim_list.insert(0, trans_train.mem_region)
     
-    def choose_template(self, repo_path, template_folder):
-        folder = os.path.join(repo_path, template_folder)
-        folder_num = random.choice(os.listdir(folder))
-        type_file = os.path.join(folder, folder_num, 'victim', 'trigger_block.type')
-        with open(type_file, "rt") as file:
-            trigger_type = eval(file.readline().strip())
-        need_train = trigger_type.need_train()
-        not_V4 = trigger_type != TriggerType.V4
-        return folder_num, need_train, not_V4
+    def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+        if repo_path is None:
+            self.repo_path = self.output_path
+        else:
+            self.repo_path = repo_path
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path)
+        template_folder = "leak_template"
+        
+        self.rtl_sim = rtl_sim
+        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
+        self.rtl_sim_mode = rtl_sim_mode
+        self.taint_log = taint_log
+        
+        # get frame and exit
+        self._generate_frame()
+        self._generate_frame_block()
+
+        stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
+        if not os.path.exists(stage2_iter_num_file):
+            begin_iter_num = 0
+        else:
+            with open(stage2_iter_num_file, "rt") as file:
+                begin_iter_num = 1 + int(file.readline().strip())
+
+        trigger_template = 'trigger_template'
+        VICTIM_FUZZ_MAX_ITER = 2
+        VICTIM_MUTATE_MAX_ITER = 2
+        for iter_num in range(begin_iter_num, begin_iter_num + VICTIM_FUZZ_MAX_ITER):
+            while True:
+                folder = os.path.join(repo_path, trigger_template)
+                folder_num = random.choice(os.listdir(folder))
+                self.load_template(folder_num, repo_path, trigger_template, random.choice(['fuzz_data', 'fuzz_control']))
+                self.mem_cfg.add_swap_list(self.swap_victim_list)
+                self.mem_cfg.dump_conf(self.output_path)
+                is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+                if is_trigger and is_access:
+                    break
+
+            for sub_iter_num in range(VICTIM_MUTATE_MAX_ITER):
+                self.trans_victim.mutate()
+                self._generate_body_block(self.trans_victim)
+                self.swap_block_list = self.swap_victim_list
+                self.mem_cfg.add_swap_list(self.swap_block_list)
+                self.mem_cfg.dump_conf(self.output_path)
+                is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+                if is_leak and cover_expand:
+                    self.store_template(iter_num*VICTIM_MUTATE_MAX_ITER+sub_iter_num, self.repo_path,\
+                            template_folder)
+    
+    # def choose_template(self, repo_path, template_folder):
+    #     folder = os.path.join(repo_path, template_folder)
+    #     folder_num = random.choice(os.listdir(folder))
+    #     type_file = os.path.join(folder, folder_num, 'victim', 'trigger_block.type')
+    #     with open(type_file, "rt") as file:
+    #         trigger_type = eval(file.readline().strip())
+    #     need_train = trigger_type.need_train()
+    #     not_V4 = trigger_type != TriggerType.V4
+    #     return folder_num, need_train, not_V4
     
     # def break_trigger(self):
     #     train_prob = {
