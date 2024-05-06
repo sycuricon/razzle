@@ -11,11 +11,11 @@ def genonly_entry(args):
 
 def stage1_entry(args):
     dist = DistributeManager(args.input, args.output, args.virtual)
-    dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)
+    dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.core, do_fuzz=True)
 
 def stage2_entry(args):
     dist = DistributeManager(args.input, args.output, args.virtual)
-    dist.fuzz_stage2(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, do_fuzz=True)
+    dist.fuzz_stage2(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.core, do_fuzz=True)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -50,6 +50,9 @@ if __name__ == "__main__":
     parser_stage1.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
     )
+    parser_stage1.add_argument(
+        "--core", dest="core", help="the name of the core, must be boom or xiangshan"
+    )
 
     parser_stage2 = subparsers.add_parser('stage2', aliases=['s2'])
     parser_stage2.set_defaults(func=stage2_entry)
@@ -64,6 +67,9 @@ if __name__ == "__main__":
     )
     parser_stage2.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
+    )
+    parser_stage2.add_argument(
+        "--core", dest="core", help="the name of the core, must be boom or xiangshan"
     )
 
     args = parser.parse_args()

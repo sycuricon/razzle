@@ -428,6 +428,18 @@ class DistributeManager:
             return False
     
     def _sim_and_analysis(self):
+        match(self.core):
+            case 'boom':
+                ACCESS_SECRET_THRESHOLD = 20
+                CTRL_FLOW_LEAK_THRESHOLD = 0.1
+                DATA_FLOW_LEAK_THRESHOLD = 40
+            case 'xiangshan':
+                ACCESS_SECRET_THRESHOLD = 200
+                CTRL_FLOW_LEAK_THRESHOLD = 0.1
+                DATA_FLOW_LEAK_THRESHOLD = 400
+            case _:
+                raise Exception("the core type is not implemented!!!")
+
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
         )
@@ -495,13 +507,13 @@ class DistributeManager:
 
         cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
         
-        if max(base_windows_list) >= 20:
+        if max(base_windows_list) >= ACCESS_SECRET_THRESHOLD:
             is_access = True
 
         if is_access:
-            if cosim_result > 0.1:
+            if cosim_result > CTRL_FLOW_LEAK_THRESHOLD:
                 is_leak = True
-            elif max(base_windows_list) > 40:
+            elif max(base_windows_list) > DATA_FLOW_LEAK_THRESHOLD:
                 is_leak = True
             else:
                 is_leak = False
@@ -662,7 +674,7 @@ class DistributeManager:
             trans_block.gen_block(train_type, self.trans_victim, None)
             self._generate_body_block(trans_block)
     
-    def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+    def fuzz_stage1(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, core, do_fuzz = True):
         if repo_path is None:
             self.repo_path = self.output_path
         else:
@@ -675,6 +687,9 @@ class DistributeManager:
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
+
+        assert core in ['boom', 'xiangshan'], "the core must be in boom and xiangshan"
+        self.core = core
         
         # get frame and exit
         self._generate_frame()
@@ -791,7 +806,7 @@ class DistributeManager:
                 self.swap_victim_dist_id += 1
                 self.swap_victim_list.insert(0, trans_train.mem_region)
     
-    def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, do_fuzz = True):
+    def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, core, do_fuzz = True):
         if repo_path is None:
             self.repo_path = self.output_path
         else:
@@ -804,6 +819,9 @@ class DistributeManager:
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
+
+        assert core in ['boom', 'xiangshan'], "the core must be in boom and xiangshan"
+        self.core = core
         
         # get frame and exit
         self._generate_frame()
