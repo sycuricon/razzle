@@ -1,6 +1,6 @@
     la t1, secret_target
     ld t1, 0(t1)
-    bne t0, t1, encode_exit
+    bne s0, t1, encode_exit
 encode_success:
     la t0, array
     ld t1, 0(t0)
