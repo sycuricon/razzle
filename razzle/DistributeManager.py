@@ -688,6 +688,7 @@ class DistributeManager:
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
 
+        core = core.lower()
         assert core in ['boom', 'xiangshan'], "the core must be in boom and xiangshan"
         self.core = core
         
@@ -820,6 +821,7 @@ class DistributeManager:
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
 
+        core = core.lower()
         assert core in ['boom', 'xiangshan'], "the core must be in boom and xiangshan"
         self.core = core
         
