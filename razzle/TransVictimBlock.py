@@ -230,6 +230,7 @@ class EncodeBlock(TransBlock):
     def __init__(self, extension, output_path, secret_reg, strategy):
         super().__init__('encode_block', extension, output_path)
         self.secret_reg = secret_reg
+        assert strategy in ['default', 'fuzz_data', 'fuzz_control']
         self.strategy = strategy
 
     def _gen_block_end(self):
@@ -258,10 +259,10 @@ class EncodeBlock(TransBlock):
             normal_reg.remove(reg)
         random.shuffle(normal_reg)
         random.shuffle(normal_rvc_reg)
-        normal_data_reg = set(normal_reg[0:20])
+        normal_data_reg = set(normal_reg[0:28])
         normal_data_reg.update(set(normal_rvc_reg[0:6]))
         normal_data_reg.difference_update({self.secret_reg})
-        normal_control_reg = set(normal_reg[20:])
+        normal_control_reg = set(normal_reg[28:])
         normal_control_reg.update(set(normal_rvc_reg[6:]))
         normal_control_reg.difference_update({self.secret_reg})
 
@@ -274,37 +275,45 @@ class EncodeBlock(TransBlock):
             taint_control_reg = {self.secret_reg}
             taint_data_reg = set()
 
-        for i in range(4):
-            block = BaseBlock(f'{self.name}_{i}', self.extension, True)
-            block_list.append(block)
-        
-        if self.trigger_type != TriggerType.V4:
-            for i in [0, 3, 1, 2]:
-                block = block_list[i]
-                block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
-            
-            block_list[0]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[3].name)
-            block_list[3]._gen_jump_to(block_list[1].name)
-            block_list[2]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[1].name)
-            block_list[0].add_succeed(block_list[1])
-            block_list[0].add_succeed(block_list[3])
-            block_list[1].add_succeed(block_list[2])
-            block_list[2].add_succeed(block_list[1])
-            block_list[2].add_succeed(block_list[3])
-            block_list[3].add_succeed(block_list[1])
-        else:
-            for block in block_list:
-                block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
-            
-            block_list[0]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[2].name)
-            block_list[1]._gen_branch_to(normal_control_reg, taint_control_reg, block_list[3].name)
-            block_list[0].add_succeed(block_list[1])
-            block_list[0].add_succeed(block_list[2])
-            block_list[1].add_succeed(block_list[2])
-            block_list[1].add_succeed(block_list[3])
-            block_list[2].add_succeed(block_list[3])
+        kind_class = {
+            BaseBlockType.INT:IntBlock,
+            BaseBlockType.FLOAT:FloatBlock,
+            BaseBlockType.LOAD_STORE:LSUBlock,
+            BaseBlockType.AMO:AMOBlock,
+            BaseBlockType.CSR:CSRBlock,
+            BaseBlockType.SYSTEM:SystemBlock
+        }
 
-        self._add_inst_block_list(block_list)
+        block_list.append(BaseBlock(f'{self.name}_0', self.extension, True))
+
+        kind = BaseBlockType.NULL
+        for i in range(1, 5):
+            kind_prob = {
+                BaseBlockType.INT:0.2,
+                BaseBlockType.FLOAT:0.2,
+                BaseBlockType.LOAD_STORE:0.2,
+                BaseBlockType.AMO:0.05,
+                BaseBlockType.CSR:0.03,
+                BaseBlockType.SYSTEM:0.02
+            }
+            if kind != BaseBlockType.NULL:
+                kind_prob[kind] += 0.3
+            else:
+                kind_prob[BaseBlockType.INT] += 0.1
+                kind_prob[BaseBlockType.FLOAT] += 0.1
+                kind_prob[BaseBlockType.LOAD_STORE] += 0.1
+            kind = random_choice(kind_prob)
+            block = kind_class[kind](f'{self.name}_{i}', self.extension, True)
+            block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
+            self._add_inst_block(block)
+            block_list.append(block)
+
+        if self.trigger_type != TriggerType.V4:
+            block_list[-1].inst_list.append(Instruction(f'jal zero, {block_list[1].name}'))
+
+        if self.strategy == 'fuzz_control':
+            for block in block_list[:-1]:
+                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
 
     def gen_default(self):
         match (self.strategy):
