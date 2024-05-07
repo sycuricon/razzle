@@ -18,6 +18,9 @@ class BaseBlockType(Enum):
     AMO = auto()
     CSR = auto()
     SYSTEM = auto()
+    JMP = auto()
+    CALLRET = auto()
+    BRANCH = auto()
 
 class BaseBlock:
     def __init__(self, name, extension, mutate):
@@ -40,6 +43,8 @@ class BaseBlock:
                 break
             else:
                 self.inst_list.extend(inst_list)
+        
+        return [self]
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         raise Exception("the gen_random_instr has not been implemented!!!")
@@ -195,7 +200,7 @@ class FloatBlock(BaseBlock):
             instr = Instruction(f'fcvt.s.lu {frd.lower()}, {rs.lower()}')
             taint_freg.add(frd)
             self.inst_list.append(instr)
-        super().gen_random_block(normal_reg, taint_reg, normal_freg, taint_freg)
+        return super().gen_random_block(normal_reg, taint_reg, normal_freg, taint_freg)
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension for extension in [
@@ -232,7 +237,91 @@ class FloatBlock(BaseBlock):
                 normal_freg.add(instr['FRD'])
 
         return [instr]
+
+class RetCallBlock(BaseBlock):
+    def __init__(self, name, extension, mutate):
+        super().__init__(name, extension, mutate)
     
+    def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        self.inst_list.append(Instruction('auipc t0, 0'))
+        self.inst_list.append(Instruction('add ra, t0, zero'))
+        self.jalr_offset = 8
+        return super().gen_random_block(normal_reg, taint_reg, normal_freg, taint_freg)
+
+    def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        def update_jalr_offset(inst):
+            self.jalr_offset += (2 if inst['NAME'].startswith('C.') else 4)
+        
+        inst_list = []
+        if random.random() < 0.5:
+            inst = Instruction(f'jalr zero, 0(ra)')
+            update_jalr_offset(inst)
+            inst['IMM'] = self.jalr_offset
+            inst_list.append(inst)
+        else:
+            inst = Instruction(f'jalr ra, 0(t0)')
+            update_jalr_offset(inst)
+            inst['IMM'] = self.jalr_offset
+            inst_list.append(inst)
+            inst = Instruction('add ra, t0, zero')
+            update_jalr_offset(inst)
+            inst_list.append(inst)
+        
+        return inst_list
+
+class JMPBlock(BaseBlock):
+    def __init__(self, name, extension, mutate):
+        super().__init__(name, extension, mutate)
+        self.block_list = [self]
+    
+    def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        self.inst_list.append(Instruction('auipc t0, 0'))
+        self.jalr_offset = 4
+        for _ in range(5):
+            self.gen_random_inst()
+        self.block_list[-1].inst_list.append(Instruction('c.nop'))
+        return self.block_list
+    
+    def gen_random_inst(self):
+        def update_jalr_offset(inst):
+            self.jalr_offset += (2 if inst['NAME'].startswith('C.') else 4)
+        
+        if random.random() < 0.75:
+            inst = Instruction(f'jalr zero, 0(t0)')
+            update_jalr_offset(inst)
+            inst['IMM'] = self.jalr_offset
+            self.block_list[-1].inst_list.append(inst)
+        else:
+            block = BaseBlock(f'{self.name}_{len(self.block_list)}', self.extension, True)
+            inst = Instruction(f'jal zero, {block.name}')
+            update_jalr_offset(inst)
+            self.block_list[-1].inst_list.append(inst)
+            self.block_list[-1].add_succeed(block)
+            self.block_list.append(block)
+
+class BranchBlock(BaseBlock):
+    def __init__(self, name, extension, mutate):
+        super().__init__(name, extension, mutate)
+        self.block_list = [self]
+    
+    def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        for _ in range(6):
+            self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
+        self.block_list[-1].inst_list.append(Instruction('c.nop'))
+        return self.block_list
+    
+    def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
+        block = BaseBlock(f'{self.name}_{len(self.block_list)}', self.extension, True)
+        inst = Instruction()
+        inst.set_category_constraint(['BRANCH'])
+        inst.set_label_constraint([block.name])
+        inst.solve()
+        _ = self.set_instr_reg(inst, 'RS1', normal_reg, taint_reg)
+        _ = self.set_instr_reg(inst, 'RS2', normal_reg, taint_reg)
+        self.block_list[-1].inst_list.append(inst)
+        self.block_list[-1].add_succeed(block)
+        self.block_list.append(block)
+
 class MemBlock(BaseBlock):
     def __init__(self, name, extension, mutate):
         super().__init__(name, extension, mutate)
@@ -240,6 +329,8 @@ class MemBlock(BaseBlock):
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
         inst_list = self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
         self.inst_list.extend(inst_list)
+
+        return [self]
     
     def _gen_load_address(self, normal_reg, taint_reg):
         instr_la = Instruction()

@@ -232,6 +232,7 @@ class EncodeBlock(TransBlock):
         self.secret_reg = secret_reg
         assert strategy in ['default', 'fuzz_data', 'fuzz_control']
         self.strategy = strategy
+        self.encode_block_list = []
 
     def _gen_block_end(self):
 
@@ -251,8 +252,6 @@ class EncodeBlock(TransBlock):
         self._load_inst_str(inst_exit)
 
     def _gen_random(self, block_cnt=4):
-        block_list = []
-
         normal_reg = copy.copy(reg_range[1:])
         normal_rvc_reg = copy.copy(rvc_reg_range)
         for reg in normal_rvc_reg:
@@ -279,41 +278,66 @@ class EncodeBlock(TransBlock):
             BaseBlockType.INT:IntBlock,
             BaseBlockType.FLOAT:FloatBlock,
             BaseBlockType.LOAD_STORE:LSUBlock,
+            BaseBlockType.JMP:JMPBlock,
+            BaseBlockType.CALLRET:RetCallBlock,
+            BaseBlockType.BRANCH:BranchBlock,
             BaseBlockType.AMO:AMOBlock,
             BaseBlockType.CSR:CSRBlock,
             BaseBlockType.SYSTEM:SystemBlock
         }
 
-        block_list.append(BaseBlock(f'{self.name}_0', self.extension, True))
+        block = BaseBlock(f'{self.name}_0', self.extension, True)
+        self._add_inst_block(block)
+        if self.strategy == 'fuzz_control':
+            block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
 
         kind = BaseBlockType.NULL
-        for i in range(1, 5):
+        for i in range(1, 4):
             kind_prob = {
-                BaseBlockType.INT:0.2,
-                BaseBlockType.FLOAT:0.2,
-                BaseBlockType.LOAD_STORE:0.2,
-                BaseBlockType.AMO:0.05,
-                BaseBlockType.CSR:0.03,
-                BaseBlockType.SYSTEM:0.02
+                BaseBlockType.INT:0.1,
+                BaseBlockType.FLOAT:0.1,
+                BaseBlockType.LOAD_STORE:0.1,
+                BaseBlockType.BRANCH:0.1,
+                BaseBlockType.JMP:0.1,
+                BaseBlockType.CALLRET:0.1,
+                BaseBlockType.AMO:0.025,
+                BaseBlockType.CSR:0.015,
+                BaseBlockType.SYSTEM:0.01
             }
-            if kind != BaseBlockType.NULL:
-                kind_prob[kind] += 0.3
-            else:
-                kind_prob[BaseBlockType.INT] += 0.1
-                kind_prob[BaseBlockType.FLOAT] += 0.1
-                kind_prob[BaseBlockType.LOAD_STORE] += 0.1
+            match(kind):
+                case BaseBlockType.NULL:
+                    kind_prob[BaseBlockType.INT] += 0.05
+                    kind_prob[BaseBlockType.FLOAT] += 0.06
+                    kind_prob[BaseBlockType.LOAD_STORE] += 0.06
+                    kind_prob[BaseBlockType.CALLRET] += 0.06
+                    kind_prob[BaseBlockType.JMP] += 0.06
+                    kind_prob[BaseBlockType.BRANCH] += 0.06
+                case BaseBlockType.INT|BaseBlockType.FLOAT|BaseBlockType.LOAD_STORE:
+                    kind_prob[BaseBlockType.INT] = 0.2
+                    kind_prob[BaseBlockType.FLOAT] = 0.2
+                    kind_prob[BaseBlockType.LOAD_STORE] = 0.2
+                    kind_prob[BaseBlockType.JMP] = 0.01
+                    kind_prob[BaseBlockType.CALLRET] = 0.01
+                    kind_prob[BaseBlockType.BRANCH] = 0.01
+                    kind_prob[kind] += 0.32
+                case BaseBlockType.JMP|BaseBlockType.CALLRET|BaseBlockType.BRANCH:
+                    kind_prob[BaseBlockType.INT] = 0.01
+                    kind_prob[BaseBlockType.FLOAT] = 0.01
+                    kind_prob[BaseBlockType.LOAD_STORE] = 0.01
+                    kind_prob[BaseBlockType.JMP] = 0.2
+                    kind_prob[BaseBlockType.CALLRET] = 0.2
+                    kind_prob[BaseBlockType.BRANCH] = 0.2
+                    kind_prob[kind] += 0.32
             kind = random_choice(kind_prob)
             block = kind_class[kind](f'{self.name}_{i}', self.extension, True)
-            block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
-            self._add_inst_block(block)
-            block_list.append(block)
+            self.encode_block_list.append(block)
+            block_list = block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
+            self._add_inst_block_list(block_list)
 
         if self.trigger_type != TriggerType.V4:
-            block_list[-1].inst_list.append(Instruction(f'jal zero, {block_list[1].name}'))
-
-        if self.strategy == 'fuzz_control':
-            for block in block_list[:-1]:
-                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
+            block = BaseBlock(f'{self.name}_4', self.extension, True)
+            self._add_inst_block(block)
+            block.inst_list.append(Instruction(f'jal zero, {self.encode_block_list[0].name}'))
 
     def gen_default(self):
         match (self.strategy):
