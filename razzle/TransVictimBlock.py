@@ -233,6 +233,8 @@ class EncodeBlock(TransBlock):
         assert strategy in ['default', 'fuzz_data', 'fuzz_control']
         self.strategy = strategy
         self.encode_block_list = []
+        self.encode_block_begin = 0
+        self.encode_block_end = 0
 
     def _gen_block_end(self):
 
@@ -290,9 +292,14 @@ class EncodeBlock(TransBlock):
         self._add_inst_block(block)
         if self.strategy == 'fuzz_control':
             block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
+        
+        self.encode_block_list.append(block)
+
+        self.encode_block_begin = 1
+        self.encode_block_end = 4
 
         kind = BaseBlockType.NULL
-        for i in range(1, 4):
+        for i in range(self.encode_block_begin, self.encode_block_end):
             kind_prob = {
                 BaseBlockType.INT:0.1,
                 BaseBlockType.FLOAT:0.1,
@@ -339,6 +346,8 @@ class EncodeBlock(TransBlock):
             self._add_inst_block(block)
             block.inst_list.append(Instruction(f'jal zero, {self.encode_block_list[0].name}'))
 
+            self.encode_block_list.append(block)
+
     def gen_default(self):
         match (self.strategy):
             case 'default':
@@ -350,6 +359,17 @@ class EncodeBlock(TransBlock):
             case _:
                 self._gen_random(4)
             
+        self._gen_block_end()
+
+    def leak_reduce(self, encode_block_begin, encode_block_end):
+        self.inst_block_list = []
+        self._add_inst_block(self.encode_block_list[0])
+        for i in range(encode_block_begin, encode_block_end):
+            for block in self.encode_block_list[i].get_block_list():
+                self._add_inst_block(block)
+        if self.encode_block_end == len(self.encode_block_list):
+            self._add_inst_block(self.encode_block_list[-1])
+
         self._gen_block_end()
 
     def mutate(self):
@@ -684,6 +704,9 @@ class TransVictimManager(TransBaseManager):
         file.write(f'\taccess_secret_address:\t{hex(self.access_secret_block.address)}\n')
         file.write(f'\tstrategy:\t{self.encode_block.strategy}')
         file.write(f'\treturn_front:\t{self.return_front}\n')
+    
+    def leak_reduce(self, encode_block_begin, encode_block_end):
+        self.encode_block.leak_reduce(encode_block_begin, encode_block_end)
 
     def mutate(self):
         if self.strategy == 'default':

@@ -45,6 +45,9 @@ class BaseBlock:
                 self.inst_list.extend(inst_list)
         
         return [self]
+
+    def get_block_list(self):
+        return [self]
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         raise Exception("the gen_random_instr has not been implemented!!!")
@@ -282,6 +285,9 @@ class JMPBlock(BaseBlock):
         self.block_list[-1].inst_list.append(Instruction('c.nop'))
         return self.block_list
     
+    def get_block_list(self):
+        return self.block_list
+    
     def gen_random_inst(self):
         def update_jalr_offset(inst):
             self.jalr_offset += (2 if inst['NAME'].startswith('C.') else 4)
@@ -308,6 +314,9 @@ class BranchBlock(BaseBlock):
         for _ in range(6):
             self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
         self.block_list[-1].inst_list.append(Instruction('c.nop'))
+        return self.block_list
+    
+    def get_block_list(self):
         return self.block_list
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):

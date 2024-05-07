@@ -483,15 +483,6 @@ class DistributeManager:
         cover_expand = False
         if not is_trigger:
             return is_trigger, is_tte_trigger, is_access, is_leak, cover_expand
-        else:
-            # TODO: this baker is repeated, and it not necessary
-            cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
-            )
-            gen_asm = ShellCommand("cp", [])
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.log', f'{self.repo_path}']))
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.csv', f'{self.repo_path}']))
-            cp_baker.run()
         
         base_windows_list = base_list[windows_begin:sync_time]
         variant_windows_list = variant_list[windows_begin:sync_time]
@@ -517,6 +508,16 @@ class DistributeManager:
                 is_leak = True
             else:
                 is_leak = False
+        
+        if is_leak:
+            # TODO: this baker is repeated, and it not necessary
+            cp_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
+            )
+            gen_asm = ShellCommand("cp", [])
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.log', f'{self.repo_path}']))
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.taint_log}.csv', f'{self.repo_path}']))
+            cp_baker.run()
 
         return is_trigger, is_tte_trigger, is_access, is_leak, cover_expand
     
@@ -807,6 +808,21 @@ class DistributeManager:
                 self.swap_victim_dist_id += 1
                 self.swap_victim_list.insert(0, trans_train.mem_region)
     
+    def _leak_reduce(self):
+        encode_block_begin = self.trans_victim.encode_block.encode_block_begin
+        encode_block_end = self.trans_victim.encode_block.encode_block_end
+
+        for try_encode_block_end in range(encode_block_end - 1, encode_block_begin, -1):
+            self.trans_victim.leak_reduce(encode_block_begin, try_encode_block_end)
+            self._generate_body_block(self.trans_victim)
+            is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
+            if not is_leak:
+                self.trans_victim.leak_reduce(encode_block_begin, encode_block_end)
+                self._generate_body_block(self.trans_victim)
+                break
+            else:
+                encode_block_end = try_encode_block_end
+    
     def fuzz_stage2(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, core, do_fuzz = True):
         if repo_path is None:
             self.repo_path = self.output_path
@@ -859,6 +875,7 @@ class DistributeManager:
                 self.mem_cfg.dump_conf(self.output_path)
                 is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
                 if is_leak and cover_expand:
+                    self._leak_reduce()
                     self.store_template(iter_num*VICTIM_MUTATE_MAX_ITER+sub_iter_num, self.repo_path,\
                             template_folder)
                 
