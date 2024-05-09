@@ -33,7 +33,6 @@ class TriggerBlock(TransBlock):
                 inst.solve()
                 inst['RS1'] = 'A0'
                 inst['RS2'] = 'ZERO'
-
             case TriggerType.BRANCH:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['BRANCH'])
@@ -717,6 +716,17 @@ class TransVictimManager(TransBaseManager):
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
         self.nop_block.gen_instr(None)
 
+    def record_fuzz(self, file):
+        file.write(f'victim: {self.swap_idx}\n')
+        file.write(f'\treturn_front: {self.return_front}\n')
+        file.write(f'\ttrigger_type: {self.trigger_block.trigger_type}\t')
+        file.write(f'\ttrigger_inst: {self.trigger_block.trigger_inst.to_asm()}\n')
+        file.write(f'\tsecret_migrate_type: {self.secret_migrate_block.secret_migrate_type}\t')
+        file.write(f'\taccess_secret_address: {hex(self.access_secret_block.address)}\n')
+        file.write(f'\tencode_type: ')
+        for i in self.encode_block.encode_list:
+            file.write(f'{self.encode_block.encode_block_list[i].block_type} ')
+        file.write('\n')
 
     def _generate_sections(self):
 

@@ -487,17 +487,6 @@ class TransManager:
             for file_name in file_list:
                 file.write(f'{file_name}\n')
 
-        # this baker is repeated, and it not necessary
-        cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
-            )
-        gen_asm = ShellCommand("mv", [])
-        if os.path.exists(f'{repo_path}/*.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.log', f'{new_template}']))
-        if os.path.exists(f'{repo_path}/*.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/*.csv', f'{new_template}']))
-        cp_baker.run()
-
     def build_frame(self):
         self._generate_frame()
         self._generate_frame_block()
@@ -549,6 +538,11 @@ class TransManager:
                 self._generate_body_block(trans_train)
                 self.swap_victim_dist_id += 1
                 self.swap_victim_list.insert(0, trans_train.mem_region)
+    
+    def record_fuzz(self, file):
+        for swap_mem_region in self.swap_block_list[:-1]:
+            trans_body = self.swap_map[swap_mem_region['swap_id']]
+            trans_body.record_fuzz(file)
     
     def _leak_reduce(self):
         encode_block_begin = self.trans_victim.encode_block.encode_block_begin

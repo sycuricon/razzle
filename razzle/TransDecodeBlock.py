@@ -48,6 +48,9 @@ class TransDecodeManager(TransBaseManager):
             self.encode_block = copy.deepcopy(trans_victim.encode_block)
             if self.encode_block.loop:
                 self.encode_block.break_loop()
+    
+    def record_fuzz(self, file):
+        pass
         
     def store_template(self, folder):
         self._dump_trans_block(folder, [self.encode_block], False)

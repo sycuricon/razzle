@@ -25,9 +25,7 @@ class Seed:
         return self.getbits(base, length)
     
     def getbits(self, base, length):
-        begin = self.seed.len - base - length
-        end = self.seed.len - base
-        return self.seed[begin:end].uint
+        return self.seed[base:base+length].uint
 
     def mutate(self):
         random.seed()
@@ -36,16 +34,15 @@ class Seed:
     def mutate_field(self, field):
         base = self.field_base[field]
         length = self.field_len[field]
-        begin = self.seed.len - base - length
-        end = self.seed.len - base
-        self.seed[begin:end] = random.randint(0, 2 ** length - 1)
+        self.seed[base:base+length] = random.randint(0, 2 ** length - 1)
 
 class Stage1Seed(Seed):
     class Stage1FieldEnum(Enum):
         STAGE1_SEED = auto()
         DELAY_LEN = auto()
         DELAY_FLOAT_RATE = auto()
-        ACCESS_SECRET = auto()
+        ACCESS_SECRET_LI = auto()
+        ACCESS_SECRET_MASK = auto()
         SECRET_MIGRATE = auto()
         TRIGGER = auto()
     
@@ -53,19 +50,20 @@ class Stage1Seed(Seed):
         Stage1FieldEnum.STAGE1_SEED: 32,
         Stage1FieldEnum.DELAY_LEN: 2,
         Stage1FieldEnum.DELAY_FLOAT_RATE: 2,
-        Stage1FieldEnum.ACCESS_SECRET: 5,
+        Stage1FieldEnum.ACCESS_SECRET_LI: 1,
+        Stage1FieldEnum.ACCESS_SECRET_MASK: 4,
         Stage1FieldEnum.SECRET_MIGRATE: 2,
         Stage1FieldEnum.TRIGGER: 7
     }
 
-    field_base_tmp = 0
+    seed_length = 0
     field_base = {}
     for key, value in field_len.items():
-        field_base[key] = field_base_tmp
-        field_base_tmp += value
+        field_base[key] = seed_length
+        seed_length += value
 
     def __init__(self):
-        self.seed = BitArray(length=64)
+        self.seed = BitArray(length=self.seed_length)
         self.config = {}
 
     def parse(self):
@@ -75,9 +73,9 @@ class Stage1Seed(Seed):
         
         self.config['delay_float_rate'] = self.get_field(self.Stage1FieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
 
-        access_secret_field = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET)
-        self.config['access_secret_li'] = access_secret_field >= 16
-        self.config['access_secret_mask'] = 64 if access_secret_field >=8 else (access_secret_field * 4 + 36)
+        self.config['access_secret_li'] = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_LI) == 1
+        access_secret_mask_value = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
+        self.config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
 
         secret_migrate_field = self.get_field(self.Stage1FieldEnum.SECRET_MIGRATE)
         if self.config['access_secret_li']:
@@ -145,7 +143,7 @@ class Stage1Seed(Seed):
         return self.config
     
     def mutate_access(self):
-        self.mutate_field(self.Stage1FieldEnum.ACCESS_SECRET)
+        self.mutate_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
         self.mutate_field(self.Stage1FieldEnum.SECRET_MIGRATE)
 
 class Stage2Seed(Seed):
@@ -162,14 +160,14 @@ class Stage2Seed(Seed):
         Stage2FieldEnum.ENCODE_BLOCK_NUM: 2
     }
 
-    field_base_tmp = 0
+    seed_length = 0
     field_base = {}
     for key, value in field_len.items():
-        field_base[key] = field_base_tmp
-        field_base_tmp += value
+        field_base[key] = seed_length
+        seed_length += value
 
     def __init__(self):
-        self.seed = BitArray(length=32)
+        self.seed = BitArray(length=self.seed_length)
         self.config = {}
 
     def parse(self):
@@ -245,6 +243,8 @@ class FuzzManager:
                 variant_list.append(int(variant))
         
         is_access = max(base_list) > self.ACCESS_TAINT_THRESHOLD
+        if is_access:
+            self._staged_log(taint_folder)
         return is_access
 
     def _staged_log(self, taint_folder):
@@ -261,7 +261,6 @@ class FuzzManager:
     def _trigger_reduce(self):
         sim_mode = 'robprofile'
         taint_folder = f'{self.taint_log}_{sim_mode}/wave/swap_mem.cfg.taint'
-        self._staged_log(taint_folder)
         swap_block_list = self.trans.swap_block_list
         for _ in range(len(swap_block_list)-2):
             for i in range(0, len(swap_block_list)-2):
@@ -271,7 +270,6 @@ class FuzzManager:
                 self.mem_cfg.dump_conf(self.output_path)
                 is_trigger = self.stage1_trigger_analysis()
                 if is_trigger:
-                    self._staged_log(taint_folder)
                     swap_block_list = tmp_swap_block_list
                     break
             else:
@@ -288,7 +286,7 @@ class FuzzManager:
 
         TRAIN_GEN_MAX_ITER = 2
         REORDER_SWAP_LIST_MAX_ITER = 3
-        ENCODE_MUTATE_MAX_ITER = 5
+        ENCODE_MUTATE_MAX_ITER = 3
 
         max_train_gen = TRAIN_GEN_MAX_ITER if self.trans.trans_victim.need_train() else 1
         for _ in range(max_train_gen):
@@ -328,6 +326,18 @@ class FuzzManager:
     def store_template(self, iter_num, repo_path, folder):
         self.trans.store_template(iter_num, repo_path, folder)
 
+        template_repo_path = os.path.join(repo_path, folder, str(iter_num))
+
+        cp_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
+            )
+        gen_asm = ShellCommand("mv", [])
+        if os.path.exists(f'{repo_path}/swap_mem_cfg.taint.log'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/swap_mem_cfg.taint.log', f'{template_repo_path}']))
+        if os.path.exists(f'{repo_path}/swap_mem_cfg.taint.csv'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/swap_mem_cfg.taint.csv', f'{template_repo_path}']))
+        cp_baker.run()
+
     def record_fuzz(self, iter_num, result, config, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
@@ -339,7 +349,11 @@ class FuzzManager:
                     file.write('\n')
                 else:
                     file.write('\t')
+            self.trans.record_fuzz(file)
             file.write('\n')
+        
+        with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
+            file.write(f'{iter_num}\n')
     
     def stage2_leak_analysis(self):
         taint_folder = self.stage_simulate('variant')

@@ -234,6 +234,12 @@ class TransTrainManager(TransBaseManager):
         self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
         self.nop_block.gen_instr(None)
     
+    def record_fuzz(self, file):
+        file.write(f'train: {self.swap_idx}\n')
+        file.write(f'\treturn_front: {self.return_front}\n')
+        file.write(f'\ttrain_type: {self.train_block.train_type}\t')
+        file.write(f'\ttrain_type: {self.train_block.train_inst.to_asm()}\n')
+    
     def store_template(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
 
