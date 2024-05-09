@@ -23,10 +23,11 @@ class BaseBlockType(Enum):
     BRANCH = auto()
 
 class BaseBlock:
-    def __init__(self, name, extension, mutate):
+    def __init__(self, name, extension, mutate, len=None):
         self.name = name
         self.extension = extension
         self.mutate = mutate
+        self.len = len
         
         self.inst_list = []
         self.previous = []
@@ -37,9 +38,9 @@ class BaseBlock:
         self.succeed_inited = set()
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
-        for _ in range(6):
+        for _ in range(self.len):
             inst_list = self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
-            if self.get_inst_len() + len(inst_list)*4 > 24:
+            if self.get_inst_len() + len(inst_list) * 4 > self.len * 4:
                 break
             else:
                 self.inst_list.extend(inst_list)
@@ -167,8 +168,9 @@ class BaseBlock:
         return sum
 
 class IntBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.INT
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension_i for extension_i in [
@@ -193,8 +195,9 @@ class IntBlock(BaseBlock):
         return [instr]
 
 class FloatBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.FLOAT
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
         if len(taint_reg) != 0:
@@ -242,8 +245,9 @@ class FloatBlock(BaseBlock):
         return [instr]
 
 class RetCallBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.CALLRET
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
         self.inst_list.append(Instruction('auipc t0, 0'))
@@ -273,8 +277,9 @@ class RetCallBlock(BaseBlock):
         return inst_list
 
 class JMPBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.JMP
         self.block_list = [self]
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
@@ -306,8 +311,9 @@ class JMPBlock(BaseBlock):
             self.block_list.append(block)
 
 class BranchBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.BRANCH
         self.block_list = [self]
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
@@ -332,8 +338,8 @@ class BranchBlock(BaseBlock):
         self.block_list.append(block)
 
 class MemBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
         inst_list = self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
@@ -367,8 +373,9 @@ class MemBlock(BaseBlock):
         return inst_list   
 
 class AMOBlock(MemBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.AMO
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension_i for extension_i in ['RV_A', 'RV64_A'] if extension_i in self.extension]
@@ -401,8 +408,9 @@ class AMOBlock(MemBlock):
         return inst_list
 
 class LSUBlock(MemBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.LOAD_STORE
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension_i for extension_i in [
@@ -437,8 +445,9 @@ class LSUBlock(MemBlock):
         return inst_list
 
 class CSRBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.CSR
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension for extension in [
@@ -461,8 +470,9 @@ class CSRBlock(BaseBlock):
         return [instr]
 
 class SystemBlock(BaseBlock):
-    def __init__(self, name, extension, mutate):
-        super().__init__(name, extension, mutate)
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.SYSTEM
     
     def gen_random_inst(self, normal_reg, taint_reg, normal_freg, taint_freg):
         extension = [extension for extension in [

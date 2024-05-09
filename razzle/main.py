@@ -1,21 +1,17 @@
 import os
 import argparse
-from DistributeManager import *
+from FuzzManager import *
 
 if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def genonly_entry(args):
-    dist = DistributeManager(args.input, args.output, args.virtual)
-    dist.generate()
+    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz.generate()
 
-def stage1_entry(args):
-    dist = DistributeManager(args.input, args.output, args.virtual)
-    dist.fuzz_stage1(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.core, do_fuzz=True)
-
-def stage2_entry(args):
-    dist = DistributeManager(args.input, args.output, args.virtual)
-    dist.fuzz_stage2(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.core, do_fuzz=True)
+def fuzz_entry(args):
+    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -36,40 +32,19 @@ if __name__ == "__main__":
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
     parser_genonly.set_defaults(func=genonly_entry)
 
-    parser_stage1 = subparsers.add_parser('stage1', aliases=['s1'])
-    parser_stage1.set_defaults(func=stage1_entry)
-    parser_stage1.add_argument(
+    parser_fuzz = subparsers.add_parser('fuzz')
+    parser_fuzz.set_defaults(func=fuzz_entry)
+    parser_fuzz.add_argument(
         "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
     )
-    parser_stage1.add_argument(
+    parser_fuzz.add_argument(
         "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
     )
-    parser_stage1.add_argument(
+    parser_fuzz.add_argument(
         "--taint_log", dest="taint_log", help="the path of the taint log file"
     )
-    parser_stage1.add_argument(
+    parser_fuzz.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
-    )
-    parser_stage1.add_argument(
-        "--core", dest="core", help="the name of the core, must be boom or xiangshan"
-    )
-
-    parser_stage2 = subparsers.add_parser('stage2', aliases=['s2'])
-    parser_stage2.set_defaults(func=stage2_entry)
-    parser_stage2.add_argument(
-        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
-    )
-    parser_stage2.add_argument(
-        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
-    )
-    parser_stage2.add_argument(
-        "--taint_log", dest="taint_log", help="the path of the taint log file"
-    )
-    parser_stage2.add_argument(
-        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
-    )
-    parser_stage2.add_argument(
-        "--core", dest="core", help="the name of the core, must be boom or xiangshan"
     )
 
     args = parser.parse_args()

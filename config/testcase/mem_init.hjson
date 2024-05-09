@@ -1,6 +1,11 @@
 {
     attack: U
     victim: U
+    access_taint_threshold: 20
+    leak_data_taint_threshold: 50
+    leak_control_taint_threshold: 0.1
+    decode_control_taint_threshold: 0.1
+    taint_explode_threshold: 1000
     init: {
         bound: [
             0x80000000

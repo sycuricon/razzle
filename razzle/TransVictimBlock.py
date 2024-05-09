@@ -14,137 +14,92 @@ from payload.MagicDevice import *
 from payload.Block import *
     
 class TriggerBlock(TransBlock):
-    def __init__(self, extension, output_path, dep_reg, ret_label, train_label, li_offset):
+    def __init__(self, extension, output_path, dep_reg, ret_label, train_label, trigger_type):
         super().__init__('trigger_block', extension, output_path)
         self.dep_reg = dep_reg
         self.ret_label  = ret_label
         self.train_label = train_label
-        self.li_offset = li_offset
+        self.trigger_type = trigger_type
     
     def gen_default(self):
         block = BaseBlock(self.entry, self.extension, True)
         inst = Instruction()
         inst.set_extension_constraint(self.extension)
 
-        if not self.li_offset and random.random() < 0.5:
-            self.trigger_type = TriggerType.V4
-            block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-            inst.set_name_constraint(['SD'])
-            inst.solve()
-            inst['RS1'] = 'A0'
-            inst['RS2'] = 'ZERO'
-        elif random.random() < 0.7:
-            type_prob = {
-                TriggerType.JALR: 0.35,
-                TriggerType.BRANCH: 0.25,
-                TriggerType.RETURN: 0.25,
-                TriggerType.JMP: 0.15
-            }
-            self.trigger_type = random_choice(type_prob)
-            match(self.trigger_type):
-                case TriggerType.BRANCH:
-                    block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                    inst.set_category_constraint(['BRANCH'])
-                    inst.set_label_constraint([self.ret_label, self.train_label])
-                    inst.solve()
-                    inst['RS1'] = 'A0'
-                    inst['RS2'] = self.dep_reg
-                case TriggerType.JALR:
-                    block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                    inst.set_name_constraint(['JALR', 'C.JALR', 'C.JR'])
-                    inst.set_category_constraint(['JUMP'])
-                    inst.solve()
-                    inst['RS1'] = 'A0'
-                    if random.random() < 0.3:
-                        inst['RD'] = 'RA'
-                case TriggerType.RETURN:
-                    block.inst_list.append(Instruction(f'add ra, {self.dep_reg}, a0'))
-                    inst.set_name_constraint(['JALR', 'C.JR'])
-                    inst.set_category_constraint(['JUMP'])
-                    inst.solve()
-                    inst['RS1'] = 'RA'
-                    inst['RD'] = 'ZERO'
-                case TriggerType.JMP:
-                    inst.set_name_constraint(['JAL', 'C.J', 'C.JAL'])
-                    inst.set_category_constraint(['JUMP'])
-                    inst.set_label_constraint([self.ret_label])
-                    inst.solve()
-                    if random.random() < 0.7:
-                        inst['RD'] = 'RA'
-                case _:
-                    raise Exception("excepted trigger type")
-        else:
-            rand_data = random.random()
-            if rand_data < 0.1:
-                self.trigger_type = random.choice([TriggerType.EBREAK, TriggerType.ILLEGAL, TriggerType.ECALL])
-                match(self.trigger_type):
-                    case TriggerType.EBREAK:
-                        inst = Instruction('ebreak')
-                    case TriggerType.ILLEGAL:
-                        inst = Instruction('illegal')
-                    case TriggerType.ECALL:
-                        inst = Instruction('ecall')
-                    case _:
-                        raise Exception("excepted trigger type")
-            else:
-                if rand_data < 0.4:
-                    inst.set_category_constraint(['LOAD', 'FLOAT_LOAD', 'LOAD_SP'])
-                    inst.solve()
-                    if inst['CATEGORY'] == 'LOAD_SP':
-                        block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
-                    else:
-                        block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                        inst['RS1'] = 'A0'
+        match(self.trigger_type):
+            case TriggerType.V4:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
+                inst.set_name_constraint(['SD'])
+                inst.solve()
+                inst['RS1'] = 'A0'
+                inst['RS2'] = 'ZERO'
 
-                    
-                    if inst['NAME'] in ['LB', 'LBU']:
-                        self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT])
-                    else:
-                        type_prob = {
-                            TriggerType.LOAD_MISALIGN: 0.2,
-                            TriggerType.LOAD_ACCESS_FAULT: 0.4,
-                            TriggerType.LOAD_PAGE_FAULT: 0.4
-                        }
-                        self.trigger_type = random_choice(type_prob)
-                   
-                    inst['IMM'] = down_align(inst['IMM'], 8)
-                        
-                elif rand_data < 0.7:
-                    
-                    inst.set_category_constraint(['STORE', 'FLOAT_STORE', 'STORE_SP'])
-                    inst.solve()
-                    if inst['CATEGORY'] == 'STORE_SP':
-                        block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
-                    else:
-                        block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                        inst['RS1'] = 'A0'
-
-                    
-                    if inst['NAME'] in ['SB', 'SBU']:
-                        self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT])
-                    else:
-                        type_prob = {
-                            TriggerType.STORE_MISALIGN: 0.2,
-                            TriggerType.STORE_ACCESS_FAULT: 0.4,
-                            TriggerType.STORE_PAGE_FAULT: 0.4
-                        }
-                        self.trigger_type = random_choice(type_prob)
-                   
-                    inst['IMM'] = down_align(inst['IMM'], 8)
-                    
+            case TriggerType.BRANCH:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
+                inst.set_category_constraint(['BRANCH'])
+                inst.set_label_constraint([self.ret_label, self.train_label])
+                inst.solve()
+                inst['RS1'] = 'A0'
+                inst['RS2'] = self.dep_reg
+            case TriggerType.JALR:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
+                inst.set_name_constraint(['JALR', 'C.JALR', 'C.JR'])
+                inst.set_category_constraint(['JUMP'])
+                inst.solve()
+                inst['RS1'] = 'A0'
+                if random.random() < 0.3:
+                    inst['RD'] = 'RA'
+            case TriggerType.RETURN:
+                block.inst_list.append(Instruction(f'add ra, {self.dep_reg}, a0'))
+                inst.set_name_constraint(['JALR', 'C.JR'])
+                inst.set_category_constraint(['JUMP'])
+                inst.solve()
+                inst['RS1'] = 'RA'
+                inst['RD'] = 'ZERO'
+            case TriggerType.JMP:
+                inst.set_name_constraint(['JAL', 'C.J', 'C.JAL'])
+                inst.set_category_constraint(['JUMP'])
+                inst.set_label_constraint([self.ret_label])
+                inst.solve()
+                if random.random() < 0.7:
+                    inst['RD'] = 'RA'
+            case TriggerType.EBREAK:
+                inst = Instruction('ebreak')
+            case TriggerType.ILLEGAL:
+                inst = Instruction('illegal')
+            case TriggerType.ECALL:
+                inst = Instruction('ecall')
+            case TriggerType.LOAD_ACCESS_FAULT|TriggerType.LOAD_MISALIGN|TriggerType.LOAD_PAGE_FAULT:
+                inst.set_category_constraint(['LOAD', 'FLOAT_LOAD', 'LOAD_SP'])
+                inst.solve()
+                if inst['CATEGORY'] == 'LOAD_SP':
+                    block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
                 else:
-
                     block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
-                    inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
-                    inst.solve()
-                    inst['RS1'] = 'A0' 
+                    inst['RS1'] = 'A0'
 
-                    type_prob = {
-                        TriggerType.AMO_MISALIGN: 0.2,
-                        TriggerType.AMO_ACCESS_FAULT: 0.4,
-                        TriggerType.AMO_PAGE_FAULT: 0.4
-                    }
-                    self.trigger_type = random_choice(type_prob)
+                if inst['NAME'] in ['LB', 'LBU'] and self.trigger_type == TriggerType.LOAD_MISALIGN:
+                    self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT])
+                
+                inst['IMM'] = down_align(inst['IMM'], 8)
+            case TriggerType.STORE_ACCESS_FAULT|TriggerType.STORE_MISALIGN|TriggerType.STORE_PAGE_FAULT:
+                inst.set_category_constraint(['STORE', 'FLOAT_STORE', 'STORE_SP'])
+                inst.solve()
+                if inst['CATEGORY'] == 'STORE_SP':
+                    block.inst_list.append(Instruction(f'add sp, {self.dep_reg}, a0'))
+                else:
+                    block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
+                    inst['RS1'] = 'A0'
+                
+                if inst['NAME'] in ['SB', 'SBU'] and self.trigger_type == TriggerType.STORE_MISALIGN:
+                    self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT])
+                
+                inst['IMM'] = down_align(inst['IMM'], 8)
+            case TriggerType.AMO_ACCESS_FAULT|TriggerType.AMO_MISALIGN|TriggerType.AMO_PAGE_FAULT:
+                block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
+                inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
+                inst.solve()
+                inst['RS1'] = 'A0' 
     
         self.trigger_inst = inst
         block.inst_list.append(inst)
@@ -163,9 +118,11 @@ class TriggerBlock(TransBlock):
             self.trigger_inst = self.inst_block_list[0].inst_list[-1]
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, output_path, virtual):
+    def __init__(self, extension, output_path, virtual, li, mask):
         super().__init__('access_secret_block', extension, output_path)
         self.virtual = virtual
+        self.li_offset = li
+        self.mask = mask
 
     def _gen_block_begin(self):
         inst_list_begin = [
@@ -216,10 +173,6 @@ class AccessSecretBlock(TransBlock):
         self.secret_reg = 'S0'
     
     def gen_default(self):
-        self.li_offset = True if random.random() < 0.8 else False
-        self.mask = 64
-        if not self.li_offset and random.random() < 0.5:
-            self.mask = random.choice(list(range(36, 64, 4)))
         self.mask = (1 << self.mask) - 1
         self.rand_mask = (1 << 64) - 1 - self.mask
         self.address = 0x4001 if self.virtual else 0x80004001
@@ -227,12 +180,15 @@ class AccessSecretBlock(TransBlock):
         self.gen_code()
 
 class EncodeBlock(TransBlock):
-    def __init__(self, extension, output_path, secret_reg, strategy):
+    def __init__(self, extension, output_path, secret_reg, strategy, block_len=None, block_num=None):
         super().__init__('encode_block', extension, output_path)
         self.secret_reg = secret_reg
         assert strategy in ['default', 'fuzz_data', 'fuzz_control']
         self.strategy = strategy
+        self.block_len = block_len
+        self.block_num = block_num
         self.encode_block_list = []
+        self.encode_list = []
         self.encode_block_begin = 0
         self.encode_block_end = 0
 
@@ -253,7 +209,12 @@ class EncodeBlock(TransBlock):
         ]
         self._load_inst_str(inst_exit)
 
-    def _gen_random(self, block_cnt=4):
+    def _gen_random(self):
+        self.encode_block_list = []
+        self.encode_list = []
+        self.encode_block_begin = 0
+        self.encode_block_end = 0
+
         normal_reg = copy.copy(reg_range[1:])
         normal_rvc_reg = copy.copy(rvc_reg_range)
         for reg in normal_rvc_reg:
@@ -289,64 +250,85 @@ class EncodeBlock(TransBlock):
         }
 
         block = BaseBlock(f'{self.name}_0', self.extension, True)
-        self._add_inst_block(block)
-        if self.strategy == 'fuzz_control':
-            block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
-        
         self.encode_block_list.append(block)
+        self.inst_block_list.append(block)
 
         self.encode_block_begin = 1
-        self.encode_block_end = 4
+        self.encode_block_end = self.encode_block_begin + self.block_num
 
         kind = BaseBlockType.NULL
         for i in range(self.encode_block_begin, self.encode_block_end):
-            kind_prob = {
-                BaseBlockType.INT:0.1,
-                BaseBlockType.FLOAT:0.1,
-                BaseBlockType.LOAD_STORE:0.1,
-                BaseBlockType.BRANCH:0.1,
-                BaseBlockType.JMP:0.1,
-                BaseBlockType.CALLRET:0.1,
-                BaseBlockType.AMO:0.025,
-                BaseBlockType.CSR:0.015,
-                BaseBlockType.SYSTEM:0.01
-            }
-            match(kind):
-                case BaseBlockType.NULL:
-                    kind_prob[BaseBlockType.INT] += 0.05
-                    kind_prob[BaseBlockType.FLOAT] += 0.06
-                    kind_prob[BaseBlockType.LOAD_STORE] += 0.06
-                    kind_prob[BaseBlockType.CALLRET] += 0.06
-                    kind_prob[BaseBlockType.JMP] += 0.06
-                    kind_prob[BaseBlockType.BRANCH] += 0.06
-                case BaseBlockType.INT|BaseBlockType.FLOAT|BaseBlockType.LOAD_STORE:
-                    kind_prob[BaseBlockType.INT] = 0.2
-                    kind_prob[BaseBlockType.FLOAT] = 0.2
-                    kind_prob[BaseBlockType.LOAD_STORE] = 0.2
-                    kind_prob[BaseBlockType.JMP] = 0.01
-                    kind_prob[BaseBlockType.CALLRET] = 0.01
-                    kind_prob[BaseBlockType.BRANCH] = 0.01
-                    kind_prob[kind] += 0.32
-                case BaseBlockType.JMP|BaseBlockType.CALLRET|BaseBlockType.BRANCH:
-                    kind_prob[BaseBlockType.INT] = 0.01
-                    kind_prob[BaseBlockType.FLOAT] = 0.01
-                    kind_prob[BaseBlockType.LOAD_STORE] = 0.01
-                    kind_prob[BaseBlockType.JMP] = 0.2
-                    kind_prob[BaseBlockType.CALLRET] = 0.2
-                    kind_prob[BaseBlockType.BRANCH] = 0.2
-                    kind_prob[kind] += 0.32
+            if self.strategy == 'fuzz_control':
+                kind_prob = {
+                    BaseBlockType.INT:0.1,
+                    BaseBlockType.FLOAT:0.1,
+                    BaseBlockType.LOAD_STORE:0.1,
+                    BaseBlockType.BRANCH:0.1,
+                    BaseBlockType.JMP:0.1,
+                    BaseBlockType.CALLRET:0.1,
+                    BaseBlockType.AMO:0.025,
+                    BaseBlockType.CSR:0.015,
+                    BaseBlockType.SYSTEM:0.01
+                }
+                match(kind):
+                    case BaseBlockType.NULL:
+                        kind_prob[BaseBlockType.INT] += 0.05
+                        kind_prob[BaseBlockType.FLOAT] += 0.06
+                        kind_prob[BaseBlockType.LOAD_STORE] += 0.06
+                        kind_prob[BaseBlockType.CALLRET] += 0.06
+                        kind_prob[BaseBlockType.JMP] += 0.06
+                        kind_prob[BaseBlockType.BRANCH] += 0.06
+                    case BaseBlockType.INT|BaseBlockType.FLOAT|BaseBlockType.LOAD_STORE:
+                        kind_prob[BaseBlockType.INT] = 0.2
+                        kind_prob[BaseBlockType.FLOAT] = 0.2
+                        kind_prob[BaseBlockType.LOAD_STORE] = 0.2
+                        kind_prob[BaseBlockType.JMP] = 0.01
+                        kind_prob[BaseBlockType.CALLRET] = 0.01
+                        kind_prob[BaseBlockType.BRANCH] = 0.01
+                        kind_prob[kind] += 0.32
+                    case BaseBlockType.JMP|BaseBlockType.CALLRET|BaseBlockType.BRANCH:
+                        kind_prob[BaseBlockType.INT] = 0.01
+                        kind_prob[BaseBlockType.FLOAT] = 0.01
+                        kind_prob[BaseBlockType.LOAD_STORE] = 0.01
+                        kind_prob[BaseBlockType.JMP] = 0.2
+                        kind_prob[BaseBlockType.CALLRET] = 0.2
+                        kind_prob[BaseBlockType.BRANCH] = 0.2
+                        kind_prob[kind] += 0.32
+            else:
+                kind_prob = {
+                    BaseBlockType.INT:0.2,
+                    BaseBlockType.FLOAT:0.2,
+                    BaseBlockType.LOAD_STORE:0.2,
+                    BaseBlockType.AMO:0.025,
+                    BaseBlockType.CSR:0.015,
+                    BaseBlockType.SYSTEM:0.01
+                }
+                match(kind):
+                    case BaseBlockType.NULL:
+                        kind_prob[BaseBlockType.INT] += 0.05
+                        kind_prob[BaseBlockType.FLOAT] += 0.15
+                        kind_prob[BaseBlockType.LOAD_STORE] += 0.15
+                    case _:
+                        kind_prob[kind] += 0.35
             kind = random_choice(kind_prob)
-            block = kind_class[kind](f'{self.name}_{i}', self.extension, True)
+            block = kind_class[kind](f'{self.name}_{i}', self.extension, True, self.block_len)
             self.encode_block_list.append(block)
-            block_list = block.gen_random_block(normal_data_reg, taint_data_reg, normal_freg, taint_freg)
-            self._add_inst_block_list(block_list)
+            block_list = block.gen_random_block(copy.copy(normal_data_reg),\
+                copy.copy(taint_data_reg), copy.copy(normal_freg), copy.copy(taint_freg))
+            self.inst_block_list.extend(block_list)
+        
+        self.encode_list = list(range(self.encode_block_begin, self.encode_block_end))
 
         if self.trigger_type != TriggerType.V4:
             block = BaseBlock(f'{self.name}_4', self.extension, True)
-            self._add_inst_block(block)
+            self.inst_block_list.append(block)
             block.inst_list.append(Instruction(f'jal zero, {self.encode_block_list[0].name}'))
-
             self.encode_block_list.append(block)
+            self.loop = True
+        
+        if self.strategy == 'fuzz_control':
+            block_index = random.choice(list(range(0, self.encode_block_end)))
+            self.encode_block_list[block_index].inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
 
     def gen_default(self):
         match (self.strategy):
@@ -357,18 +339,27 @@ class EncodeBlock(TransBlock):
                     self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
             case _:
-                self._gen_random(4)
+                self._gen_random()
             
         self._gen_block_end()
 
-    def leak_reduce(self, encode_block_begin, encode_block_end):
+    def leak_reduce(self, encode_list):
         self.inst_block_list = []
-        self._add_inst_block(self.encode_block_list[0])
-        for i in range(encode_block_begin, encode_block_end):
-            for block in self.encode_block_list[i].get_block_list():
-                self._add_inst_block(block)
+        self.inst_block_list.append(self.encode_block_list[0])
+        for i in encode_list:
+            self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
         if self.encode_block_end == len(self.encode_block_list):
-            self._add_inst_block(self.encode_block_list[-1])
+            self.inst_block_list.append(self.encode_block_list[-1])
+
+        self._gen_block_end()
+
+        self.encode_list = encode_list
+    
+    def break_loop(self):
+        self.inst_block_list = []
+        self.inst_block_list.append(self.encode_block_list[0])
+        for i in self.encode_list:
+            self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
 
         self._gen_block_end()
 
@@ -380,6 +371,25 @@ class EncodeBlock(TransBlock):
             self._gen_random(4)
             self._gen_block_end()
     
+    def load_template(self, template):
+        super().load_template(template)
+        try:
+            with open(f'{template}.type', "rt") as file:
+                strategy = file.read().strip()
+                if self.strategy == None:
+                    self.strategy = strategy
+                self.encode_block_list_type = []
+                for line in file.readlines():
+                    self.encode_block_list_type.append(eval(line.strip()))
+        except:
+            pass
+    
+    def store_template(self, folder):
+        super().store_template(folder)
+        with open(os.path.join(folder, f'{self.name}.type'), "wt") as file:
+            file.write(f'{self.strategy}\n')
+            for i in self.encode_list:
+                file.write(f'{self.encode_block_list[i].block_type}\n')
 
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block):
@@ -534,10 +544,10 @@ class SecretMigrateType(Enum):
     LOAD_BUFFER = auto()
 
 class SecretMigrateBlock(TransBlock):
-    def __init__(self, extension, output_path, protect_gpr_list, address):
+    def __init__(self, extension, output_path, protect_gpr_list, secret_migrate_type):
         super().__init__('secret_migrate_block', extension, output_path)
         self.protected_gpr_list = protect_gpr_list
-        self.address = address
+        self.secret_migrate_type = secret_migrate_type
 
     def store_template(self, folder):
         type_name = os.path.join(folder, f'{self.name}.type')
@@ -587,18 +597,6 @@ class SecretMigrateBlock(TransBlock):
         self._load_inst_str(inst_list)
 
     def gen_default(self):
-        if self.address == 0x4001 or self.address == 0x80004001:
-            secret_migrate_prob = {
-                SecretMigrateType.MEMORY: 0.6,
-                SecretMigrateType.CACHE: 0.2,
-                SecretMigrateType.LOAD_BUFFER: 0.2
-            }
-        else:
-            secret_migrate_prob = {
-                SecretMigrateType.CACHE: 0.5,
-                SecretMigrateType.LOAD_BUFFER: 0.5
-            }
-        self.secret_migrate_type = random_choice(secret_migrate_prob)
         self.gen_code()
     
     def _get_inst_len(self):
@@ -609,7 +607,7 @@ class TransVictimManager(TransBaseManager):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
     
-    def gen_block(self, strategy, template_path):
+    def gen_block(self, config, strategy, template_path):
         assert strategy in ['default', 'fuzz_data', 'fuzz_control']
         self.strategy = strategy
 
@@ -631,19 +629,19 @@ class TransVictimManager(TransBaseManager):
             trigger_template = None
             load_init_template = None
 
-        self.delay_block = DelayBlock(self.extension, self.output_path)
+        self.delay_block = DelayBlock(self.extension, self.output_path, config['delay_len'], config['delay_float_rate'])
         self.delay_block.gen_instr(delay_template)
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr(None)
 
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual)
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(access_secret_template)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg,\
-            self.return_block.entry, self.access_secret_block.entry, self.access_secret_block.li_offset)
+            self.return_block.entry, self.access_secret_block.entry, config['trigger_type'])
         self.trigger_block.gen_instr(trigger_template)
 
         self.encode_block.trigger_type = self.trigger_block.trigger_type
@@ -653,7 +651,7 @@ class TransVictimManager(TransBaseManager):
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr(load_init_template)
 
-        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, self.access_secret_block.address)
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(secret_migrate_template)
 
         inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
@@ -696,53 +694,28 @@ class TransVictimManager(TransBaseManager):
         with open(trigger_type_file, "wt") as file:
             file.write(f'{self.trigger_block.trigger_type}')
     
-    def record_fuzz(self,file):
-        file.write('victim:\n')
-        file.write(f'\ttrigger_type:\t{self.trigger_block.trigger_type}')
-        file.write(f'\ttrigger_inst:\t{self.trigger_block.trigger_inst.to_asm()}\n')
-        file.write(f'\tsecret_migrate_type:\t{self.secret_migrate_block.secret_migrate_type}')
-        file.write(f'\taccess_secret_address:\t{hex(self.access_secret_block.address)}\n')
-        file.write(f'\tstrategy:\t{self.encode_block.strategy}')
-        file.write(f'\treturn_front:\t{self.return_front}\n')
-    
-    def leak_reduce(self, encode_block_begin, encode_block_end):
-        self.encode_block.leak_reduce(encode_block_begin, encode_block_end)
+    def leak_reduce(self, encode_list):
+        self.encode_block.leak_reduce(encode_list)
 
-    def mutate(self):
-        if self.strategy == 'default':
-            old_inst_len = self.load_init_block._get_inst_len() +\
-                    self.delay_block._get_inst_len()
-            
-            self.delay_block = DelayBlock(self.extension, self.output_path)
-            self.delay_block.gen_instr(None)
+    def mutate_access(self, config):
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
+        self.access_secret_block.gen_instr(None)
 
-            self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual)
-            self.access_secret_block.gen_instr(None)
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
+        self.secret_migrate_block.gen_instr(None)
 
-            self.encode_block.mutate()
+    def mutate_encode(self, config):
+        self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
+        self.encode_block.gen_instr(None)
 
-            block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-            self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-            self.load_init_block.gen_instr(None)
-            
-            self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, self.access_secret_block.address)
-            self.secret_migrate_block.gen_instr(None)
+        old_inst_len = self.load_init_block._get_inst_len()
+        block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block.gen_instr(None)
+        new_inst_len = self.load_init_block._get_inst_len()
 
-            new_inst_len = self.load_init_block._get_inst_len() +\
-                    self.delay_block._get_inst_len()
-            self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
-            self.nop_block.gen_instr(None)
-        else:
-            self.encode_block.mutate()
-
-            old_inst_len = self.load_init_block._get_inst_len()
-            block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-            self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-            self.load_init_block.gen_instr(None)
-            new_inst_len = self.load_init_block._get_inst_len()
-
-            self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
-            self.nop_block.gen_instr(None)
+        self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
+        self.nop_block.gen_instr(None)
 
 
     def _generate_sections(self):

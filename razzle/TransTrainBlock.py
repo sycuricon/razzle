@@ -7,7 +7,6 @@ from SectionUtils import *
 from SectionManager import *
 from TransBlockUtils import *
 from TransVictimBlock import *
-from TransTTEBlock import *
 
 from payload.Instruction import *
 from payload.MagicDevice import *
@@ -193,7 +192,6 @@ class TransTrainManager(TransBaseManager):
         self.data_section = data_section
 
     def gen_block(self, train_type, trans_victim, template_path):
-        assert type(trans_victim) in [TransVictimManager, TransTTEManager]
         self.trans_victim = trans_victim
         if template_path is not None:
             template_list = os.listdir(template_path)
@@ -238,12 +236,6 @@ class TransTrainManager(TransBaseManager):
     
     def store_template(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
-    
-    def record_fuzz(self,file):
-        file.write('train:\n')
-        file.write(f'\ttrain_type:\t{self.train_block.train_type}')
-        file.write(f'\ttrain_inst:\t{self.train_block.train_inst.to_asm()}')
-        file.write(f'\treturn_front:\t{self.return_front}\n')
 
     def _generate_sections(self):
 
@@ -251,10 +243,7 @@ class TransTrainManager(TransBaseManager):
             ".text_swap", Flag.U | Flag.X | Flag.R
         )
 
-        if type(self.trans_victim) == TransVictimManager:
-            self.section[".data_train"] = self.data_section
-        else:
-            self.section[".data_tte_train"] = self.data_section
+        self.section[".data_train"] = self.data_section
 
         empty_section = FuzzSection(
             "", 0

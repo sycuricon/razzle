@@ -116,20 +116,17 @@ class TransFrameManager(TransBaseManager):
         self.section[".data_frame"] = FuzzSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
-        self.section[".data_victim"] = FuzzSection(
-            ".data_victim", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_tte"] = FuzzSection(
-            ".data_tte", Flag.U | Flag.W | Flag.R
-        )
-        self.section[".data_tte_train"] = FuzzSection(
-            ".data_tte_train", Flag.U | Flag.W | Flag.R
-        )
         self.section[".data_train"] = FuzzSection(
             ".data_train", Flag.U | Flag.W | Flag.R
         )
+        self.section[".data_victim"] = FuzzSection(
+            ".data_victim", Flag.U | Flag.W | Flag.R
+        )
         self.section[".data_victim_train"] = FuzzSection(
             ".data_victim_train", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_decode"] = FuzzSection(
+            ".data_decode", Flag.U | Flag.W | Flag.R
         )
 
     def gen_block(self):
@@ -160,18 +157,16 @@ class TransFrameManager(TransBaseManager):
     def get_data_section(self):
         data_frame_section = self.section['.data_frame']
         data_train_section = self.section['.data_train']
-        data_tte_section = self.section['.data_tte']
-        data_tte_train_section = self.section['.data_tte_train']
         data_victim_section = self.section['.data_victim']
         data_victim_train_section = self.section['.data_victim_train']
-        return  data_frame_section, data_train_section, data_tte_section, data_tte_train_section, data_victim_section, data_victim_train_section
+        data_decode_section = self.section['.data_decode']
+        return  data_frame_section, data_train_section, data_victim_section, data_victim_train_section, data_decode_section
 
     def move_data_section(self):
         self.section.pop('.data_train')
-        self.section.pop('.data_tte')
-        self.section.pop('.data_tte_train')
         self.section.pop('.data_victim')
         self.section.pop('.data_victim_train')
+        self.section.pop('.data_decode')
 
     def _generate_sections(self):
         secret_section = self.section[".secret"] = FuzzSection(
@@ -220,7 +215,6 @@ class TransFrameManager(TransBaseManager):
         self._set_section(empty_section, page_fault_data_section, [self.page_fault_block])
         self._set_section(empty_section, stack_section, [self.stack_block])
 
-        
         mtrap_section.add_global_label(
             [
                 self.mtrap_block.entry,
@@ -315,15 +309,7 @@ class TransFrameManager(TransBaseManager):
 
         offset += length
         length = Page.size
-        self.section[".data_tte"].get_bound(
-            self.virtual_memory_bound[0][0] + offset,
-            self.memory_bound[0][0] + offset,
-            length,
-        )
-
-        offset += length
-        length = Page.size
-        self.section[".data_tte_train"].get_bound(
+        self.section[".data_decode"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,

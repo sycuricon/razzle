@@ -19,10 +19,10 @@ class ReturnBlock(TransBlock):
         self._load_inst_str(['ebreak'])
 
 class DelayBlock(TransBlock):
-    def __init__(self, extension, output_path):
+    def __init__(self, extension, output_path, delay_len, delay_float_rate):
         super().__init__('delay_block', extension, output_path)
-        self.float_rate = random.random() * 0.2 + 0.4 # 0.4 ~ 0.6
-        self.delay_len = random.randint(4, 8)
+        self.float_rate = delay_float_rate
+        self.delay_len = delay_len
 
     def _gen_dep_list(self):
         self.GPR_list = [
@@ -144,25 +144,25 @@ class DelayBlock(TransBlock):
     def gen_default(self):
         self._gen_block_begin()
 
-        do_random = random.choice([True, False, False, False])
-        if do_random:
-            dep_list = self._gen_dep_list()
-            self._gen_inst_list(dep_list)
-            self.result_reg = dep_list[-1]
-        else:
-            inst_list = [
-                f'{self.name}_body:',
-                'fcvt.s.lu fa4, t0',
-                'fcvt.s.lu fa5, t1',
-                'fdiv.s	fa5, fa5, fa4',
-                'fdiv.s	fa5, fa5, fa4',
-                'fdiv.s	fa5, fa5, fa4',
-                'fdiv.s	fa5, fa5, fa4',
-                'fdiv.s	fa5, fa5, fa4',
-                'fcvt.lu.s t0, fa5',
-            ]
-            self._load_inst_str(inst_list, mutate=True)
-            self.result_reg = 'T0'
+        # do_random = random.choice([True, False, False, False])
+        # if do_random:
+        dep_list = self._gen_dep_list()
+        self._gen_inst_list(dep_list)
+        self.result_reg = dep_list[-1]
+        # else:
+        #     inst_list = [
+        #         f'{self.name}_body:',
+        #         'fcvt.s.lu fa4, t0',
+        #         'fcvt.s.lu fa5, t1',
+        #         'fdiv.s	fa5, fa5, fa4',
+        #         'fdiv.s	fa5, fa5, fa4',
+        #         'fdiv.s	fa5, fa5, fa4',
+        #         'fdiv.s	fa5, fa5, fa4',
+        #         'fdiv.s	fa5, fa5, fa4',
+        #         'fcvt.lu.s t0, fa5',
+        #     ]
+        #     self._load_inst_str(inst_list, mutate=True)
+        #     self.result_reg = 'T0'
 
         reg = self.result_reg.lower()
         imm = random.randint(-0x800, 0x7ff)
@@ -281,12 +281,17 @@ class LoadInitBlock(TransBlock):
 
     def _compute_trigger_param(self):
         raise Exception("the _compute_trigger_param is not implemented!!!")
-
-    def load_template(self, template):
-        super().load_template(template)
+    
+    def update_depth(self, depth):
+        self.depth = depth
+        self.name =self.entry = f'{self.name}_{self.depth}_entry'
         self.inst_block_list[0].name = self.entry
         self.inst_block_list[0].inst_list[0] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
         self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
+
+    def load_template(self, template):
+        super().load_template(template)
+        self.update_depth(self.depth)
         self.float_init_list = []
         self.GPR_init_list = []
         for inst in self.inst_block_list[0].inst_list[1:]:
