@@ -342,3 +342,6 @@ class LoadInitBlock(TransBlock):
                 self.GPR_init_list.append(inst['RD'])
             else:
                 self.float_init_list.append(inst['FRD'])
+    
+    def gen_default(self):
+        self._gen_init_code()

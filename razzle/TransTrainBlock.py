@@ -97,6 +97,11 @@ class TrainBlock(TransBlock):
         block.inst_list.append(inst)
         self._add_inst_block(block)
     
+    def append_train_nop_len(self, c_nop_len):
+        inst_list = ['nop_append:']
+        inst_list.extend(['c.nop'] * (c_nop_len // 2))
+        self._load_inst_str(inst_list)
+    
     def store_template(self, folder):
         super().store_template(folder)
         type_name = os.path.join(folder, f'{self.name}.type')
@@ -247,9 +252,11 @@ class TransTrainManager(TransBaseManager):
 
     def gen_block(self, train_type, align, single, trans_victim, template_path):
         self.single = single
+        self.align = align
+        self.trans_victim = trans_victim
 
         if self.single:
-            self.trans_victim = trans_victim
+            
             if template_path is not None:
                 template_list = os.listdir(template_path)
                 load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
@@ -276,8 +283,6 @@ class TransTrainManager(TransBaseManager):
                 front_block_end = nop_ret_begin
 
             nop_ret_len = (nop_ret_end - nop_ret_begin)
-            if not align:
-                nop_ret_len = random.randint(nop_ret_len//2, nop_ret_len*2)
             self.nop_ret_block = NopRetBlock(self.extension, self.output_path, nop_ret_len)
             self.nop_ret_block.gen_instr(None)
 
@@ -291,8 +296,12 @@ class TransTrainManager(TransBaseManager):
             train_block_len = self.train_block._get_inst_len()
             load_init_block_len = self.load_init_block._get_inst_len()
             c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
-            if not align:
-                c_nop_len = random.randint(c_nop_len//2, c_nop_len*2)
+            if not self.align:
+                train_nop_len = random.randint(6, c_nop_len - 6)
+                if train_nop_len % 2 != 0:
+                    train_nop_len -= 1
+                c_nop_len = c_nop_len - train_nop_len
+                self.train_block.append_train_nop_len(train_nop_len)
             self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
             self.nop_block.gen_instr(None)
         
@@ -300,10 +309,14 @@ class TransTrainManager(TransBaseManager):
 
             block_begin = self.trans_victim.symbol_table['_text_swap_start']
             block_end = self.trans_victim.symbol_table['_text_swap_end']
-            c_nop_len = (block_end - block_begin) // 4
+            full_nop_len = (block_end - block_begin) // 2
+            nop_len = random.randint(10, full_nop_len - 10)
+            ret_nop_len = full_nop_len - nop_len
 
-            self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
-            self.nop_ret_block = NopRetBlock(self.extension, self.output_path, c_nop_len)
+            self.nop_block = NopBlock(self.extension, self.output_path, nop_len)
+            self.nop_block.gen_instr(None)
+            self.nop_ret_block = NopRetBlock(self.extension, self.output_path, ret_nop_len)
+            self.nop_ret_block.gen_instr(None)
 
             self.arbitrary_block = ArbitraryBlock(self.extension, self.output_path)
             self.arbitrary_block.gen_instr(None)
@@ -314,9 +327,12 @@ class TransTrainManager(TransBaseManager):
     
     def record_fuzz(self, file):
         file.write(f'train: {self.swap_idx}\n')
-        file.write(f'\treturn_front: {self.return_front}\n')
-        file.write(f'\ttrain_type: {self.train_block.train_type}\t')
-        file.write(f'\ttrain_type: {self.train_block.train_inst.to_asm()}\n')
+        file.write(f'\talign: {self.align}\t')
+        file.write(f'\tsingle: {self.single}\n')
+        if self.single:
+            file.write(f'\treturn_front: {self.return_front}\n')
+            file.write(f'\ttrain_type: {self.train_block.train_type}\t')
+            file.write(f'\ttrain_type: {self.train_block.train_inst.to_asm()}\n')
     
     def store_template(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
@@ -342,5 +358,5 @@ class TransTrainManager(TransBaseManager):
                 self._set_section(text_swap_section, empty_section, [self.nop_ret_block, self.return_block])
         else:
             self._set_section(text_swap_section, self.data_section, [self.load_init_block])
-            self._set_section(text_swap_section, self.data_section, [self.nop_block, self.arbitrary_block, self.nop_ret_block])
+            self._set_section(text_swap_section, empty_section, [self.nop_block, self.arbitrary_block, self.nop_ret_block])
 

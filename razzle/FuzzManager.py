@@ -201,8 +201,8 @@ class FuzzManager:
         self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD = config['decode_control_taint_cosim_threshold']
         self.DECODE_CONTROL_TAINT_DIST_THRESHOLD = config['decode_control_taint_dist_threshold']
         self.TAINT_EXPLODE_THRESHOLD = config['taint_explode_threshold']
-        self.train_single = config['train_single']
-        self.train_align = config['train_align']
+        self.train_single = eval(config['train_single'])
+        self.train_align = eval(config['train_align'])
 
     def generate(self):
         self.update_sub_repo('gen')
@@ -537,8 +537,6 @@ class FuzzManager:
                 continue
             else:
                 self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
-
-            continue
             
             stage2_seed = Stage2Seed()
             stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")

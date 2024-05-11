@@ -171,12 +171,12 @@ class RandomBlock(BaseBlock):
     def __init__(self, name, extension):
         super().__init__(name, extension, True)
         self.gen_func = [
-            BaseBlock._gen_atomic,
-            BaseBlock._gen_float_arithmetic,
-            BaseBlock._gen_float_arithmetic,
-            BaseBlock._gen_int_arithmetic,
-            BaseBlock._gen_int_arithmetic,
-            BaseBlock._gen_load_store,
+            RandomBlock._gen_atomic,
+            RandomBlock._gen_float_arithmetic,
+            RandomBlock._gen_float_arithmetic,
+            RandomBlock._gen_int_arithmetic,
+            RandomBlock._gen_int_arithmetic,
+            RandomBlock._gen_load_store,
         ]
     
     def _gen_int_arithmetic(self):

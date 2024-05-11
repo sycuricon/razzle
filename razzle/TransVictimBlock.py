@@ -105,10 +105,6 @@ class TriggerBlock(TransBlock):
                     return name not in ['LA', 'Li']
                 inst.add_constraint(name_c, ['NAME'])
                 inst.solve()
-                if inst.has('RS1'):
-                    inst['RS1'] = self.dep_reg
-                else:
-                    inst['RD'] = self.dep_reg
             case TriggerType.FLOAT:
                 inst.set_category_constraint(['FLOAT'])
                 inst.solve()
