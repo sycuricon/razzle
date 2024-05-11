@@ -274,7 +274,7 @@ class FuzzManager:
         self.trans.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(swap_block_list)
     
-    def fuzz_stage1(self, stage1_seed):
+    def fuzz_stage1(self, stage1_seed, access_judge=True):
         stage1_config = stage1_seed.parse()
         random.seed(stage1_config['stage1_seed'])
         self.trans.trans_victim.gen_block(stage1_config, 'default', None)
@@ -296,6 +296,9 @@ class FuzzManager:
 
         if not is_trigger:
             return FuzzResult.FAIL, taint_folder
+        
+        if not access_judge:
+            return FuzzResult.SUCCESS, taint_folder
 
         is_access, taint_folder = self.stage1_access_analysis()
         if is_access:
@@ -570,5 +573,48 @@ class FuzzManager:
                 self.record_fuzz(stage2_iter_num, stage3_result,  cosim_result, max_taint, final_config, stage_num = 2)
             
 
+    def trigger_test(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
+        if repo_path is None:
+            self.repo_path = self.output_path
+        else:
+            self.repo_path = repo_path
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path)
+        self.rtl_sim = rtl_sim
+        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
+        self.rtl_sim_mode = rtl_sim_mode
+        self.taint_log = taint_log
 
+        stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
+        if not os.path.exists(stage1_iter_num_file):
+            stage1_begin_iter_num = 0
+        else:
+            with open(stage1_iter_num_file, "rt") as file:
+                stage1_begin_iter_num = 1 + int(file.readline().strip())
+        trigger_folder = 'trigger_template'
+
+        stage1_seed = Stage1Seed()
+        trigger_sub_repo = None
+        last_trigger_sub_repo = None
+
+        FUZZ_MAX_ITER = 400
+        for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
+            last_trigger_sub_repo = trigger_sub_repo
+            trigger_sub_repo = f'trigger_{stage1_iter_num}'
+            self.update_sub_repo(trigger_sub_repo)
+            trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
+            if stage1_iter_num == stage1_begin_iter_num:
+                if not os.path.exists(trigger_repo):
+                    os.makedirs(trigger_repo)
+                self.trans.build_frame()
+            else:
+                os.system(f'cp -r {os.path.join(self.output_path, last_trigger_sub_repo)} {os.path.join(self.output_path, trigger_repo)}')
+
+            stage1_seed.mutate()
+            stage1_result, taint_folder = self.fuzz_stage1(stage1_seed, access_judge=False)
+            self.record_fuzz(stage1_iter_num, stage1_result, None, None, stage1_seed.config, stage_num = 1)
+            if stage1_result == FuzzResult.FAIL:
+                continue
+            else:
+                self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
 
