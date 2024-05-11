@@ -122,14 +122,24 @@ class Stage1Seed(Seed):
                     self.config['trigger_type'] = TriggerType.AMO_MISALIGN
                 case 29|30|31|32:
                     self.config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
+                case 33|34:
+                    self.config['trigger_type'] = TriggerType.INT
+                case 35|36:
+                    self.config['trigger_type'] = TriggerType.FLOAT
+                case 37|38:
+                    self.config['trigger_type'] = TriggerType.LOAD
+                case 39|40:
+                    self.config['trigger_type'] = TriggerType.STORE
+                case 41|42:
+                    self.config['trigger_type'] = TriggerType.AMO
                 case _:
-                    if 33 <= trigger_field_value < 39:
+                    if 43 <= trigger_field_value < 47:
                         self.config['trigger_type'] = TriggerType.JMP
-                    elif 39 <= trigger_field_value < 56:
+                    elif 47 <= trigger_field_value < 61:
                         self.config['trigger_type'] = TriggerType.RETURN
-                    elif 56 <= trigger_field_value < 73:
+                    elif 61 <= trigger_field_value < 75:
                         self.config['trigger_type'] = TriggerType.BRANCH
-                    elif 73 <= trigger_field_value < 96:
+                    elif 75 <= trigger_field_value < 96:
                         self.config['trigger_type'] = TriggerType.JALR
                     else:
                         raise Exception(f"the invalid trigger number {trigger_field_value}")
