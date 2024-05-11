@@ -50,7 +50,7 @@ class MemCfg:
                     self.mem_regions['swap'].append(swap_block)
                 self.swap_list.append(swap_block['swap_id'])
     
-    def dump_conf(self):
+    def dump_conf(self, target='both'):
         swap_path = os.path.join(self.code_repo, self.sub_repo, 'swap_mem.cfg')
         with open(swap_path, "wt") as file:
             tmp_mem_cfg = {}
@@ -60,8 +60,22 @@ class MemCfg:
             for regions in self.mem_regions.values():
                 regions = copy.deepcopy(regions)
                 for region in regions:
+                    match target:
+                        case 'both':
+                            pass
+                        case 'dut':
+                            if region['type'] == 'vnt':
+                                continue
+                        case 'vnt':
+                            match region['type']:
+                                case 'dut':
+                                    continue
+                                case 'swap':
+                                    pass
+                                case 'vnt':
+                                    region['type'] = 'dut'
                     region['init_file'] = os.path.join(self.code_repo, self.sub_repo, region['init_file'])
-                mem_region.extend(regions)
+                    mem_region.append(region)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
             file.write(libconf.dumps(tmp_mem_cfg))
@@ -269,11 +283,7 @@ class TransManager:
             elif trans_body_type == TransDecodeManager:
                 data_name = 'data_decode'
             elif trans_body_type == TransTrainManager:
-                for block in self.victim_train.values():
-                    if block is trans_block:
-                        data_name = 'data_train'
-                else:
-                    data_name = 'data_victim_train'
+                data_name = 'data_train'
             else:
                 raise Exception('the type of trans_body is invalid')
             baker.add_cmd(

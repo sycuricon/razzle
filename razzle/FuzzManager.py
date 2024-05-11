@@ -203,8 +203,8 @@ class FuzzManager:
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf()
     
-    def stage_simulate(self, mode):
-        self.mem_cfg.dump_conf()
+    def stage_simulate(self, mode, target="both"):
+        self.mem_cfg.dump_conf(target)
 
         assert mode in ['normal', 'robprofile', 'variant']
         baker = BuildManager(
@@ -220,10 +220,10 @@ class FuzzManager:
         return f'{self.taint_log}_{mode}/wave/swap_mem.cfg.taint'
     
     def stage1_trigger_analysis(self):
-        taint_folder = self.stage_simulate('robprofile')
+        taint_folder = self.stage_simulate('robprofile', 'dut')
         is_trigger = False
         for line in open(f'{taint_folder}.log', 'rt'):
-            _, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
+            _, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             if exec_info == "TEXE_START_ENQ":
                 is_trigger = True
                 break
@@ -231,7 +231,7 @@ class FuzzManager:
         return is_trigger, taint_folder
 
     def stage1_access_analysis(self):
-        taint_folder = self.stage_simulate('variant')
+        taint_folder = self.stage_simulate('variant', 'both')
         with open(f'{taint_folder}.csv', "r") as file:
             taint_log = csv.reader(file)
             _ = next(taint_log)
@@ -375,7 +375,7 @@ class FuzzManager:
         return cosim_result, ave_dist, max_taint
     
     def stage2_leak_analysis(self, strategy):
-        taint_folder = self.stage_simulate('variant')
+        taint_folder = self.stage_simulate('variant', 'both')
 
         with open(f'{taint_folder}.csv', "r") as file:
             taint_log = csv.reader(file)
@@ -392,7 +392,7 @@ class FuzzManager:
         vicitm_end = 0
         is_trigger = False
         for line in open(f'{taint_folder}.log', 'rt'):
-            exec_time, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
+            exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             if exec_info == 'DELAY_END_DEQ' and sync_time == 0:
                 sync_time = int(exec_time) + 1
@@ -427,45 +427,31 @@ class FuzzManager:
         
         return stage2_result, cosim_result, max_taint, taint_folder
 
-    def stage3_decode_analysis(self, stage2_result):
-        taint_folder = self.stage_simulate('variant')
-
-        with open(f'{taint_folder}.csv', "r") as file:
-            taint_log = csv.reader(file)
-            _ = next(taint_log)
-            time_list = []
-            base_list = []
-            variant_list = []
-            for time, base, variant in taint_log:
-                time_list.append(int(time))
-                base_list.append(int(base))
-                variant_list.append(int(variant))
+    def stage3_decode_analysis(self):
+        taint_folder = self.stage_simulate('robprofile', 'dut')
         
-        decode_begin = 0
-        decode_end = 0
+        base_decode_end = 0
         for line in open(f'{taint_folder}.log', 'rt'):
-            exec_time, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
+            exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'DELAY_START_ENQ':
-                decode_begin = int(exec_time)
             if exec_info == 'VCTM_END_DEQ':
-                decode_end = int(exec_time)
-
-        base_spread_list = base_list[decode_begin:decode_end]
-        variant_spread_list = variant_list[decode_begin:decode_end]
-
-        cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
-
-        stage3_result = FuzzResult.FAIL
-        if stage2_result == FuzzResult.CONTROL_MAYBE:
-            if cosim_result > self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD or\
-                ave_dist > self.DECODE_CONTROL_TAINT_DIST_THRESHOLD:
-                stage3_result = FuzzResult.SUCCESS
-        if stage2_result == FuzzResult.DATA_MAYBE:
-            if max_taint > self.TAINT_EXPLODE_THRESHOLD:
-                stage3_result = FuzzResult.SUCCESS
+                base_decode_end = int(exec_time)
         
-        return stage3_result, cosim_result, max_taint, taint_folder
+        taint_folder = self.stage_simulate('robprofile', 'vnt')
+        
+        variant_decode_end = 0
+        for line in open(f'{taint_folder}.log', 'rt'):
+            exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
+            exec_time = int(exec_time)
+            if exec_info == 'VCTM_END_DEQ':
+                variant_decode_end = int(exec_time)
+
+        if base_decode_end != variant_decode_end:
+            stage3_result = FuzzResult.SUCCESS
+        else:
+            stage3_result = FuzzResult.FAIL
+        
+        return stage3_result, None, None, taint_folder
     
     def fuzz_stage2(self, stage2_seed):
         config = stage2_seed.parse()
@@ -474,12 +460,12 @@ class FuzzManager:
         self.trans._generate_body_block(self.trans.trans_victim)
         return self.stage2_leak_analysis(config['encode_fuzz_type'])
     
-    def fuzz_stage3(self, stage2_result):
+    def fuzz_stage3(self):
         self.trans.trans_decode.gen_block(self.trans.trans_victim, None)
         self.trans._generate_body_block(self.trans.trans_decode)
         self.trans.swap_block_list.insert(-1, self.trans.trans_decode.mem_region)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        return self.stage3_decode_analysis(stage2_result)
+        return self.stage3_decode_analysis()
     
     def load_example(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, iter_num):
         self.rtl_sim = rtl_sim
@@ -569,7 +555,7 @@ class FuzzManager:
                         self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
                     continue
 
-                stage3_result, cosim_result, max_taint, taint_folder = self.fuzz_stage3(stage2_result)
+                stage3_result, _, _, taint_folder = self.fuzz_stage3()
                 if stage3_result == FuzzResult.SUCCESS:
                     self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
                 self.trans.swap_block_list.pop(-2)
