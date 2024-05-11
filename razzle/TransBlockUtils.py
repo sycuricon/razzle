@@ -167,6 +167,100 @@ class BaseBlock:
             sum += inst.get_len()
         return sum
 
+class RandomBlock(BaseBlock):
+    def __init__(self, name, extension):
+        super().__init__(name, extension, True)
+        self.gen_func = [
+            BaseBlock._gen_atomic,
+            BaseBlock._gen_float_arithmetic,
+            BaseBlock._gen_float_arithmetic,
+            BaseBlock._gen_int_arithmetic,
+            BaseBlock._gen_int_arithmetic,
+            BaseBlock._gen_load_store,
+        ]
+    
+    def _gen_int_arithmetic(self):
+        extension = [extension_i for extension_i in [
+            'RV64_C', 'RV64_M', 'RV64_I', 'RV_M', 'RV_I', 'RV_C'] if extension_i in self.extension]
+        instr = rand_instr(instr_extension=extension, instr_category=['ARITHMETIC'])
+        def instr_c_name(name):
+            return name not in ['LA', 'LI']
+        instr.add_constraint(instr_c_name,['NAME'])
+        instr.solve()
+        return [instr]
+    
+    def _gen_load_address(self):
+        instr_la = Instruction()
+        instr_la.set_label_constraint(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+        instr_la.set_name_constraint(['LA'])
+        instr_la.solve()
+        return instr_la
+    
+    def _gen_load_store(self):
+        extension = [extension_i for extension_i in [
+            'RV_I', 'RV64_I', 'RV_D', 'RV64_D', 'RV_F', 'RV64_F',
+            'RV_C', 'RV32_C', 'RV64_C', 'RV32_C_F', 'RV_C_D'] if extension_i in self.extension]
+        instr_la = self._gen_load_address()
+
+        rd = instr_la['RD']
+        def instr_c_reg(reg):
+            return reg == rd
+        instr = rand_instr(instr_extension=extension, instr_category=[
+            'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7ff))
+        instr.add_constraint(instr_c_reg, ['RS1'])
+        instr.solve()
+
+        return [instr_la, instr]
+
+    def _gen_atomic(self):
+        extension = [extension_i for extension_i in ['RV_A', 'RV64_A'] if extension_i in self.extension]
+        instr_la = self._gen_load_address()
+        
+        instr_off = Instruction()
+        instr_off.set_name_constraint(['ADDI'])
+        offset = random.randint(-0x800, 0x7ff)
+        instr_off.set_imm_constraint(range(offset, offset+1))
+        rd = instr_la['RD']
+        def c_rd_rd1(r1, r2):
+            return r1 == rd and r2 == rd
+        instr_off.add_constraint(c_rd_rd1, ['RD', 'RS1'])
+        instr_off.solve()
+
+        def reg_c(rs1):
+            return rs1 == rd
+        instr_amo = rand_instr(instr_extension=extension, instr_category=['AMO'])
+        instr_amo.add_constraint(reg_c, ['RS1'])
+        instr_amo.solve()
+
+        return [instr_la, instr_off, instr_amo]
+    
+    def _gen_float_arithmetic(self):
+        extension = [extension for extension in [
+            'RV_D', 'RV64_D',
+            'RV_F', 'RV64_F',
+            'RV32_C_F', 'RV_C_D'
+        ] if extension in self.extension]
+
+        instr = rand_instr(instr_extension=extension,instr_category=['FLOAT'])
+        instr.solve()
+
+        return [instr]
+    
+    def _gen_system(self):
+        extension = [extension for extension in [
+            'RV_I', 'RV64_I'] if extension in self.extension]
+        instr = rand_instr(instr_extension=extension,
+                           instr_category=['SYSTEM', 'SYNCH'])
+        instr.solve()
+        return [instr]
+
+    def gen_instr(self):
+        for _ in range(random.randint(3,6)):
+            gen_func = random.choice(self.gen_func)
+            self.inst_list.extend(gen_func(self))
+            if len(self.inst_list) >= 6:
+                break
+
 class IntBlock(BaseBlock):
     def __init__(self, name, extension, mutate, len):
         super().__init__(name, extension, mutate, len)

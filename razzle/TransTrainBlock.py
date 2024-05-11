@@ -69,7 +69,7 @@ class TrainBlock(TransBlock):
                 inst.solve()
                 inst['RD'] = 'RA'
                 inst['RS1'] = 'A0'
-            case TriggerType.INT:
+            case TrainType.INT:
                 inst.set_category_constraint(['ARITHMETIC'])
                 def name_c(name):
                     return name not in ['LA', 'Li']
@@ -177,7 +177,7 @@ class LoadInitTrainBlock(LoadInitBlock):
                 addr_reg = 'SP'
                 if train_inst.has('RS1'):
                     addr_reg = train_inst['RS1']
-                addr = random.choice(['random_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+                addr = random.choice(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
                 if train_type == train_type.AMO:
                     addr = f'{addr} + {random.randint(-0x800, 0x7ff)}'
                 train_param[addr_reg] = addr
@@ -245,48 +245,72 @@ class TransTrainManager(TransBaseManager):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
 
-    def gen_block(self, train_type, trans_victim, template_path):
-        self.trans_victim = trans_victim
-        if template_path is not None:
-            template_list = os.listdir(template_path)
-            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
-            train_template = None if 'train_block.text' not in template_list else os.path.join(template_path, 'train_block')
+    def gen_block(self, train_type, align, single, trans_victim, template_path):
+        self.single = single
+
+        if self.single:
+            self.trans_victim = trans_victim
+            if template_path is not None:
+                template_list = os.listdir(template_path)
+                load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
+                train_template = None if 'train_block.text' not in template_list else os.path.join(template_path, 'train_block')
+            else:
+                load_init_template = None
+                train_template = None
+
+            self.train_type = train_type
+
+            self.return_block = ReturnBlock(self.extension, self.output_path)
+            self.return_block.gen_instr(None)
+
+            self.return_front = self.trans_victim.return_front
+
+            front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
+            if self.return_front:
+                nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
+                nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
+                front_block_end = self.trans_victim.symbol_table['return_block_entry']
+            else:
+                nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
+                nop_ret_end = self.trans_victim.symbol_table['return_block_entry']
+                front_block_end = nop_ret_begin
+
+            nop_ret_len = (nop_ret_end - nop_ret_begin)
+            if not align:
+                nop_ret_len = random.randint(nop_ret_len//2, nop_ret_len*2)
+            self.nop_ret_block = NopRetBlock(self.extension, self.output_path, nop_ret_len)
+            self.nop_ret_block.gen_instr(None)
+
+            self.train_block = TrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
+            self.train_block.gen_instr(train_template)
+            self.train_type = self.train_block.train_type
+
+            self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block)
+            self.load_init_block.gen_instr(load_init_template)
+
+            train_block_len = self.train_block._get_inst_len()
+            load_init_block_len = self.load_init_block._get_inst_len()
+            c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
+            if not align:
+                c_nop_len = random.randint(c_nop_len//2, c_nop_len*2)
+            self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
+            self.nop_block.gen_instr(None)
+        
         else:
-            load_init_template = None
-            train_template = None
 
-        self.train_type = train_type
+            block_begin = self.trans_victim.symbol_table['_text_swap_start']
+            block_end = self.trans_victim.symbol_table['_text_swap_end']
+            c_nop_len = (block_end - block_begin) // 4
 
-        self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr(None)
+            self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
+            self.nop_ret_block = NopRetBlock(self.extension, self.output_path, c_nop_len)
 
-        self.return_front = self.trans_victim.return_front
+            self.arbitrary_block = ArbitraryBlock(self.extension, self.output_path)
+            self.arbitrary_block.gen_instr(None)
 
-        front_block_begin = self.trans_victim.symbol_table['_text_swap_start']
-        if self.return_front:
-            nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
-            nop_ret_end = self.trans_victim.symbol_table['_text_swap_end']
-            front_block_end = self.trans_victim.symbol_table['return_block_entry']
-        else:
-            nop_ret_begin = self.trans_victim.symbol_table['access_secret_block_entry']
-            nop_ret_end = self.trans_victim.symbol_table['return_block_entry']
-            front_block_end = nop_ret_begin
+            self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.arbitrary_block])
+            self.load_init_block.gen_instr(None)
 
-        self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin))
-        self.nop_ret_block.gen_instr(None)
-
-        self.train_block = TrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
-        self.train_block.gen_instr(train_template)
-        self.train_type = self.train_block.train_type
-
-        self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block)
-        self.load_init_block.gen_instr(load_init_template)
-
-        train_block_len = self.train_block._get_inst_len()
-        load_init_block_len = self.load_init_block._get_inst_len()
-        c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
-        self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
-        self.nop_block.gen_instr(None)
     
     def record_fuzz(self, file):
         file.write(f'train: {self.swap_idx}\n')
@@ -309,10 +333,14 @@ class TransTrainManager(TransBaseManager):
             "", 0
         )
 
-        self._set_section(text_swap_section, self.data_section, [self.load_init_block])
-        self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
-        if self.return_front:
-            self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])
+        if self.single:
+            self._set_section(text_swap_section, self.data_section, [self.load_init_block])
+            self._set_section(text_swap_section, empty_section, [self.nop_block, self.train_block])
+            if self.return_front:
+                self._set_section(text_swap_section, empty_section, [self.return_block, self.nop_ret_block])
+            else:
+                self._set_section(text_swap_section, empty_section, [self.nop_ret_block, self.return_block])
         else:
-            self._set_section(text_swap_section, empty_section, [self.nop_ret_block, self.return_block])
+            self._set_section(text_swap_section, self.data_section, [self.load_init_block])
+            self._set_section(text_swap_section, self.data_section, [self.nop_block, self.arbitrary_block, self.nop_ret_block])
 

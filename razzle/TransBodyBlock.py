@@ -11,6 +11,39 @@ from payload.Instruction import *
 from payload.MagicDevice import *
 from payload.Block import *
 
+class ArbitraryBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('arbitrary_block', extension, output_path)
+
+    def gen_default(self):
+        block_list = []
+        block_cnt = random.randint(4, 8)
+        for i in range(block_cnt):
+            block = RandomBlock(f'{self.name}_{i}', self.extension)
+            block.gen_instr()
+            block_list.append(block)
+
+        start_p = 0
+        while(start_p + 2 < block_cnt - 1):
+            end_p = random.randint(start_p + 2, block_cnt -2)
+            block_list[start_p].inst_list.extend(new_branch_to(self.extension,block_list[end_p].name))
+            block_list[end_p].inst_list.extend(new_jump_to(block_list[start_p + 1].name))
+            block_list[end_p -1].inst_list.extend(new_jump_to(block_list[end_p + 1].name))
+
+            block_list[start_p].add_succeed(block_list[end_p])
+            block_list[start_p].add_succeed(block_list[start_p + 1])
+            block_list[end_p].add_succeed(block_list[start_p + 1])
+            for i in range(start_p + 1, end_p - 1):
+                block_list[i].add_succeed(block_list[i+1])
+            block_list[end_p - 1].add_succeed(block_list[end_p + 1])
+
+            start_p = end_p + 1
+
+        for i in range(start_p, len(block_list)-1):
+            block_list[i].add_succeed(block_list[i+1])
+
+        self._add_inst_block_list(block_list)
+
 class ReturnBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('return_block', extension, output_path)

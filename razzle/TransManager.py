@@ -429,7 +429,7 @@ class TransManager:
         else:
             return False
     
-    def gen_train_swap_list(self):
+    def gen_train_swap_list(self, align, single):
         self.trans_train_id = 0
         self.data_train_section.clear()
 
@@ -468,7 +468,7 @@ class TransManager:
 
             trans_body = self.trans_train_pool[self.trans_train_id]
             self.trans_train_id += 1
-            trans_body.gen_block(train_type, self.trans_victim, None)
+            trans_body.gen_block(train_type, align, single, self.trans_victim, None)
             self._generate_body_block(trans_body)
 
             swap_block_list.insert(0, trans_body.mem_region)
@@ -550,7 +550,7 @@ class TransManager:
             elif file.startswith('train'):
                 trans_train = self.trans_train_pool[self.trans_train_id]
                 self.trans_train_id += 1
-                trans_train.gen_block(config, self.trans_victim, folder)
+                trans_train.gen_block(config, self.trans_victim, True, True, folder)
                 self._generate_body_block(trans_train)
                 self.swap_block_list.insert(0, trans_train.mem_region)
     

@@ -201,6 +201,8 @@ class FuzzManager:
         self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD = config['decode_control_taint_cosim_threshold']
         self.DECODE_CONTROL_TAINT_DIST_THRESHOLD = config['decode_control_taint_dist_threshold']
         self.TAINT_EXPLODE_THRESHOLD = config['taint_explode_threshold']
+        self.train_single = config['train_single']
+        self.train_align = config['train_align']
 
     def generate(self):
         self.update_sub_repo('gen')
@@ -283,7 +285,7 @@ class FuzzManager:
 
         max_train_gen = TRAIN_GEN_MAX_ITER
         for _ in range(max_train_gen):
-            self.trans.gen_train_swap_list()
+            self.trans.gen_train_swap_list(self.train_align, self.train_single)
             self.mem_cfg.add_swap_list(self.trans.swap_block_list)
             is_trigger, taint_folder = self.stage1_trigger_analysis()
             if not is_trigger:
