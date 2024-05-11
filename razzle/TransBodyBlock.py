@@ -219,8 +219,15 @@ class TriggerType(Enum):
     RETURN = auto()
     JMP = auto()
 
+    INT = auto()
+    FLOAT = auto()
+    LOAD = auto()
+    STORE = auto()
+    AMO = auto()
+
     def need_train(trigger_type):
-        return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP]
+        return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP,\
+            TriggerType.INT, TriggerType.FLOAT, TriggerType.LOAD, TriggerType.STORE, TriggerType.AMO]
 
 class LoadInitBlock(TransBlock):
     def __init__(self, depth, extension, output_path, init_block_list):

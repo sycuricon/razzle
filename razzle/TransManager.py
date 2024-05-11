@@ -433,7 +433,7 @@ class TransManager:
         self.trans_train_id = 0
         self.data_train_section.clear()
 
-        windows_param = 0.6 if self.trans_victim.need_train() else 0.4
+        windows_param = 0.7 if self.trans_victim.need_train() else 0.4
 
         swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
         for _ in range(0, 10):

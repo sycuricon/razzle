@@ -68,7 +68,7 @@ class TriggerBlock(TransBlock):
                 inst = Instruction('illegal')
             case TriggerType.ECALL:
                 inst = Instruction('ecall')
-            case TriggerType.LOAD_ACCESS_FAULT|TriggerType.LOAD_MISALIGN|TriggerType.LOAD_PAGE_FAULT:
+            case TriggerType.LOAD_ACCESS_FAULT|TriggerType.LOAD_MISALIGN|TriggerType.LOAD_PAGE_FAULT|TriggerType.LOAD:
                 inst.set_category_constraint(['LOAD', 'FLOAT_LOAD', 'LOAD_SP'])
                 inst.solve()
                 if inst['CATEGORY'] == 'LOAD_SP':
@@ -78,10 +78,10 @@ class TriggerBlock(TransBlock):
                     inst['RS1'] = 'A0'
 
                 if inst['NAME'] in ['LB', 'LBU'] and self.trigger_type == TriggerType.LOAD_MISALIGN:
-                    self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT])
+                    self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT, TriggerType.LOAD])
                 
                 inst['IMM'] = down_align(inst['IMM'], 8)
-            case TriggerType.STORE_ACCESS_FAULT|TriggerType.STORE_MISALIGN|TriggerType.STORE_PAGE_FAULT:
+            case TriggerType.STORE_ACCESS_FAULT|TriggerType.STORE_MISALIGN|TriggerType.STORE_PAGE_FAULT|TriggerType.STORE:
                 inst.set_category_constraint(['STORE', 'FLOAT_STORE', 'STORE_SP'])
                 inst.solve()
                 if inst['CATEGORY'] == 'STORE_SP':
@@ -91,14 +91,29 @@ class TriggerBlock(TransBlock):
                     inst['RS1'] = 'A0'
                 
                 if inst['NAME'] in ['SB', 'SBU'] and self.trigger_type == TriggerType.STORE_MISALIGN:
-                    self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT])
+                    self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT, TriggerType.STORE])
                 
                 inst['IMM'] = down_align(inst['IMM'], 8)
-            case TriggerType.AMO_ACCESS_FAULT|TriggerType.AMO_MISALIGN|TriggerType.AMO_PAGE_FAULT:
+            case TriggerType.AMO_ACCESS_FAULT|TriggerType.AMO_MISALIGN|TriggerType.AMO_PAGE_FAULT|TriggerType.AMO:
                 block.inst_list.append(Instruction(f'add a0, {self.dep_reg}, a0'))
                 inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
                 inst.solve()
                 inst['RS1'] = 'A0' 
+            case TriggerType.INT:
+                inst.set_category_constraint(['ARITHMETIC'])
+                def name_c(name):
+                    return name not in ['LA', 'Li']
+                inst.add_constraint(name_c, ['NAME'])
+                inst.solve()
+                if inst.has('RS1'):
+                    inst['RS1'] = self.dep_reg
+                else:
+                    inst['RD'] = self.dep_reg
+            case TriggerType.FLOAT:
+                inst.set_category_constraint(['FLOAT'])
+                inst.solve()
+                if inst.has('RS1'):
+                    inst['RS1'] = self.dep_reg
     
         self.trigger_inst = inst
         block.inst_list.append(inst)
@@ -413,6 +428,14 @@ class LoadInitTriggerBlock(LoadInitBlock):
             case TriggerType.LOAD_PAGE_FAULT | TriggerType.STORE_PAGE_FAULT:
                 address_base = 'page_fault_data_block_page_base'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
+            case TriggerType.LOAD | TriggerType.STORE:
+                address_base = 'random_data_block_page_base'
+                trigger_param = f'{address_base} - {self.dep_reg_result}'
+            case TriggerType.INT | TriggerType.FLOAT:
+                pass
+            case TriggerType.AMO:
+                address_base = 'random_data_block_page_base'
+                trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.AMO_MISALIGN:
                 address_base = 'random_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))} + 1'
@@ -664,7 +687,11 @@ class TransVictimManager(TransBaseManager):
 
         if template_path is None:
             do_follow = True
-            if self.trigger_block.trigger_type == TriggerType.BRANCH and self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
+            if self.trigger_block.trigger_type == TriggerType.BRANCH and\
+                self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
+                do_follow = False
+            elif self.trigger_block.trigger_type in [TriggerType.INT, TriggerType.FLOAT,\
+                TriggerType.AMO, TriggerType.LOAD, TriggerType.STORE]:
                 do_follow = False
             else:
                 if self.trigger_block.trigger_type == TriggerType.JALR:
