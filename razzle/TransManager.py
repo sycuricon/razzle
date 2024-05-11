@@ -17,7 +17,7 @@ import random
 from enum import *
 
 class MemCfg:
-    def __init__(self, mem_start, mem_len):
+    def __init__(self, mem_start, mem_len, code_repo):
         self.mem_start = mem_start
         self.mem_len = mem_len
         self.mem_regions = {}
@@ -26,6 +26,11 @@ class MemCfg:
         for kind in self.mem_region_kind:
             self.mem_regions[kind] = []
         self.swap_list = []
+        self.code_repo = code_repo
+        self.sub_repo = None
+    
+    def update_sub_repo(self, sub_repo):
+        self.sub_repo = sub_repo
     
     def add_mem_region(self, kind, mem_region):
         assert kind in self.mem_region_kind and kind != 'swap'
@@ -45,13 +50,17 @@ class MemCfg:
                     self.mem_regions['swap'].append(swap_block)
                 self.swap_list.append(swap_block['swap_id'])
     
-    def dump_conf(self, output_path):
-        with open(os.path.join(output_path, 'swap_mem.cfg'), "wt") as file:
+    def dump_conf(self):
+        swap_path = os.path.join(self.code_repo, self.sub_repo, 'swap_mem.cfg')
+        with open(swap_path, "wt") as file:
             tmp_mem_cfg = {}
             tmp_mem_cfg['start_addr'] = self.mem_start
             tmp_mem_cfg['max_mem_size'] = self.mem_len
             mem_region = []
             for regions in self.mem_regions.values():
+                regions = copy.deepcopy(regions)
+                for region in regions:
+                    region['init_file'] = os.path.join(self.code_repo, self.sub_repo, region['init_file'])
                 mem_region.extend(regions)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
@@ -80,6 +89,8 @@ class TransManager:
         ), "the privilege of vicitm smaller than attack's is meanless"
 
         self.output_path = output_path
+        self.sup_repo = output_path
+        self.sub_repo = None
         self.virtual = virtual if self.attack_privilege != "M" else False
 
         self.extension = [
@@ -160,6 +171,10 @@ class TransManager:
     def _collect_compile_file(self, file_list):
         self.file_list.extend(file_list)
     
+    def update_sub_repo(self, sub_repo):
+        self.sub_repo = sub_repo
+        self.output_path = os.path.join(self.sup_repo, self.sub_repo)
+            
     def _generate_frame(self):
         page_table_name = "page_table.S"
         ld_name = "link.ld"
@@ -197,7 +212,7 @@ class TransManager:
             if not file.endswith('trans_exit.S'):
                 self.frame_file_list.append(file)
     
-    def _generate_compile_shell(self, swap_idx):
+    def _generate_compile_shell(self, swap_idx, trans_block):
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"compile_{swap_idx}.sh"
         )
@@ -220,7 +235,8 @@ class TransManager:
         )
 
         output_name_base = f"$OUTPUT_PATH/Testbench_{swap_idx}"
-        baker.add_cmd(gen_elf.gen_cmd([*self.file_list], "-o", output_name_base))
+        output_name = f'{output_name_base}.elf'
+        baker.add_cmd(gen_elf.gen_cmd([*self.file_list], "-o", output_name))
 
         gen_bin = ShellCommand("riscv64-unknown-elf-objcopy", ["-O", "binary"])
         baker.add_cmd(gen_bin.gen_cmd([gen_elf.last_output, f"{output_name_base}.bin"]))
@@ -228,12 +244,58 @@ class TransManager:
         gen_sym = ShellCommand("nm")
         baker.add_cmd(gen_sym.gen_cmd([gen_elf.last_output, ">", f"{output_name_base}.symbol"]))
 
-        return baker
+        trans_body_type = type(trans_block)
+        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
+        data_name = None
+        if trans_body_type == TransExitManager:
+            baker.add_cmd(
+                gen_asm.gen_cmd(
+                    [
+                        f"{output_name}",
+                        "-j .init",
+                        "-j .mtrap",
+                        "-j .strap",
+                        "-j .text_frame",
+                        "-j .data_frame",
+                        "-j .swap_text"
+                    ],
+                    ">",
+                    f"$OUTPUT_PATH/Testbench_frame.asm"
+                )
+            )
+        else:
+            if trans_body_type == TransVictimManager:
+                data_name = 'data_victim'
+            elif trans_body_type == TransDecodeManager:
+                data_name = 'data_decode'
+            elif trans_body_type == TransTrainManager:
+                for block in self.victim_train.values():
+                    if block is trans_block:
+                        data_name = 'data_train'
+                else:
+                    data_name = 'data_victim_train'
+            else:
+                raise Exception('the type of trans_body is invalid')
+            baker.add_cmd(
+                gen_asm.gen_cmd(
+                    [
+                        f"{output_name}",
+                        f"-j .text_swap",
+                        f'-j .{data_name}'
+                    ],
+                    ">",
+                    f"$OUTPUT_PATH/Testbench_body_{swap_idx}.asm"
+                )
+            )
+
+        baker.run()
+
+        return baker, data_name
 
     def _generate_frame_block(self):
         swap_idx = self.trans_exit.swap_idx
 
-        baker = self._generate_compile_shell(swap_idx)
+        baker, _ = self._generate_compile_shell(swap_idx, self.trans_exit)
         baker.run()
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
 
@@ -264,12 +326,13 @@ class TransManager:
             file.write(common_byte_array)
 
         dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':file_origin_common, 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':'origin_common.bin', 'swap_id':self.trans_exit.swap_idx}
         vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':file_variant_common, 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':'variant_common.bin', 'swap_id':self.trans_exit.swap_idx}
         self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
 
-        file_text_swap = os.path.join(self.output_path, f'text_swap_{swap_idx}.bin')
+        file_text_swap_base = f'text_swap_{swap_idx}.bin'
+        file_text_swap = os.path.join(self.output_path, file_text_swap_base)
         text_begin = symbol_table['_text_swap_start'] - address_base
         text_end   = symbol_table['_text_swap_end'] - address_base
         text_swap_byte_array = origin_byte_array[text_begin:text_end]
@@ -277,29 +340,8 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap_base, 'swap_id':swap_idx}
         self.trans_exit.register_memory_region(mem_region)
-
-        baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name="disasm_frame.sh"
-        )
-        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
-        baker.add_cmd(
-            gen_asm.gen_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench_{swap_idx}",
-                    "-j .init",
-                    "-j .mtrap",
-                    "-j .strap",
-                    "-j .text_frame",
-                    "-j .data_frame",
-                    "-j .swap_text"
-                ],
-                ">",
-                f"$OUTPUT_PATH/Testbench_frame.asm"
-            )
-        )
-        baker.run()
 
         self.trans_frame.move_data_section()
 
@@ -307,7 +349,7 @@ class TransManager:
         swap_idx = trans_block.swap_idx
 
         self.file_list = self.frame_file_list + trans_block.file_generate(self.output_path, f'payload_{trans_block.swap_idx}.S')
-        baker = self._generate_compile_shell(swap_idx)
+        baker, data_name = self._generate_compile_shell(swap_idx, trans_block)
         baker.run()
 
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
@@ -324,7 +366,8 @@ class TransManager:
         
         address_offset = 0x80000000
         
-        file_text_swap = os.path.join(self.output_path, f'text_swap_{swap_idx}.bin')
+        file_text_swap_base = f'text_swap_{swap_idx}.bin'
+        file_text_swap = os.path.join(self.output_path, file_text_swap_base)
         text_begin = symbol_table['_text_swap_start'] - address_base
         text_end   = symbol_table['_text_swap_end'] - address_base
         text_swap_byte_array = origin_byte_array[text_begin:text_end]
@@ -332,27 +375,14 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap_base, 'swap_id':swap_idx}
         trans_block.register_memory_region(mem_region)
 
-        trans_body_type = type(trans_block)
-        if trans_body_type == TransVictimManager:
-            data_name = 'data_victim'
-        elif trans_body_type == TransDecodeManager:
-            data_name = 'data_decode'
-        elif trans_body_type == TransTrainManager:
-            for block in self.victim_train.values():
-                if block is trans_block:
-                    data_name = 'data_train'
-            else:
-                data_name = 'data_victim_train'
-        else:
-            raise Exception('the type of trans_body is invalid')
-        
         data_begin_label = f'_{data_name}_start'
         data_end_label = f'_{data_name}_end'
 
-        file_data = os.path.join(self.output_path, f'{data_name}_{swap_idx}.bin')
+        file_data_base = f'{data_name}_{swap_idx}.bin'
+        file_data = os.path.join(self.output_path, file_data_base)
         data_begin = symbol_table[data_begin_label] - address_base
         data_end   = symbol_table[data_end_label] - address_base
         data_byte_array = origin_byte_array[data_begin:data_end]
@@ -360,27 +390,10 @@ class TransManager:
             file.write(data_byte_array)
         
         dut_mem_region = {'type':'dut', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data_base, 'swap_id':swap_idx}
         vnt_mem_region = {'type':'vnt', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data_base, 'swap_id':swap_idx}
         self.mem_cfg.add_mem_region(data_name, [dut_mem_region, vnt_mem_region])
-        
-        baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"disasm_body_{swap_idx}.sh"
-        )
-        gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
-        baker.add_cmd(
-            gen_asm.gen_cmd(
-                [
-                    f"$OUTPUT_PATH/Testbench_{swap_idx}",
-                    f"-j .text_swap",
-                    f'-j .{data_name}'
-                ],
-                ">",
-                f"$OUTPUT_PATH/Testbench_body_{swap_idx}.asm"
-            )
-        )
-        baker.run()
     
     def _compute_coverage(self, base_list, variant_list):
         if max(base_list) != 0:
@@ -452,7 +465,7 @@ class TransManager:
                 swap_block_list[0:0] = self._gen_train_swap_list()
         self.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(self.swap_block_list)
-        self.mem_cfg.dump_conf(self.output_path)
+        self.mem_cfg.dump_conf()
     
     def store_template(self, iter_num, repo_path, template_folder):
         self.swap_list = []
@@ -502,7 +515,7 @@ class TransManager:
             trans_block.gen_block(train_type, self.trans_victim, None)
             self._generate_body_block(trans_block)
 
-    def load_template(self, iter_num, repo_path, template_folder, strategy):
+    def load_template(self, iter_num, repo_path, template_folder, strategy, config):
         template_path =os.path.join(repo_path, template_folder, iter_num)
         if not os.path.exists(template_path):
             raise Exception(f"the template {template_path} does not exist")
@@ -521,23 +534,26 @@ class TransManager:
         for folder in folder_list:
             file = os.path.basename(folder)
             if file.startswith('victim'):
-                self.trans_victim.gen_block(strategy, folder)
+                self.trans_victim.gen_block(config, strategy, folder)
                 self._generate_body_block(self.trans_victim)
                 self.swap_victim_list.insert(0, self.trans_victim.mem_region)
                 break
 
         self.swap_victim_dist_id = 0
         for folder in folder_list:
+            file = os.path.basename(folder)
             if file.startswith('decode'):
                 self.trans_decode.gen_block(self.trans_victim, folder)
                 self._generate_body_block(self.trans_decode)
                 self.swap_victim_list.insert(-1, self.trans_decode.mem_region)
             elif file.startswith('train'):
                 trans_train = self.victim_trigger_pool[self.swap_victim_dist_id]
-                trans_train.gen_block(None, self.trans_victim, folder)
+                trans_train.gen_block(config, self.trans_victim, folder)
                 self._generate_body_block(trans_train)
                 self.swap_victim_dist_id += 1
                 self.swap_victim_list.insert(0, trans_train.mem_region)
+        
+        self.swap_block_list = self.swap_victim_list
     
     def record_fuzz(self, file):
         for swap_mem_region in self.swap_block_list[:-1]:

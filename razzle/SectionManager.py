@@ -131,7 +131,7 @@ class SectionManager:
         with open(filename, "wt") as f:
             self._write_headers(f)
             self._write_sections(f)
-        self.dut_file_list = [f"$OUTPUT_PATH/{name}"]
+        self.dut_file_list = [f"{filename}"]
 
     def file_generate(self, path, name):
         self._generate_sections()

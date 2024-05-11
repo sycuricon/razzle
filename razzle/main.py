@@ -9,6 +9,10 @@ def genonly_entry(args):
     fuzz = FuzzManager(args.input, args.output, args.virtual)
     fuzz.generate()
 
+def load_entry(args):
+    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz.load_example(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.iter_num)
+
 def fuzz_entry(args):
     fuzz = FuzzManager(args.input, args.output, args.virtual)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
@@ -46,6 +50,25 @@ if __name__ == "__main__":
     parser_fuzz.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
     )
+
+    parser_load = subparsers.add_parser('load')
+    parser_load.set_defaults(func=load_entry)
+    parser_load.add_argument(
+        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
+    )
+    parser_load.add_argument(
+        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
+    )
+    parser_load.add_argument(
+        "--taint_log", dest="taint_log", help="the path of the taint log file"
+    )
+    parser_load.add_argument(
+        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
+    )
+    parser_load.add_argument(
+        "--iter_num", dest="iter_num", help="the index of the leak template repo"
+    )
+    
 
     args = parser.parse_args()
     args.output = os.path.realpath(args.output)

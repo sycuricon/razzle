@@ -248,7 +248,7 @@ class EncodeBlock(TransBlock):
             BaseBlockType.SYSTEM:SystemBlock
         }
 
-        block = BaseBlock(f'{self.name}_0', self.extension, True)
+        block = BaseBlock(f'{self.entry}', self.extension, True)
         self.encode_block_list.append(block)
         self.inst_block_list.append(block)
 
@@ -318,8 +318,9 @@ class EncodeBlock(TransBlock):
         
         self.encode_list = list(range(self.encode_block_begin, self.encode_block_end))
 
+        self.loop = False
         if self.trigger_type != TriggerType.V4:
-            block = BaseBlock(f'{self.name}_4', self.extension, True)
+            block = BaseBlock(f'{self.name}_{self.block_num + 1}', self.extension, True)
             self.inst_block_list.append(block)
             block.inst_list.append(Instruction(f'jal zero, {self.encode_block_list[0].name}'))
             self.encode_block_list.append(block)
@@ -473,19 +474,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
             else:
                 self.data_list[-1] = a0_data_asm
 
-    def load_template(self, template):
-        super().load_template(template)
-        self.inst_block_list[0].name = self.entry
-        self.inst_block_list[0].inst_list[0] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
-        self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
-        self.float_init_list = []
-        self.GPR_init_list = []
-        for inst in self.inst_block_list[0].inst_list[1:]:
-            if inst.has('RD'):
-                self.GPR_init_list.append(inst['RD'])
-            else:
-                self.float_init_list.append(inst['FRD'])
-        
+    def update_init_seq(self):
         need_inited = self._need_init_compute()
         has_inited = set(self.GPR_init_list) | set(self.float_init_list)
         need_inited.difference_update(has_inited)
@@ -537,6 +526,11 @@ class LoadInitTriggerBlock(LoadInitBlock):
             self.GPR_init_list.extend(GPR_init_list)
             self.float_init_list.extend(float_init_list)
 
+    def load_template(self, template):
+        super().load_template(template)
+        self.update_init_seq()
+        
+
 class SecretMigrateType(Enum):
     MEMORY = auto()
     CACHE = auto()
@@ -563,8 +557,9 @@ class SecretMigrateBlock(TransBlock):
             self.secret_migrate_type = SecretMigrateType.MEMORY
 
         inst_list = []
-        used_reg = random.choices(list(set(reg_range) - {'ZERO'} - set(self.protected_gpr_list)), k=2)
-        used_reg = [reg.lower() for reg in used_reg]
+        used_reg = list(set(reg_range) - {'ZERO'} - set(self.protected_gpr_list))
+        used_reg.sort()
+        used_reg = list(map(str.lower, used_reg[0:2]))
         
         if self.secret_migrate_type == SecretMigrateType.MEMORY:
             inst_list.extend(['c.nop'] * 6)
@@ -649,6 +644,7 @@ class TransVictimManager(TransBaseManager):
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
         self.load_init_block.gen_instr(load_init_template)
+        self.temp_load_init_block = self.load_init_block
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(secret_migrate_template)
@@ -705,12 +701,13 @@ class TransVictimManager(TransBaseManager):
 
     def mutate_encode(self, config):
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
+        self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr(None)
 
         old_inst_len = self.load_init_block._get_inst_len()
-        block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
-        self.load_init_block.gen_instr(None)
+        self.load_init_block = copy.deepcopy(self.temp_load_init_block)
+        self.load_init_block.init_block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
+        self.load_init_block.update_init_seq()
         new_inst_len = self.load_init_block._get_inst_len()
 
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)

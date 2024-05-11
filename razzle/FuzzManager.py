@@ -78,20 +78,13 @@ class Stage1Seed(Seed):
         self.config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
 
         secret_migrate_field = self.get_field(self.Stage1FieldEnum.SECRET_MIGRATE)
-        if self.config['access_secret_li']:
-            match(secret_migrate_field):
-                case 0|1:
-                    self.config['secret_migrate_type'] = SecretMigrateType.MEMORY
-                case 2:
-                    self.config['secret_migrate_type'] = SecretMigrateType.CACHE
-                case 3:
-                    self.config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
-        else:
-            match(secret_migrate_field):
-                case 0|1:
-                    self.config['secret_migrate_type'] = SecretMigrateType.CACHE
-                case 2|3:
-                    self.config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
+        match(secret_migrate_field):
+            case 0|1:
+                self.config['secret_migrate_type'] = SecretMigrateType.MEMORY
+            case 2:
+                self.config['secret_migrate_type'] = SecretMigrateType.CACHE
+            case 3:
+                self.config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
 
         trigger_field_value = self.get_field(self.Stage1FieldEnum.TRIGGER)
         trigger_finish = False
@@ -113,24 +106,24 @@ class Stage1Seed(Seed):
                     self.config['trigger_type'] = TriggerType.EBREAK
                 case 3|4|5|6:
                     self.config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-                case 7:
+                case 7|8:
                     self.config['trigger_type'] = TriggerType.LOAD_MISALIGN
-                case 8|9|10|11:
+                case 9|10|11|12:
                     self.config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
-                case 12|13|14|15:
+                case 13|14|15|16:
                     self.config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-                case 16:
+                case 17|18:
                     self.config['trigger_type'] = TriggerType.STORE_MISALIGN
-                case 17|18|19|20:
+                case 19|20|21|22:
                     self.config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
-                case 21|22|23|24:
+                case 23|24|25|26:
                     self.config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
-                case 25:
+                case 27|28:
                     self.config['trigger_type'] = TriggerType.AMO_MISALIGN
-                case 26|27|28|29:
+                case 29|30|31|32:
                     self.config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
                 case _:
-                    if 30 <= trigger_field_value < 39:
+                    if 33 <= trigger_field_value < 39:
                         self.config['trigger_type'] = TriggerType.JMP
                     elif 39 <= trigger_field_value < 56:
                         self.config['trigger_type'] = TriggerType.RETURN
@@ -187,32 +180,38 @@ class FuzzManager:
     def __init__(self, hjson_filename, output_path, virtual):
         self.output_path = output_path
         self.virtual = virtual
-        self.mem_cfg = MemCfg(0x80000000, 0x40000)
+        self.mem_cfg = MemCfg(0x80000000, 0x40000, self.output_path)
         hjson_file = open(hjson_filename)
         config = hjson.load(hjson_file)
-        self.trans = TransManager(config, output_path, virtual, self.mem_cfg)
+        self.trans = TransManager(config, self.output_path, virtual, self.mem_cfg)
         self.ACCESS_TAINT_THRESHOLD = config['access_taint_threshold']
         self.LEAK_DATA_TAINT_THRESHOLD = config['leak_data_taint_threshold']
-        self.LEAK_CONTROL_TAINT_THRESHOLD = config['leak_control_taint_threshold']
+        self.LEAK_CONTROL_TAINT_COSIM_THRESHOLD = config['leak_control_taint_cosim_threshold']
+        self.LEAK_CONTROL_TAINT_DIST_THRESHOLD = config['leak_control_taint_dist_threshold']
+        self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD = config['decode_control_taint_cosim_threshold']
+        self.DECODE_CONTROL_TAINT_DIST_THRESHOLD = config['decode_control_taint_dist_threshold']
         self.TAINT_EXPLODE_THRESHOLD = config['taint_explode_threshold']
-        self.DECODE_CONTROL_TAINT_THRESHOLD = config['decode_control_taint_threshold']
 
     def generate(self):
+        self.update_sub_repo('gen')
+        os.mkdir(os.path.join(self.output_path, 'gen'))
+
         self.trans.build_frame()
         self.trans.trans_victim.gen_block('default', None)
         self.trans._generate_body_block(self.trans.trans_victim)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        self.mem_cfg.dump_conf(self.output_path)
+        self.mem_cfg.dump_conf()
     
     def stage_simulate(self, mode):
         assert mode in ['normal', 'robprofile', 'variant']
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
         )
-        export_cmd = ShellCommand("export", [f'SIM_MODE={mode}'])
+        export_cmd = ShellCommand("export", [])
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
-        baker.add_cmd(export_cmd.gen_cmd())
+        baker.add_cmd(export_cmd.gen_cmd([f'SIM_MODE={mode}']))
+        baker.add_cmd(export_cmd.gen_cmd([f'STARSHIP_TESTCASE={self.output_path}/{self.sub_repo}/swap_mem.cfg']))
         baker.add_cmd(gen_asm.gen_cmd())
         baker.run()
 
@@ -227,7 +226,7 @@ class FuzzManager:
                 is_trigger = True
                 break
 
-        return is_trigger
+        return is_trigger, taint_folder
 
     def stage1_access_analysis(self):
         taint_folder = self.stage_simulate('variant')
@@ -243,31 +242,16 @@ class FuzzManager:
                 variant_list.append(int(variant))
         
         is_access = max(base_list) > self.ACCESS_TAINT_THRESHOLD
-        if is_access:
-            self._staged_log(taint_folder)
-        return is_access
-
-    def _staged_log(self, taint_folder):
-        cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"get_taint_log.sh"
-            )
-        gen_asm = ShellCommand("cp", [])
-        if os.path.exists(f'{taint_folder}.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{self.repo_path}']))
-        if os.path.exists(f'{taint_folder}.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{self.repo_path}']))
-        cp_baker.run()
+        return is_access, taint_folder
 
     def _trigger_reduce(self):
-        sim_mode = 'robprofile'
-        taint_folder = f'{self.taint_log}_{sim_mode}/wave/swap_mem.cfg.taint'
         swap_block_list = self.trans.swap_block_list
         for _ in range(len(swap_block_list)-2):
             for i in range(0, len(swap_block_list)-2):
                 tmp_swap_block_list = copy.copy(swap_block_list)
                 tmp_swap_block_list.pop(i)
                 self.mem_cfg.add_swap_list(tmp_swap_block_list)
-                self.mem_cfg.dump_conf(self.output_path)
+                self.mem_cfg.dump_conf()
                 is_trigger = self.stage1_trigger_analysis()
                 if is_trigger:
                     swap_block_list = tmp_swap_block_list
@@ -276,7 +260,7 @@ class FuzzManager:
                 break
         self.trans.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(swap_block_list)
-        self.mem_cfg.dump_conf(self.output_path)
+        self.mem_cfg.dump_conf()
     
     def fuzz_stage1(self, stage1_seed):
         stage1_config = stage1_seed.parse()
@@ -288,14 +272,14 @@ class FuzzManager:
         REORDER_SWAP_LIST_MAX_ITER = 3
         ENCODE_MUTATE_MAX_ITER = 3
 
-        max_train_gen = TRAIN_GEN_MAX_ITER if self.trans.trans_victim.need_train() else 1
+        max_train_gen = TRAIN_GEN_MAX_ITER
         for _ in range(max_train_gen):
             self.trans.gen_victim_train()
 
-            max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER if self.trans.trans_victim.need_train() else 1
+            max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER
             for _ in range(max_reorder_swap_list):
                 self.trans._stage1_reorder_swap_list()
-                is_trigger = self.stage1_trigger_analysis()
+                is_trigger, taint_folder = self.stage1_trigger_analysis()
                 if not is_trigger:
                     continue
                 else:
@@ -306,43 +290,59 @@ class FuzzManager:
             break
 
         if not is_trigger:
-            return FuzzResult.FAIL
+            return FuzzResult.FAIL, taint_folder
 
-        is_access = self.stage1_access_analysis()
+        is_access, taint_folder = self.stage1_access_analysis()
         if is_access:
-            return FuzzResult.SUCCESS
+            return FuzzResult.SUCCESS, taint_folder
         else:
             for _ in range(ENCODE_MUTATE_MAX_ITER):
                 stage1_seed.mutate_access()
                 config = stage1_seed.parse()
                 self.trans.trans_victim.mutate_access(config)
                 self.trans._generate_body_block(self.trans.trans_victim)
-                is_access = self.stage1_access_analysis()
+                is_access, taint_folder = self.stage1_access_analysis()
                 if is_access:
-                    return FuzzResult.SUCCESS
+                    return FuzzResult.SUCCESS, taint_folder
                 
-        return FuzzResult.FAIL
+        return FuzzResult.FAIL, taint_folder
     
-    def store_template(self, iter_num, repo_path, folder):
-        self.trans.store_template(iter_num, repo_path, folder)
+    def store_template(self, iter_num, repo_path, folder, taint_folder):
+        template_repo_path = os.path.join(repo_path, folder)
+        if not os.path.exists(template_repo_path):
+            os.mkdir(template_repo_path)
 
         template_repo_path = os.path.join(repo_path, folder, str(iter_num))
+        if not os.path.exists(template_repo_path):
+            os.mkdir(template_repo_path)
 
         cp_baker = BuildManager(
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
             )
-        gen_asm = ShellCommand("mv", [])
-        if os.path.exists(f'{repo_path}/swap_mem_cfg.taint.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/swap_mem_cfg.taint.log', f'{template_repo_path}']))
-        if os.path.exists(f'{repo_path}/swap_mem_cfg.taint.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{repo_path}/swap_mem_cfg.taint.csv', f'{template_repo_path}']))
+        gen_asm = ShellCommand("cp", [])
+        cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/swap_mem.cfg'\
+            , f'{template_repo_path}']))
+        if os.path.exists(f'{taint_folder}.log'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{template_repo_path}']))
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{self.output_path}/{self.sub_repo}']))
+        if os.path.exists(f'{taint_folder}.csv'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{template_repo_path}']))
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{self.output_path}/{self.sub_repo}']))
+        rm_asm = ShellCommand("rm", [])
+        cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.elf']))
+        cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.symbol']))
+        cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/Testbench*.bin']))
         cp_baker.run()
 
-    def record_fuzz(self, iter_num, result, config, stage_num):
+    def record_fuzz(self, iter_num, result,  cosim_result, max_taint, config, stage_num):
         with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'virtual:\t{self.virtual}\n')
             file.write(f'result:\t{result}\n')
+            if cosim_result is not None:
+                file.write(f'cosim:\t{cosim_result}\n')
+            if max_taint is not None:
+                file.write(f'max_taint:\t{max_taint}\n')
             for i,(key, value) in enumerate(config.items()):
                 file.write(f'\t{key}: {value}')
                 if i%2 == 0:
@@ -355,7 +355,26 @@ class FuzzManager:
         with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
             file.write(f'{iter_num}\n')
     
-    def stage2_leak_analysis(self):
+    def taint_analysis(self, base_spread_list, variant_spread_list):
+        base_array = np.array(base_spread_list, dtype=float)
+        base_array = base_array[1:] - base_array[0:-1]
+        base_array /= len(base_spread_list)
+        variant_array = np.array(variant_spread_list, dtype=float)
+        variant_array = variant_array[1:] - variant_array[0:-1]
+        variant_array /= len(variant_spread_list)
+
+        norm = np.linalg.norm(base_array) * np.linalg.norm(variant_array)
+        cosine = base_array.dot(variant_array)
+        cosim_result = norm - cosine
+        max_taint = max(max(base_spread_list), max(variant_spread_list))
+
+        base_array = np.array(base_spread_list, dtype=float)
+        variant_array = np.array(variant_spread_list, dtype=float)
+        ave_dist = abs(np.average(base_array - variant_array))
+
+        return cosim_result, ave_dist, max_taint
+    
+    def stage2_leak_analysis(self, strategy):
         taint_folder = self.stage_simulate('variant')
 
         with open(f'{taint_folder}.csv', "r") as file:
@@ -375,39 +394,38 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'DELAY_END_DEQ':
-                sync_time = int(exec_time)
+            if exec_info == 'DELAY_END_DEQ' and sync_time == 0:
+                sync_time = int(exec_time) + 1
             if exec_info == 'VCTM_END_DEQ':
                 vicitm_end = int(exec_time)
             if exec_info == "TEXE_START_ENQ":
                 is_trigger = True
 
         if not is_trigger:
-            return FuzzResult.FAIL
+            return FuzzResult.FAIL, None, None, taint_folder
 
         base_spread_list = base_list[sync_time:vicitm_end]
         variant_spread_list = variant_list[sync_time:vicitm_end]
 
-        base_array = np.array(base_spread_list)
-        base_array = base_array - np.average(base_array)
-        variant_array = np.array(variant_spread_list)
-        variant_array = variant_array - np.average(variant_array)
+        cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
-        cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
-
-        if cosim_result > 0.01:
-            if cosim_result > self.LEAK_CONTROL_TAINT_THRESHOLD:
-                return FuzzResult.SUCCESS
+        if strategy == 'fuzz_control':
+            if cosim_result > self.LEAK_CONTROL_TAINT_COSIM_THRESHOLD or\
+                ave_dist > self.LEAK_CONTROL_TAINT_DIST_THRESHOLD:
+                stage2_result = FuzzResult.SUCCESS
+            elif max_taint < self.ACCESS_TAINT_THRESHOLD:
+                stage2_result = FuzzResult.FAIL
             else:
-                return FuzzResult.CONTROL_MAYBE
+                stage2_result = FuzzResult.CONTROL_MAYBE
         else:
-            max_taint = max(base_spread_list)
             if max_taint > self.TAINT_EXPLODE_THRESHOLD:
-                return FuzzResult.SUCCESS
+                stage2_result = FuzzResult.SUCCESS
             elif max_taint >  self.LEAK_DATA_TAINT_THRESHOLD:
-                return FuzzResult.DATA_MAYBE
+                stage2_result = FuzzResult.DATA_MAYBE
             else:
-                return FuzzResult.FAIL
+                stage2_result = FuzzResult.FAIL
+        
+        return stage2_result, cosim_result, max_taint, taint_folder
 
     def stage3_decode_analysis(self, stage2_result):
         taint_folder = self.stage_simulate('variant')
@@ -428,41 +446,61 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'VCTM_END_ENQ':
+            if exec_info == 'DELAY_END_ENQ':
                 victim_begin = int(exec_time)
             if exec_info == 'VCTM_END_DEQ':
                 vicitm_end = int(exec_time)
 
         base_spread_list = base_list[victim_begin:vicitm_end]
-        variant_spread_list = variant_list[vicitm_end:vicitm_end]
+        variant_spread_list = variant_list[victim_begin:vicitm_end]
 
-        base_array = np.array(base_spread_list)
-        base_array = base_array - np.average(base_array)
-        variant_array = np.array(variant_spread_list)
-        variant_array = variant_array - np.average(variant_array)
+        cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
-        cosim_result = 1 - base_array.dot(variant_array) / (np.linalg.norm(base_array) * np.linalg.norm(variant_array))
-
+        stage3_result = FuzzResult.FAIL
         if stage2_result == FuzzResult.CONTROL_MAYBE:
-            if cosim_result > self.DECODE_CONTROL_TAINT_THRESHOLD:
-                return FuzzResult.SUCCESS
-        elif stage2_result == FuzzResult.DATA_MAYBE:
-            if max(base_spread_list) > self.TAINT_EXPLODE_THRESHOLD:
-                return FuzzResult.SUCCESS
-        else:
-            return FuzzResult.FAIL
+            if cosim_result > self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD or\
+                ave_dist > self.DECODE_CONTROL_TAINT_DIST_THRESHOLD:
+                stage3_result = FuzzResult.SUCCESS
+        if stage2_result == FuzzResult.DATA_MAYBE:
+            if max_taint > self.TAINT_EXPLODE_THRESHOLD:
+                stage3_result = FuzzResult.SUCCESS
+        
+        return stage3_result, cosim_result, max_taint, taint_folder
     
     def fuzz_stage2(self, stage2_seed):
         config = stage2_seed.parse()
         random.seed(config['stage2_seed'])
         self.trans.trans_victim.mutate_encode(config)
         self.trans._generate_body_block(self.trans.trans_victim)
-        return self.stage2_leak_analysis()
+        return self.stage2_leak_analysis(config['encode_fuzz_type'])
     
     def fuzz_stage3(self, stage2_result):
         self.trans.trans_decode.gen_block(self.trans.trans_victim, None)
         self.trans._generate_body_block(self.trans.trans_decode)
+        self.trans.swap_block_list.insert(-1, self.trans.trans_decode.mem_region)
+        self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+        self.mem_cfg.dump_conf()
         return self.stage3_decode_analysis(stage2_result)
+    
+    def load_example(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, iter_num):
+        self.rtl_sim = rtl_sim
+        self.rtl_sim_mode = rtl_sim_mode
+        self.taint_log = taint_log
+        self.trans.build_frame()
+        stage1_seed = Stage1Seed()
+        stage2_seed = Stage2Seed()
+        stage1_config = stage1_seed.parse()
+        stage2_config = stage2_seed.parse()
+        config = {**stage1_config, **stage2_config}
+        self.trans.load_template(iter_num, repo_path, "leak_template", 'default', config)
+        self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+        self.mem_cfg.dump_conf()
+        self.stage_simulate('variant')
+    
+    def update_sub_repo(self, sub_repo):
+        self.sub_repo = sub_repo
+        self.mem_cfg.update_sub_repo(sub_repo)
+        self.trans.update_sub_repo(sub_repo)
     
     def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
         if repo_path is None:
@@ -485,22 +523,32 @@ class FuzzManager:
         trigger_folder = 'trigger_template'
         leak_folder = 'leak_template'
 
-        self.trans.build_frame()
         stage1_seed = Stage1Seed()
+        trigger_sub_repo = None
+        last_trigger_sub_repo = None
 
         FUZZ_MAX_ITER = 200
         STAGE2_FUZZ_MAX_ITER = 20
         for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
+            last_trigger_sub_repo = trigger_sub_repo
+            trigger_sub_repo = f'trigger_{stage1_iter_num}'
+            self.update_sub_repo(trigger_sub_repo)
+            trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
+            if stage1_iter_num == stage1_begin_iter_num:
+                if not os.path.exists(trigger_repo):
+                    os.makedirs(trigger_repo)
+                self.trans.build_frame()
+            else:
+                os.system(f'cp -r {os.path.join(self.output_path, last_trigger_sub_repo)} {os.path.join(self.output_path, trigger_repo)}')
+
             stage1_seed.mutate()
-            stage1_result = self.fuzz_stage1(stage1_seed)
-            self.record_fuzz(stage1_iter_num, stage1_result, stage1_seed.config, stage_num = 1)
+            stage1_result, taint_folder = self.fuzz_stage1(stage1_seed)
+            self.record_fuzz(stage1_iter_num, stage1_result, None, None, stage1_seed.config, stage_num = 1)
             if stage1_result == FuzzResult.FAIL:
                 continue
             else:
-                self.store_template(stage1_iter_num, self.repo_path, trigger_folder)
+                self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
             
-            continue
-
             stage2_seed = Stage2Seed()
             stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
             if not os.path.exists(stage2_iter_num_file):
@@ -510,19 +558,26 @@ class FuzzManager:
                     stage2_begin_iter_num = 1 + int(file.readline().strip())
 
             for stage2_iter_num in range(stage2_begin_iter_num, stage2_begin_iter_num + STAGE2_FUZZ_MAX_ITER):
+                leak_sub_repo = f'leak_{stage2_iter_num}'
+                self.update_sub_repo(leak_sub_repo)
+                os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
+
                 stage2_seed.mutate()
-                stage2_result = self.fuzz_stage2(stage2_seed)
+                stage2_result, cosim_result, max_taint, taint_folder = self.fuzz_stage2(stage2_seed)
+                final_config = {**stage1_seed.config, **stage2_seed.config}
                 if stage2_result == FuzzResult.FAIL or stage2_result == FuzzResult.SUCCESS:
-                    self.record_fuzz(stage2_iter_num, stage2_result, stage_num = 2)
+                    self.record_fuzz(stage2_iter_num, stage2_result, cosim_result, max_taint, final_config, stage_num = 2)
                     if stage2_result == FuzzResult.SUCCESS:
-                        self.store_template(stage2_iter_num, self.repo_path, leak_folder)
+                        self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
                     continue
 
-                stage3_result = self.fuzz_stage3(stage2_result)
+                stage3_result, cosim_result, max_taint, taint_folder = self.fuzz_stage3(stage2_result)
                 if stage3_result == FuzzResult.SUCCESS:
-                    self.store_template(stage2_iter_num, self.repo_path, leak_folder)
-                final_config = {**stage1_seed.config, **stage2_seed.config}
-                self.record_fuzz(stage2_iter_num, stage2_result, final_config, stage_num = 2)
+                    self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
+                self.trans.swap_block_list.pop(-2)
+                self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+                self.mem_cfg.dump_conf()
+                self.record_fuzz(stage2_iter_num, stage3_result,  cosim_result, max_taint, final_config, stage_num = 2)
             
 
 
