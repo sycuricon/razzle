@@ -20,7 +20,14 @@ class TrainType(Enum):
     CALL = auto()
     RETURN = auto()
 
-class trainTrainBlock(TransBlock):
+    INT = auto()
+    FLOAT = auto()
+    LOAD = auto()
+    STORE = auto()
+    AMO = auto()
+    SYSTEM = auto()
+
+class TrainBlock(TransBlock):
     def __init__(self, extension, output_path, ret_label, train_label, train_type):
         super().__init__('train_block', extension, output_path)
         self.ret_label  = ret_label
@@ -62,6 +69,27 @@ class trainTrainBlock(TransBlock):
                 inst.solve()
                 inst['RD'] = 'RA'
                 inst['RS1'] = 'A0'
+            case TriggerType.INT:
+                inst.set_category_constraint(['ARITHMETIC'])
+                def name_c(name):
+                    return name not in ['LA', 'Li']
+                inst.add_constraint(name_c, ['NAME'])
+                inst.solve()
+            case TrainType.FLOAT:
+                inst.set_category_constraint(['FLOAT'])
+                inst.solve()
+            case TrainType.LOAD:
+                inst.set_category_constraint(['LOAD', 'FLOAT_LOAD', 'LOAD_SP'])
+                inst.solve()
+            case TrainType.STORE:
+                inst.set_category_constraint(['STORE', 'FLOAT_STORE', 'STORE_SP'])
+                inst.solve()
+            case TrainType.AMO:
+                inst.set_category_constraint(['AMO', 'AMO_LOAD', 'AMO_STORE'])
+                inst.solve()
+            case TrainType.SYSTEM:
+                inst.set_category_constraint(['SYSTEM'])
+                inst.solve()
             case _:
                 raise Exception(f"the train type {self.train_type} is invalid")
     
@@ -139,8 +167,23 @@ class LoadInitTrainBlock(LoadInitBlock):
                         train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
                 elif train_inst['NAME'] in ['C.JAL', 'JAL']:
                     pass
-            case TrainType.JMP:
+            case TrainType.JMP|TrainType.SYSTEM:
                 pass
+            case TrainType.INT|TrainType.FLOAT:
+                for field in ['RS1', 'RS2', 'RD', 'FRS1', 'FRS2', 'FRS3']:
+                    if train_inst.has(field):
+                        train_param[train_inst[field]] = random.randint(0, 2**64-1)
+            case TrainType.STORE|TrainType.LOAD|TrainType.AMO:
+                addr_reg = 'SP'
+                if train_inst.has('RS1'):
+                    addr_reg = train_inst['RS1']
+                addr = random.choice(['random_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+                if train_type == train_type.AMO:
+                    addr = f'{addr} + {random.randint(-0x800, 0x7ff)}'
+                train_param[addr_reg] = addr
+                for field in ['RS2', 'FRS1']:
+                    if train_inst.has(field):
+                        train_param[train_inst[field]] = random.randint(0, 2**64-1)
             case _:
                 raise Exception(f"the train type {train_type} and inst {train_inst['NAME']} is invalid")
 
@@ -154,7 +197,14 @@ class LoadInitTrainBlock(LoadInitBlock):
         if 'SP' in need_inited:
             need_inited.remove('SP')
             need_inited.append('SP')
-        self.GPR_init_list = need_inited
+        
+        self.GPR_init_list = []
+        self.float_init_list = []
+        for reg in need_inited:
+            if reg.startswith('F'):
+                self.float_init_list.append(reg)
+            else:
+                self.GPR_init_list.append(reg)
 
         inst_list = [
             f"la sp, {self.name}_{self.depth}_data_table",
@@ -164,6 +214,10 @@ class LoadInitTrainBlock(LoadInitBlock):
         ]
 
         table_index = 0
+        for reg in self.float_init_list:
+            inst_list.append(f"c.fldsp {reg.lower()}, {table_index*8}(sp)")
+            data_list.append(f".dword {train_param[reg]}")
+            table_index += 1
         for reg in self.GPR_init_list:
             inst_list.append(f"c.ldsp {reg.lower()}, {table_index*8}(sp)")
             data_list.append(f".dword {train_param[reg]}")
@@ -221,7 +275,7 @@ class TransTrainManager(TransBaseManager):
         self.nop_ret_block = NopRetBlock(self.extension, self.output_path, (nop_ret_end - nop_ret_begin))
         self.nop_ret_block.gen_instr(None)
 
-        self.train_block = trainTrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
+        self.train_block = TrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
         self.train_block.gen_instr(train_template)
         self.train_type = self.train_block.train_type
 

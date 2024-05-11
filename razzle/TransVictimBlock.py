@@ -431,8 +431,6 @@ class LoadInitTriggerBlock(LoadInitBlock):
             case TriggerType.LOAD | TriggerType.STORE:
                 address_base = 'random_data_block_page_base'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
-            case TriggerType.INT | TriggerType.FLOAT:
-                pass
             case TriggerType.AMO:
                 address_base = 'random_data_block_page_base'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
@@ -474,7 +472,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
             case TriggerType.JMP:
                 trigger_param = f'{random.randint(0, 2**64-1)}'
-            case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL:
+            case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL | TriggerType.INT | TriggerType.FLOAT:
                 trigger_param = None
             case _:
                 raise Exception("the trigger type is invalid")

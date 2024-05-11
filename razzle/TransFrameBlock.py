@@ -106,7 +106,7 @@ class RandomDataBlock(TransBlock):
         self.data_list.append(RawInstruction(f'.global {self.name}_page_base'))
         random_data_line(0x800)
         self.data_list.append(RawInstruction(f'{self.name}_page_base:'))
-        random_data_line(0x800)
+        random_data_line(0x1800)
 
 class TransFrameManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path):
@@ -271,7 +271,7 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = Page.size
+        length = Page.size * 2
         self.section[".random_data"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,

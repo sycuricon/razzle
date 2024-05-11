@@ -441,12 +441,19 @@ class TransManager:
                 break
         
             train_prob = {
-                TrainType.BRANCH_NOT_TAKEN: 0.075,
-                TrainType.BRANCH_TAKEN: 0.075,
-                TrainType.JALR: 0.1,
-                TrainType.CALL: 0.15,
-                TrainType.RETURN: 0.15,
-                TrainType.JMP: 0.05
+                TrainType.BRANCH_NOT_TAKEN: 0.065,
+                TrainType.BRANCH_TAKEN: 0.065,
+                TrainType.JALR: 0.08,
+                TrainType.CALL: 0.13,
+                TrainType.RETURN: 0.13,
+                TrainType.JMP: 0.03,
+
+                TrainType.FLOAT:0.01,
+                TrainType.INT:0.01,
+                TrainType.SYSTEM:0.02,
+                TrainType.LOAD:0.02,
+                TrainType.STORE:0.02,
+                TrainType.AMO:0.02
             }
             match self.trans_victim.trigger_type:
                 case TriggerType.BRANCH:

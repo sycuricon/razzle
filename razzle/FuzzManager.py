@@ -536,7 +536,7 @@ class FuzzManager:
             else:
                 self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
 
-            # continue
+            continue
             
             stage2_seed = Stage2Seed()
             stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
