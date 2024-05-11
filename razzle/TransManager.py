@@ -141,8 +141,6 @@ class TransManager:
         self.coverage = {}
 
         self.swap_block_list = []
-        self.swap_victim_list = []
-        self.swap_victim_dist_id = 0
         self.swap_id = 0
         self.swap_map = {}
 
@@ -157,16 +155,12 @@ class TransManager:
 
         self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_decode_section)
         self._distr_swap_id(self.trans_decode)
-
-        self.victim_train = {}
-        for train_type in TrainType:
-            self.victim_train[train_type] = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section)
-            self._distr_swap_id(self.victim_train[train_type])
             
-        self.victim_trigger_pool = []
-        for _ in range(3):
-            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_train_section)
-            self.victim_trigger_pool.append(trans_train)
+        self.trans_train_pool = []
+        self.trans_train_id = 0
+        for _ in range(10):
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section)
+            self.trans_train_pool.append(trans_train)
             self._distr_swap_id(trans_train)
     
     def _distr_swap_id(self, trans_swap):
@@ -175,11 +169,10 @@ class TransManager:
         self.swap_id += 1
 
     def get_data_section(self):
-        data_frame_section, data_train_section, data_victim_section, data_victim_train_section, data_decode_section = self.trans_frame.get_data_section()
+        data_frame_section, data_train_section, data_victim_section, data_decode_section = self.trans_frame.get_data_section()
         self.data_frame_section = data_frame_section
         self.data_train_section = data_train_section
         self.data_victim_section = data_victim_section
-        self.data_victim_train_section = data_victim_train_section
         self.data_decode_section = data_decode_section
 
     def _collect_compile_file(self, file_list):
@@ -436,46 +429,43 @@ class TransManager:
         else:
             return False
     
-    def _gen_train_swap_list(self):
-        train_prob = {
-            TrainType.BRANCH_NOT_TAKEN: 0.15,
-            TrainType.JALR: 0.1,
-            TrainType.CALL: 0.15,
-            TrainType.RETURN: 0.15,
-            TrainType.JMP: 0.05
-        }
-        match self.trans_victim.trigger_type:
-            case TriggerType.BRANCH:
-                train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.4
-            case TriggerType.JALR | TriggerType.JMP:
-                train_prob[TrainType.JALR] += 0.4
-            case TriggerType.RETURN:
-                train_prob[TrainType.CALL] += 0.2
-                train_prob[TrainType.RETURN] += 0.2
-        train_type = random_choice(train_prob)
-        match(train_type):
-            case TrainType.BRANCH_NOT_TAKEN:
-                not_taken_swap_idx = self.victim_train[TrainType.BRANCH_NOT_TAKEN].mem_region
-                taken_swap_idx = self.victim_train[TrainType.BRANCH_TAKEN].mem_region
-                branch_not_taken_1 = [not_taken_swap_idx]
-                branch_not_taken_2 = [not_taken_swap_idx, not_taken_swap_idx]
-                branch_taken_1 = [taken_swap_idx]
-                branch_taken_2 = [taken_swap_idx, taken_swap_idx]
-                branch_balance = random.choice([[not_taken_swap_idx, taken_swap_idx], [taken_swap_idx, not_taken_swap_idx]])
-                return random.choice([branch_not_taken_1, branch_not_taken_2, branch_taken_1, branch_taken_2, branch_balance])
-            case _:
-                return [self.victim_train[train_type].mem_region]
+    def gen_train_swap_list(self):
+        self.trans_train_id = 0
+        self.data_train_section.clear()
 
-    def _stage1_reorder_swap_list(self):
+        windows_param = 0.6 if self.trans_victim.need_train() else 0.4
+
         swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
-        if self.trans_victim.need_train():
-            for _ in range(0, 4):
-                if random.random() < 0.2:
-                    break
-                swap_block_list[0:0] = self._gen_train_swap_list()
+        for _ in range(0, 10):
+            if random.random() < 1 - windows_param:
+                break
+        
+            train_prob = {
+                TrainType.BRANCH_NOT_TAKEN: 0.075,
+                TrainType.BRANCH_TAKEN: 0.075,
+                TrainType.JALR: 0.1,
+                TrainType.CALL: 0.15,
+                TrainType.RETURN: 0.15,
+                TrainType.JMP: 0.05
+            }
+            match self.trans_victim.trigger_type:
+                case TriggerType.BRANCH:
+                    train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.2
+                    train_prob[TrainType.BRANCH_TAKEN] += 0.2
+                case TriggerType.JALR | TriggerType.JMP:
+                    train_prob[TrainType.JALR] += 0.4
+                case TriggerType.RETURN:
+                    train_prob[TrainType.CALL] += 0.2
+                    train_prob[TrainType.RETURN] += 0.2
+            train_type = random_choice(train_prob)
+
+            trans_body = self.trans_train_pool[self.trans_train_id]
+            self.trans_train_id += 1
+            trans_body.gen_block(train_type, self.trans_victim, None)
+            self._generate_body_block(trans_body)
+
+            swap_block_list.insert(0, trans_body.mem_region)
         self.swap_block_list = swap_block_list
-        self.mem_cfg.add_swap_list(self.swap_block_list)
-        self.mem_cfg.dump_conf()
     
     def store_template(self, iter_num, repo_path, template_folder):
         self.swap_list = []
@@ -519,12 +509,6 @@ class TransManager:
         self._generate_body_block(self.trans_victim)
         self.swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
 
-    def gen_victim_train(self):
-        self.data_train_section.clear()
-        for train_type,trans_block in self.victim_train.items():
-            trans_block.gen_block(train_type, self.trans_victim, None)
-            self._generate_body_block(trans_block)
-
     def load_template(self, iter_num, repo_path, template_folder, strategy, config):
         template_path =os.path.join(repo_path, template_folder, iter_num)
         if not os.path.exists(template_path):
@@ -539,7 +523,7 @@ class TransManager:
         folder_list.reverse()
 
         self.swap_victim_list = [self.trans_exit.mem_region]
-        self.data_victim_train_section.clear()
+        self.data_train_section.clear()
 
         for folder in folder_list:
             file = os.path.basename(folder)
@@ -549,7 +533,7 @@ class TransManager:
                 self.swap_victim_list.insert(0, self.trans_victim.mem_region)
                 break
 
-        self.swap_victim_dist_id = 0
+        self.trans_train_id = 0
         for folder in folder_list:
             file = os.path.basename(folder)
             if file.startswith('decode'):
@@ -557,39 +541,14 @@ class TransManager:
                 self._generate_body_block(self.trans_decode)
                 self.swap_victim_list.insert(-1, self.trans_decode.mem_region)
             elif file.startswith('train'):
-                trans_train = self.victim_trigger_pool[self.swap_victim_dist_id]
+                trans_train = self.trans_train_pool[self.trans_train_id]
+                self.trans_train_id += 1
                 trans_train.gen_block(config, self.trans_victim, folder)
                 self._generate_body_block(trans_train)
-                self.swap_victim_dist_id += 1
-                self.swap_victim_list.insert(0, trans_train.mem_region)
-        
-        self.swap_block_list = self.swap_victim_list
+                self.swap_block_list.insert(0, trans_train.mem_region)
     
     def record_fuzz(self, file):
         for swap_mem_region in self.swap_block_list[:-1]:
             trans_body = self.swap_map[swap_mem_region['swap_id']]
             trans_body.record_fuzz(file)
-    
-    def _leak_reduce(self):
-        encode_block_begin = self.trans_victim.encode_block.encode_block_begin
-        encode_block_end = self.trans_victim.encode_block.encode_block_end
-
-        encode_list = list(range(encode_block_begin, encode_block_end))
-        for _ in range(len(encode_list) - 1):
-            for i in range(len(encode_list)-1, -1, -1):
-                encode_list_tmp = copy.copy(encode_list)
-                encode_list_tmp.pop(i)
-                self.trans_victim.leak_reduce(encode_list_tmp)
-                self._generate_body_block(self.trans_victim)
-                is_trigger, is_tte_trigger, is_access, is_leak, cover_expand = self._sim_and_analysis()
-                if is_leak:
-                    encode_list = encode_list_tmp
-                    break
-            else:
-                self.trans_victim.leak_reduce(encode_list)
-                self._generate_body_block(self.trans_victim)
-                break
-
-        with open(os.path.join(repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
-            file.write(str(iter_num))
     

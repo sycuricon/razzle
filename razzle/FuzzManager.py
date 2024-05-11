@@ -253,7 +253,7 @@ class FuzzManager:
                 tmp_swap_block_list = copy.copy(swap_block_list)
                 tmp_swap_block_list.pop(i)
                 self.mem_cfg.add_swap_list(tmp_swap_block_list)
-                is_trigger = self.stage1_trigger_analysis()
+                is_trigger, _ = self.stage1_trigger_analysis()
                 if is_trigger:
                     swap_block_list = tmp_swap_block_list
                     break
@@ -268,26 +268,19 @@ class FuzzManager:
         self.trans.trans_victim.gen_block(stage1_config, 'default', None)
         self.trans._generate_body_block(self.trans.trans_victim)
 
-        TRAIN_GEN_MAX_ITER = 2
-        REORDER_SWAP_LIST_MAX_ITER = 3
+        TRAIN_GEN_MAX_ITER = 6
         ENCODE_MUTATE_MAX_ITER = 3
 
         max_train_gen = TRAIN_GEN_MAX_ITER
         for _ in range(max_train_gen):
-            self.trans.gen_victim_train()
-
-            max_reorder_swap_list = REORDER_SWAP_LIST_MAX_ITER
-            for _ in range(max_reorder_swap_list):
-                self.trans._stage1_reorder_swap_list()
-                is_trigger, taint_folder = self.stage1_trigger_analysis()
-                if not is_trigger:
-                    continue
-                else:
-                    self._trigger_reduce()
-                    break
-            else:
+            self.trans.gen_train_swap_list()
+            self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+            is_trigger, taint_folder = self.stage1_trigger_analysis()
+            if not is_trigger:
                 continue
-            break
+            else:
+                self._trigger_reduce()
+                break
 
         if not is_trigger:
             return FuzzResult.FAIL, taint_folder
@@ -532,6 +525,8 @@ class FuzzManager:
                 continue
             else:
                 self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
+
+            continue
             
             stage2_seed = Stage2Seed()
             stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
@@ -547,17 +542,18 @@ class FuzzManager:
                 os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
 
                 stage2_seed.mutate()
-                stage2_result, cosim_result, max_taint, taint_folder = self.fuzz_stage2(stage2_seed)
+                stage2_result, cosim_result, max_taint, stage2_taint_folder = self.fuzz_stage2(stage2_seed)
                 final_config = {**stage1_seed.config, **stage2_seed.config}
                 if stage2_result == FuzzResult.FAIL or stage2_result == FuzzResult.SUCCESS:
                     self.record_fuzz(stage2_iter_num, stage2_result, cosim_result, max_taint, final_config, stage_num = 2)
                     if stage2_result == FuzzResult.SUCCESS:
-                        self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
+                        self.store_template(stage2_iter_num, self.repo_path, leak_folder, stage2_taint_folder)
                     continue
 
-                stage3_result, _, _, taint_folder = self.fuzz_stage3()
+                stage3_result, _, _, stage3_taint_folder = self.fuzz_stage3()
                 if stage3_result == FuzzResult.SUCCESS:
-                    self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
+                    self.mem_cfg.dump_conf('both')
+                    self.store_template(stage2_iter_num, self.repo_path, leak_folder, stage2_taint_folder)
                 self.trans.swap_block_list.pop(-2)
                 self.mem_cfg.mem_regions['data_decode'] = []
                 self.mem_cfg.add_swap_list(self.trans.swap_block_list)

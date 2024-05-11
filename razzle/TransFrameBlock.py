@@ -122,9 +122,6 @@ class TransFrameManager(TransBaseManager):
         self.section[".data_victim"] = FuzzSection(
             ".data_victim", Flag.U | Flag.W | Flag.R
         )
-        self.section[".data_victim_train"] = FuzzSection(
-            ".data_victim_train", Flag.U | Flag.W | Flag.R
-        )
         self.section[".data_decode"] = FuzzSection(
             ".data_decode", Flag.U | Flag.W | Flag.R
         )
@@ -158,14 +155,12 @@ class TransFrameManager(TransBaseManager):
         data_frame_section = self.section['.data_frame']
         data_train_section = self.section['.data_train']
         data_victim_section = self.section['.data_victim']
-        data_victim_train_section = self.section['.data_victim_train']
         data_decode_section = self.section['.data_decode']
-        return  data_frame_section, data_train_section, data_victim_section, data_victim_train_section, data_decode_section
+        return  data_frame_section, data_train_section, data_victim_section, data_decode_section
 
     def move_data_section(self):
         self.section.pop('.data_train')
         self.section.pop('.data_victim')
-        self.section.pop('.data_victim_train')
         self.section.pop('.data_decode')
 
     def _generate_sections(self):
@@ -294,14 +289,6 @@ class TransFrameManager(TransBaseManager):
         offset += length
         length = Page.size
         self.section[".data_victim"].get_bound(
-            self.virtual_memory_bound[0][0] + offset,
-            self.memory_bound[0][0] + offset,
-            length,
-        )
-
-        offset += length
-        length = Page.size
-        self.section[".data_victim_train"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
             length,
