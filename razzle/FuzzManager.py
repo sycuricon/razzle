@@ -75,7 +75,7 @@ class Stage1Seed(Seed):
 
         self.config['access_secret_li'] = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_LI) == 1
         access_secret_mask_value = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
-        self.config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
+        self.config['access_secret_mask'] = 64 if access_secret_mask_value > 8 or self.config['access_secret_li'] else access_secret_mask_value * 4 + 32
 
         secret_migrate_field = self.get_field(self.Stage1FieldEnum.SECRET_MIGRATE)
         match(secret_migrate_field):
@@ -88,7 +88,7 @@ class Stage1Seed(Seed):
 
         trigger_field_value = self.get_field(self.Stage1FieldEnum.TRIGGER)
         trigger_finish = False
-        if self.config['access_secret_li']:
+        if not self.config['access_secret_li']:
             if trigger_field_value < 32:
                 self.config['trigger_type'] = TriggerType.V4
                 trigger_finish = True
@@ -204,6 +204,8 @@ class FuzzManager:
         self.mem_cfg.dump_conf()
     
     def stage_simulate(self, mode):
+        self.mem_cfg.dump_conf()
+
         assert mode in ['normal', 'robprofile', 'variant']
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
@@ -251,7 +253,6 @@ class FuzzManager:
                 tmp_swap_block_list = copy.copy(swap_block_list)
                 tmp_swap_block_list.pop(i)
                 self.mem_cfg.add_swap_list(tmp_swap_block_list)
-                self.mem_cfg.dump_conf()
                 is_trigger = self.stage1_trigger_analysis()
                 if is_trigger:
                     swap_block_list = tmp_swap_block_list
@@ -260,7 +261,6 @@ class FuzzManager:
                 break
         self.trans.swap_block_list = swap_block_list
         self.mem_cfg.add_swap_list(swap_block_list)
-        self.mem_cfg.dump_conf()
     
     def fuzz_stage1(self, stage1_seed):
         stage1_config = stage1_seed.parse()
@@ -441,18 +441,18 @@ class FuzzManager:
                 base_list.append(int(base))
                 variant_list.append(int(variant))
         
-        victim_begin = 0
-        vicitm_end = 0
+        decode_begin = 0
+        decode_end = 0
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'DELAY_END_ENQ':
-                victim_begin = int(exec_time)
+            if exec_info == 'DELAY_START_ENQ':
+                decode_begin = int(exec_time)
             if exec_info == 'VCTM_END_DEQ':
-                vicitm_end = int(exec_time)
+                decode_end = int(exec_time)
 
-        base_spread_list = base_list[victim_begin:vicitm_end]
-        variant_spread_list = variant_list[victim_begin:vicitm_end]
+        base_spread_list = base_list[decode_begin:decode_end]
+        variant_spread_list = variant_list[decode_begin:decode_end]
 
         cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
@@ -479,7 +479,6 @@ class FuzzManager:
         self.trans._generate_body_block(self.trans.trans_decode)
         self.trans.swap_block_list.insert(-1, self.trans.trans_decode.mem_region)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        self.mem_cfg.dump_conf()
         return self.stage3_decode_analysis(stage2_result)
     
     def load_example(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, iter_num):
@@ -494,7 +493,6 @@ class FuzzManager:
         config = {**stage1_config, **stage2_config}
         self.trans.load_template(iter_num, repo_path, "leak_template", 'default', config)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        self.mem_cfg.dump_conf()
         self.stage_simulate('variant')
     
     def update_sub_repo(self, sub_repo):
@@ -575,8 +573,8 @@ class FuzzManager:
                 if stage3_result == FuzzResult.SUCCESS:
                     self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
                 self.trans.swap_block_list.pop(-2)
+                self.mem_cfg.mem_regions['data_decode'] = []
                 self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-                self.mem_cfg.dump_conf()
                 self.record_fuzz(stage2_iter_num, stage3_result,  cosim_result, max_taint, final_config, stage_num = 2)
             
 

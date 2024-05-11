@@ -60,6 +60,7 @@ class TransDecodeManager(TransBaseManager):
         self.nop_block.gen_instr(None)
         
         self.delay_block = copy.deepcopy(self.trans_victim.delay_block)
+        self.delay_block.move_sync()
 
         nop_begin = self.trans_victim.symbol_table['trigger_block_entry']
         nop_end = self.trans_victim.symbol_table['encode_block_entry']

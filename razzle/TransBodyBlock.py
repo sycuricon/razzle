@@ -140,6 +140,9 @@ class DelayBlock(TransBlock):
             'INFO_DELAY_END',
         ]
         self._load_inst_str(inst_end)
+    
+    def move_sync(self):
+        self.inst_block_list[-1].inst_list[-1] = RawInstruction('INFO_DELAY_START')
 
     def gen_default(self):
         self._gen_block_begin()
