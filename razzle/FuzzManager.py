@@ -672,13 +672,13 @@ class FuzzManager:
 
         time_begin = datetime.datetime.now()
 
-        FUZZ_MAX_ITER = 400
+        FUZZ_MAX_ITER = 40000
         STAGE2_FUZZ_MAX_ITER = 20
         for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
             
             time_end = datetime.datetime.now()
             diff = (time_end - time_begin).seconds
-            if diff > 3600:
+            if diff > 3600 * 4:
                 break   
             
             last_trigger_sub_repo = trigger_sub_repo

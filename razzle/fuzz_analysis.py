@@ -193,6 +193,48 @@ class RecordAnalysis:
             if iter_result is None:
                 break
             self.record.append(iter_result)
+    
+    def trigger_analysis(self):
+        self.trigger_result = {}
+        for record in self.record:
+            trigger_type = record['victim']['trigger_type']
+            if (not trigger_type in self.trigger_result):
+                self.trigger_result[trigger_type] = {}
+                self.trigger_result[trigger_type]['summary'] = 0
+                self.trigger_result[trigger_type]['success'] = 0
+                self.trigger_result[trigger_type]['failure'] = 0
+                self.trigger_result[trigger_type]['train'] = {}
+            trigger_result = self.trigger_result[trigger_type]
+            trigger_result['summary'] += 1
+            if record['result']['result'] == FuzzResult.SUCCESS:
+                trigger_result['success'] += 1
+                if len(record['train']) != 0:
+                    train_type = record['train'][0].get('train_type', TrainType.NONE)
+                    trigger_result['train'][train_type] = trigger_result['train'].get(train_type, 0) + 1
+                else:
+                    trigger_result['train'][TrainType.NONE] = trigger_result['train'].get(TrainType.NONE, 0) + 1
+            else:
+                trigger_result['failure'] += 1
+
+        with open(self.output_file, "wt") as file:
+            file.write('|trigger_type|summary|failure|success|failure_rate|success_rate|\n')
+            file.write('|:----------:|:-----:|:-----:|:-----:|:----------:|:----------:|\n')
+            for trigger_type, trigger_record in self.trigger_result.items():
+                summary = trigger_record['summary']
+                failure = trigger_record['failure']
+                success = trigger_record['success']
+                failure_rate = failure/summary
+                success_rate = success/summary
+                file.write(f'|{trigger_type}|{summary}|{failure}|{success}|{failure_rate:.2%}|{success_rate:.2%}|\n')
+            file.write('\n')
+
+            file.write('|trigger_type|train_type|summary|rate|\n')
+            file.write('|:----------:|:--------:|:-----:|:--:|\n')
+            for trigger_type, trigger_record in self.trigger_result.items():
+                for train_type, summary in trigger_record['train'].items():
+                    rate = summary/trigger_record['success']
+                    file.write(f'|{trigger_type}|{train_type}|{summary}|{rate:.2%}|\n')
+            file.write('\n')            
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser(description="the analysis script for stage record of fuzz")
@@ -203,7 +245,11 @@ if __name__ == "__main__":
 
     record_analysis = RecordAnalysis(args.input, args.output)
     record_analysis.load_stage_record()
-    print("here")
+    match(args.mode):
+        case 'trigger':
+            record_analysis.trigger_analysis()
+        case _:
+            raise Exception(f"the mode {args.mode} is not supported!!!")
 
 
 

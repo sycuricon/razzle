@@ -27,6 +27,8 @@ class TrainType(Enum):
     AMO = auto()
     SYSTEM = auto()
 
+    NONE = auto()
+
 class TrainBlock(TransBlock):
     def __init__(self, extension, output_path, ret_label, train_label, train_type):
         super().__init__('train_block', extension, output_path)
