@@ -455,6 +455,7 @@ class TransManager:
                 TrainType.STORE:0.02,
                 TrainType.AMO:0.02
             }
+            
             match self.trans_victim.trigger_type:
                 case TriggerType.BRANCH:
                     train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.2

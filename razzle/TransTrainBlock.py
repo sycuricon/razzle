@@ -297,7 +297,7 @@ class TransTrainManager(TransBaseManager):
             load_init_block_len = self.load_init_block._get_inst_len()
             c_nop_len = front_block_end - front_block_begin - train_block_len - load_init_block_len
             if not self.align:
-                train_nop_len = random.randint(6, c_nop_len - 6)
+                train_nop_len = random.randint(0, c_nop_len - 6)
                 if train_nop_len % 2 != 0:
                     train_nop_len -= 1
                 c_nop_len = c_nop_len - train_nop_len
@@ -332,7 +332,7 @@ class TransTrainManager(TransBaseManager):
         if self.single:
             file.write(f'\treturn_front: {self.return_front}\n')
             file.write(f'\ttrain_type: {self.train_block.train_type}\t')
-            file.write(f'\ttrain_type: {self.train_block.train_inst.to_asm()}\n')
+            file.write(f'\ttrain_inst: {self.train_block.train_inst.to_asm()}\n')
     
     def store_template(self, folder):
         self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)

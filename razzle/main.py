@@ -21,6 +21,10 @@ def trigger_test_entry(args):
     fuzz = FuzzManager(args.input, args.output, args.virtual)
     fuzz.trigger_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
 
+def front_end_test_entry(args):
+    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz.front_end_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(required=True)
@@ -90,8 +94,25 @@ if __name__ == "__main__":
     parser_trigger_test.add_argument(
         "--iter_num", dest="iter_num", help="the index of the leak template repo"
     )
-    
 
+    parser_front_end_test = subparsers.add_parser('front_end_test')
+    parser_front_end_test.set_defaults(func=front_end_test_entry)
+    parser_front_end_test.add_argument(
+        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
+    )
+    parser_front_end_test.add_argument(
+        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
+    )
+    parser_front_end_test.add_argument(
+        "--taint_log", dest="taint_log", help="the path of the taint log file"
+    )
+    parser_front_end_test.add_argument(
+        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
+    )
+    parser_front_end_test.add_argument(
+        "--iter_num", dest="iter_num", help="the index of the leak template repo"
+    )
+    
     args = parser.parse_args()
     args.output = os.path.realpath(args.output)
 
