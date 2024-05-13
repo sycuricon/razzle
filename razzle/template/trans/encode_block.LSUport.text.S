@@ -1,3 +1,4 @@
+encode_block_0:
     la t1, secret_target
     ld t1, 0(t1)
     bne s0, t1, encode_exit

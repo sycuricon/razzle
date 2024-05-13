@@ -133,12 +133,6 @@ class AccessSecretBlock(TransBlock):
         self.virtual = virtual
         self.li_offset = li
         self.mask = mask
-
-    def _gen_block_begin(self):
-        inst_list_begin = [
-            'INFO_TEXE_START',
-        ]
-        self._load_inst_str(inst_list_begin)
     
     def store_template(self, folder):
         type_name = os.path.join(folder, f'{self.name}.type')
@@ -153,28 +147,29 @@ class AccessSecretBlock(TransBlock):
         self.gen_code()
     
     def gen_code(self):
-        self._gen_block_begin()
-        
+        trapoline_address = 0x5000 if self.virtual else 0x80005000
+
         if self.li_offset:
             
             inst_list = [
-                f'begin_access_secret:',
-                f'li s0, {hex(self.address)}',
-                'lb s0, 0(s0)',
-            ]
+                f'li s0, {hex(self.address - trapoline_address)}',
+                f'la t1, trapoline',
+                f'add t1, t1, s0',
+                'lb s0, 0(t1)',            ]
 
         else:
 
             inst_list = [
-                f'begin_access_secret:',
                 f'la s0, {self.name}_target_offset',
                 f'ld s0, 0(s0)',
-                'lb s0, 0(s0)',
+                f'la t1, trapoline',
+                f'add t1, t1, s0',
+                'lb s0, 0(t1)',
             ]
             
         data_list = [
             f'{self.name}_target_offset:',
-            f'.dword {self.address}',
+            f'.dword {self.address - trapoline_address}',
         ]
 
         self._load_inst_str(inst_list, mutate=True)
@@ -201,7 +196,15 @@ class EncodeBlock(TransBlock):
         self.encode_list = []
         self.encode_block_begin = 0
         self.encode_block_end = 0
+    
+    def _gen_block_begin(self):
 
+        inst_list = [
+            "INFO_TEXE_START"
+        ]
+
+        self._load_inst_str(inst_list)
+    
     def _gen_block_end(self):
 
         inst_len = self._get_inst_len()
@@ -259,7 +262,7 @@ class EncodeBlock(TransBlock):
             BaseBlockType.SYSTEM:SystemBlock
         }
 
-        block = BaseBlock(f'{self.entry}', self.extension, True)
+        block = BaseBlock(f'{self.name}_0', self.extension, True)
         self.encode_block_list.append(block)
         self.inst_block_list.append(block)
 
@@ -342,6 +345,8 @@ class EncodeBlock(TransBlock):
             self.encode_block_list[block_index].inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
 
     def gen_default(self):
+        self._gen_block_begin()
+
         match (self.strategy):
             case 'default':
                 if self.trigger_type == TriggerType.V4:
@@ -356,6 +361,8 @@ class EncodeBlock(TransBlock):
 
     def leak_reduce(self, encode_list):
         self.inst_block_list = []
+        self._gen_block_begin()
+
         self.inst_block_list.append(self.encode_block_list[0])
         for i in encode_list:
             self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
@@ -368,6 +375,8 @@ class EncodeBlock(TransBlock):
     
     def break_loop(self):
         self.inst_block_list = []
+        self._gen_block_begin()
+
         self.inst_block_list.append(self.encode_block_list[0])
         for i in self.encode_list:
             self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
@@ -379,6 +388,7 @@ class EncodeBlock(TransBlock):
             pass
         else:
             self.inst_block_list = []
+            self._gen_block_begin()
             self._gen_random(4)
             self._gen_block_end()
     
