@@ -8,8 +8,8 @@
     decode_control_taint_cosim_threshold: 20
     decode_control_taint_dist_threshold: 200
     taint_explode_threshold: 1000
-    train_align: False
-    train_single: False
+    train_align: True
+    train_single: True
     init: {
         bound: [
             0x80000000

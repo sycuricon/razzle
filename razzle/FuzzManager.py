@@ -208,10 +208,15 @@ class FuzzManager:
 
     def generate(self):
         self.update_sub_repo('gen')
-        os.mkdir(os.path.join(self.output_path, 'gen'))
+        repo_path = os.path.join(self.output_path, 'gen')
+        if not os.path.exists(repo_path):
+            os.mkdir(repo_path)
 
         self.trans.build_frame()
-        self.trans.trans_victim.gen_block('default', None)
+        seed = Stage1Seed()
+        seed.mutate()
+        seed.parse()
+        self.trans.trans_victim.gen_block(seed.config, 'default', None)
         self.trans._generate_body_block(self.trans.trans_victim)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
@@ -727,6 +732,7 @@ class FuzzManager:
                 if stage_result == FuzzResult.SUCCESS:
                     self.mem_cfg.dump_conf('both')
                     self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
+
                 self.trans.swap_block_list.pop(-2)
                 self.mem_cfg.mem_regions['data_decode'] = []
                 self.mem_cfg.add_swap_list(self.trans.swap_block_list)
