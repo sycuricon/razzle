@@ -39,10 +39,11 @@ class ReplaceBlock(TransBlock):
             self._load_inst_str(inst_list)
 
 class TransDecodeManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
-    
+        self.trans_frame = trans_frame
+
     def gen_block(self, trans_victim, template_path):
         self.trans_victim = trans_victim
         if template_path is not None:

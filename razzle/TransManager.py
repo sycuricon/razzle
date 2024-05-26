@@ -147,19 +147,19 @@ class TransManager:
         self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
         self.get_data_section()
 
-        self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_frame_section)
+        self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_frame_section, self.trans_frame)
         self._distr_swap_id(self.trans_exit)
 
-        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_section)
+        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_section, self.trans_frame)
         self._distr_swap_id(self.trans_victim)
 
-        self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_decode_section)
+        self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_decode_section, self.trans_frame)
         self._distr_swap_id(self.trans_decode)
             
         self.trans_train_pool = []
         self.trans_train_id = 0
         for _ in range(10):
-            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section)
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section, self.trans_frame)
             self.trans_train_pool.append(trans_train)
             self._distr_swap_id(trans_train)
     

@@ -52,15 +52,22 @@ class ReturnBlock(TransBlock):
         self._load_inst_str(['ebreak'])
 
 class DelayBlock(TransBlock):
-    def __init__(self, extension, output_path, delay_len, delay_float_rate):
+    def __init__(self, extension, output_path, delay_len, delay_float_rate, delay_mem):
         super().__init__('delay_block', extension, output_path)
         self.float_rate = delay_float_rate
         self.delay_len = delay_len
+        self.delay_mem = delay_mem
 
     def _gen_dep_list(self):
-        self.GPR_list = [
-            reg for reg in reg_range if reg not in ["A0", "ZERO"]
-        ]
+        if not self.delay_mem:
+            self.GPR_list = [
+                reg for reg in reg_range if reg not in ["A0", "ZERO"]
+            ]
+        else:
+            self.GPR_list = [
+                reg for reg in reg_range if reg not in ["A0", "ZERO", "T0"]
+            ]
+
         self.FLOAT_list = float_range
         dep_list = []
         for _ in range(self.delay_len):
@@ -73,6 +80,9 @@ class DelayBlock(TransBlock):
 
     def _gen_inst_list(self, dep_list):
         block = BaseBlock(f'{self.name}_body', self.extension, True)
+
+        if self.delay_mem:
+            block.inst_list.append(Instruction('la t0, random_data_block_page_base'))
 
         for i, src in enumerate(dep_list[0:-1]):
             dest = dep_list[i + 1]
@@ -158,6 +168,19 @@ class DelayBlock(TransBlock):
                         block.inst_list.append(instr)
                         break
         
+        if self.delay_mem:
+            for i in range(2):
+                instr = rand_instr(instr_extension=extension, instr_category=[
+                    'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x800, 8))
+                instr.solve()
+                instr['RS1'] = 'T0'
+                if instr['CATEGORY'] == 'LOAD' and instr['RD'] in dep_list:
+                    instr['RD'] = random.choice([reg for reg in self.GPR_list if reg not in dep_list])
+                elif instr['CATEGORY'] == 'FLOAT_LOAD' and instr['FRD'] in dep_list:
+                    instr['FRD'] = random.choice([freg for freg in self.FLOAT_list if freg not in dep_list])
+                insert_place = random.randint(1, len(block.inst_list) - 1)
+                block.inst_list.insert(insert_place, instr)
+
         self._add_inst_block(block)
     
     def _gen_block_begin(self):

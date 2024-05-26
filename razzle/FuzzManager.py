@@ -42,6 +42,7 @@ class Stage1Seed(Seed):
         STAGE1_SEED = auto()
         DELAY_LEN = auto()
         DELAY_FLOAT_RATE = auto()
+        DELAY_MEM = auto()
         ACCESS_SECRET_LI = auto()
         ACCESS_SECRET_MASK = auto()
         SECRET_MIGRATE = auto()
@@ -51,6 +52,7 @@ class Stage1Seed(Seed):
         Stage1FieldEnum.STAGE1_SEED: 32,
         Stage1FieldEnum.DELAY_LEN: 2,
         Stage1FieldEnum.DELAY_FLOAT_RATE: 2,
+        Stage1FieldEnum.DELAY_MEM: 1,
         Stage1FieldEnum.ACCESS_SECRET_LI: 1,
         Stage1FieldEnum.ACCESS_SECRET_MASK: 4,
         Stage1FieldEnum.SECRET_MIGRATE: 2,
@@ -71,8 +73,8 @@ class Stage1Seed(Seed):
         self.config['stage1_seed'] = self.get_field(self.Stage1FieldEnum.STAGE1_SEED)
 
         self.config['delay_len'] = self.get_field(self.Stage1FieldEnum.DELAY_LEN) + 4
-        
         self.config['delay_float_rate'] = self.get_field(self.Stage1FieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
+        self.config['delay_mem'] = True if self.get_field(self.Stage1FieldEnum.DELAY_MEM) == 1 else False
 
         self.config['access_secret_li'] = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_LI) == 1
         access_secret_mask_value = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
@@ -218,6 +220,7 @@ class FuzzManager:
         seed.parse()
         self.trans.trans_victim.gen_block(seed.config, 'default', None)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.gen_train_swap_list(True, True)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf()

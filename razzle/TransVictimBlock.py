@@ -413,12 +413,13 @@ class EncodeBlock(TransBlock):
                 file.write(f'{self.encode_block_list[i].block_type}\n')
 
 class LoadInitTriggerBlock(LoadInitBlock):
-    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block):
+    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block):
         super().__init__(depth, extension, output_path, init_block_list)
         self.delay_block = delay_block
         self.trigger_block = trigger_block
         self.ret_label = trigger_block.ret_label
         self.train_label = trigger_block.train_label
+        self.random_block = random_block
 
     def _compute_trigger_param(self):
         trigger_inst = self.trigger_block.trigger_inst
@@ -486,7 +487,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
         return {'A0':trigger_param} if trigger_param != None else {}
 
     def _simulate_dep_reg_result(self):
-        dump_result = inst_simlutor(self.baker, [self, self.delay_block])
+        dump_result = inst_simlutor(self.baker, [self, self.delay_block, self.random_block])
         return dump_result[self.delay_block.result_reg]
 
     def gen_default(self):
@@ -624,9 +625,10 @@ class SecretMigrateBlock(TransBlock):
         return (20 + 6) * 2
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
+        self.trans_frame = trans_frame
     
     def gen_block(self, config, strategy, template_path):
         assert strategy in ['default', 'fuzz_data', 'fuzz_control']
@@ -650,7 +652,7 @@ class TransVictimManager(TransBaseManager):
             trigger_template = None
             load_init_template = None
 
-        self.delay_block = DelayBlock(self.extension, self.output_path, config['delay_len'], config['delay_float_rate'])
+        self.delay_block = DelayBlock(self.extension, self.output_path, config['delay_len'], config['delay_float_rate'], config['delay_mem'])
         self.delay_block.gen_instr(delay_template)
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
@@ -669,7 +671,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.gen_instr(encode_template)
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block)
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.trans_frame.random_data_block)
         self.load_init_block.gen_instr(load_init_template)
         self.temp_load_init_block = self.load_init_block
 

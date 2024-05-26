@@ -355,38 +355,14 @@ class ExitBlock(TransBlock):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
-class DecodeBlock(TransBlock):
-    def __init__(self, extension, output_path):
-        super().__init__('decode_block', extension, output_path)
-
-    def _gen_block_begin(self):
-        inst_begin = [
-            'INFO_LEAK_START'
-        ]
-        self._load_inst_str(inst_begin)
-    
-    def _gen_block_end(self):
-        inst_end = [
-            'decode_exit:',
-            'INFO_LEAK_END',
-        ]
-        self._load_inst_str(inst_end)
-
-    def gen_default(self):
-        self._gen_block_begin()
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/decode_block.cache.text.S"), mutate=True)
-        self._gen_block_end()
-
 class TransExitManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.data_section = data_section
+        self.trans_frame = trans_frame
     
     def gen_block(self):
-        self.decode_block = DecodeBlock(self.extension, self.output_path)
         self.exit_block = ExitBlock(self.extension, self.output_path)
-
-        self.decode_block.gen_instr(None)
         self.exit_block.gen_instr(None)
     
     def record_fuzz(self,file):
