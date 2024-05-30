@@ -632,7 +632,7 @@ class TransVictimManager(TransBaseManager):
         self.return_block.gen_instr(None)
 
         tmp_random_state = random.getstate()
-        random.seed(config['stage1_access_seed'])
+        random.seed(config['access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(access_secret_template)
         random.setstate(tmp_random_state)
@@ -702,16 +702,15 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.leak_reduce(encode_list)
 
     def mutate_access(self, config):
-        tmp_random_state = random.getstate()
-        random.seed(config['stage1_access_seed'])
+        random.seed(config['access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(None)
-        random.setstate(tmp_random_state)
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(None)
 
     def mutate_encode(self, config):
+        random.seed(config['leak_seed'])
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr(None)

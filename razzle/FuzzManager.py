@@ -16,33 +16,36 @@ class FuzzResult(Enum):
 class Coverage:
     def __init__(self):
         self.state_list = []
-        self.trigger_struct = None
         self.trigger_set = set()
+        self.coverage_set = set()
+        self.coverage_list = []
+
         self.access_list = None
         self.access_set = None
         self.leak_list = None
         self.leak_set = None
-        self.coverage_set = None
+        
 
     def add_trigger_state(self, trigger_seed):
         trigger_hash = trigger_seed.uint
         if trigger_hash in self.trigger_set:
             return False
-        self.trigger_struct = (trigger_seed, [], [], set(), set(), set())
+        trigger_struct = (trigger_seed, [], set())
         self.trigger_set.add(trigger_hash)
-        self.access_list = self.trigger_struct[1]
-        self.leak_list = self.trigger_struct[2]
-        self.access_set = self.trigger_struct[3]
-        self.leak_set = self.trigger_struct[4]
-        self.coverage_set = self.trigger_struct[5]
-        self.state_list.append(self.trigger_struct)
+        self.access_list = trigger_struct[1]
+        self.access_set = trigger_struct[2]
+        self.state_list.append(trigger_struct)
         return True
 
     def add_access_state(self, access_seed):
         access_hash = access_seed.uint
         if access_hash in self.access_set:
             return False
-        self.access_list.append(access_seed)
+        
+        access_struct = (access_seed, [], set())
+        self.leak_list = access_struct[1]
+        self.leak_set = access_struct[2]
+        self.access_list.append(access_struct)
         self.access_set.add(access_hash)
         return True
     
@@ -50,15 +53,22 @@ class Coverage:
         leak_hash = leak_seed.uint
         if leak_hash in self.leak_set:
             return False
+        
         self.leak_list.append(leak_seed)
         self.leak_set.add(leak_hash)
         return True
 
-    def add_coverage(self, coverage):
-        if coverage in self.coverage_set:
+    def update_coverage(self, cover_list):
+        cov_inc = 0
+        for cover_state in cover_list:
+            if cover_state in self.coverage_set:
+                cov_inc += 1
+        self.coverage_list.pop(0)
+        self.coverage_list.append(cov_inc)
+
+        if cov_inc == 0:
             self.leak_list.pop()
-        else:
-            self.coverage_set.add(coverage)
+
         return self.leak_list[-1]
 
 class Seed:
@@ -69,7 +79,7 @@ class Seed:
         self.config = None
         self.coverage = set()
     
-    def parse(self):
+    def parse(self, config):
         raise Exception("the parse has not been implementated!!!")
 
     def get_field(self, field):
@@ -88,18 +98,22 @@ class Seed:
         global_random_state = random.getstate()
         random.setstate(self.tmp_random_state)
     
-    def mutate_random_field(self):
-        for _ in range(len(self.field_type)):
-            field = random.choice(self.field_type)
-            self.mutate_field(field)
-            if random.random() < 0.5:
-                break
+    def mutate_random_field(self, is_full):
+        if is_full:
+            for type_field in self.field_type:
+                self.mutate_field(type_field)
+        else:
+            for _ in range(len(self.field_type)):
+                field = random.choice(self.field_type)
+                self.mutate_field(field)
+                if random.random() < 0.5:
+                    break
 
-    def mutate(self):
+    def mutate(self, config, is_full):
         self.mutate_begin()
         while True:
-            self.mutate_random_field()
-            config = self.parse()
+            self.mutate_random_field(is_full)
+            config = self.parse(config)
             if self.config is None:
                 self.config = config
                 break
@@ -117,14 +131,14 @@ class Seed:
 
 class TriggerSeed(Seed):
     class TriggerFieldEnum(Enum):
-        STAGE1_TRIGGER_SEED = auto()
+        TRIGGER_SEED = auto()
         DELAY_LEN = auto()
         DELAY_FLOAT_RATE = auto()
         DELAY_MEM = auto()
         TRIGGER = auto()
     
     field_len = {
-        TriggerFieldEnum.STAGE1_TRIGGER_SEED: 32,
+        TriggerFieldEnum.TRIGGER_SEED: 22,
         TriggerFieldEnum.DELAY_LEN: 2,
         TriggerFieldEnum.DELAY_FLOAT_RATE: 2,
         TriggerFieldEnum.DELAY_MEM: 1,
@@ -140,51 +154,36 @@ class TriggerSeed(Seed):
         field_base[key] = seed_length
         seed_length += value
 
-    def __init__(self):
-        super().__init__(self.seed_length)
-
-class AccessSeed(Seed):
-    class AccessFieldEnum(Enum):
-        STAGE1_ACCESS_SEED = auto()
-        ACCESS_SECRET_LI = auto()
-        ACCESS_SECRET_MASK = auto()
-        SECRET_MIGRATE = auto()
-
-    field_len = {
-        AccessFieldEnum.STAGE1_ACCESS_SEED: 15,
-        AccessFieldEnum.ACCESS_SECRET_LI: 1,
-        AccessFieldEnum.ACCESS_SECRET_MASK: 4,
-        AccessFieldEnum.SECRET_MIGRATE: 2,
-    }
-
-    field_type = []
-
-    seed_length = 0
-    field_base = {}
-    for key, value in field_len.items():
-        field_type.append(key)
-        field_base[key] = seed_length
-        seed_length += value
-    
-    def __init__(self):
-        super().__init__(self.seed_length)
-
-class Stage1Seed(Seed):
     def __init__(self, coverage:Coverage):
-        self.trigger_seed = TriggerSeed()
-        self.access_seed = AccessSeed()
+        super().__init__(self.seed_length)
         self.coverage = coverage
-        self.config = {}
+    
+    def mutate(self, config, is_full=False):
+        self.mutate_begin()
+        while True:
+            self.mutate_random_field(is_full)
+            config = self.parse(config)
+            if self.config is None:
+                self.config = config
+                break
+            elif config != self.config:
+                if self.coverage.add_trigger_state(self.seed):
+                    self.config = config
+                    break
+        self.mutate_end()
+        
+        return self.config
+    
+    def parse(self, config):
+        config = copy.deepcopy(config)
 
-    def parse(self):
-        config = {}
-        config['stage1_trigger_seed'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.STAGE1_TRIGGER_SEED)
+        config['trigger_seed'] = self.get_field(self.TriggerFieldEnum.TRIGGER_SEED)
 
-        config['delay_len'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_LEN) + 4
-        config['delay_float_rate'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
-        config['delay_mem'] = True if self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_MEM) == 1 else False
+        config['delay_len'] = self.get_field(self.TriggerFieldEnum.DELAY_LEN) + 4
+        config['delay_float_rate'] = self.get_field(self.TriggerFieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
+        config['delay_mem'] = True if self.get_field(self.TriggerFieldEnum.DELAY_MEM) == 1 else False
 
-        trigger_field_value = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.TRIGGER)
+        trigger_field_value = self.get_field(self.TriggerFieldEnum.TRIGGER)
         match(trigger_field_value):
             case 0:
                 config['trigger_type'] = TriggerType.ECALL
@@ -232,10 +231,57 @@ class Stage1Seed(Seed):
                 config['trigger_type'] = TriggerType.V4
             case _:
                 raise Exception(f"the invalid trigger number {trigger_field_value}")
-        
-        config['stage1_access_seed'] = self.access_seed.get_field(self.access_seed.AccessFieldEnum.STAGE1_ACCESS_SEED)
+        return config
 
-        secret_migrate_field = self.access_seed.get_field(self.access_seed.AccessFieldEnum.SECRET_MIGRATE)
+
+class AccessSeed(Seed):
+    class AccessFieldEnum(Enum):
+        ACCESS_SEED = auto()
+        ACCESS_SECRET_LI = auto()
+        ACCESS_SECRET_MASK = auto()
+        SECRET_MIGRATE = auto()
+
+    field_len = {
+        AccessFieldEnum.ACCESS_SEED: 9,
+        AccessFieldEnum.ACCESS_SECRET_LI: 1,
+        AccessFieldEnum.ACCESS_SECRET_MASK: 4,
+        AccessFieldEnum.SECRET_MIGRATE: 2,
+    }
+
+    field_type = []
+
+    seed_length = 0
+    field_base = {}
+    for key, value in field_len.items():
+        field_type.append(key)
+        field_base[key] = seed_length
+        seed_length += value
+    
+    def __init__(self, coverage:Coverage):
+        super().__init__(self.seed_length)
+        self.coverage = coverage
+    
+    def mutate(self, config, is_full=False):
+        self.mutate_begin()
+        while True:
+            self.mutate_random_field(is_full)
+            config = self.parse(config)
+            if self.config is None:
+                self.config = config
+                break
+            elif config != self.config:
+                if self.coverage.add_access_state(self.seed):
+                    self.config = config
+                    break
+        self.mutate_end()
+        
+        return self.config
+    
+    def parse(self, config):
+        config = copy.deepcopy(config)
+        config['access_seed'] = self.get_field(self.AccessFieldEnum.ACCESS_SEED)
+
+        secret_migrate_field = self.get_field(self.AccessFieldEnum.SECRET_MIGRATE)
         match(secret_migrate_field):
             case 0|1:
                 config['secret_migrate_type'] = SecretMigrateType.MEMORY
@@ -244,10 +290,10 @@ class Stage1Seed(Seed):
             case 3:
                 config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
 
-        access_secret_mask_value = self.access_seed.get_field(self.access_seed.AccessFieldEnum.ACCESS_SECRET_MASK)
+        access_secret_mask_value = self.get_field(self.AccessFieldEnum.ACCESS_SECRET_MASK)
         config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
         
-        access_secret_li_value = self.access_seed.get_field(self.access_seed.AccessFieldEnum.ACCESS_SECRET_LI)
+        access_secret_li_value = self.get_field(self.AccessFieldEnum.ACCESS_SECRET_LI)
         config['access_secret_li'] = True\
             if config['access_secret_mask'] == 64\
                 and config['trigger_type'] != TriggerType.V4 and\
@@ -256,51 +302,19 @@ class Stage1Seed(Seed):
         
         return config
 
-    def mutate(self):
-        self.mutate_begin()
-        while True:
-            self.trigger_seed.mutate_random_field()
-            if not self.coverage.add_trigger_state(self.trigger_seed.seed):
-                continue
-            self.access_seed.mutate_random_field()
-            self.coverage.add_access_state(self.access_seed.seed)
-            config = self.parse()
-            if self.config is None:
-                self.config = config
-                break
-            elif config != self.config:
-                self.config = config
-                break
-        self.mutate_end()
-        
-        return self.config
-    
-    def mutate_access(self):
-        self.mutate_begin()
-        while True:
-            self.access_seed.mutate_random_field()
-            if not self.coverage.add_access_state(self.access_seed.seed):
-                continue
-            config = self.parse()
-            if config != self.config:
-                self.config = config
-                break
-        self.mutate_end()
 
-        return self.config
-
-class Stage2Seed(Seed):
-    class Stage2FieldEnum(Enum):
-        STAGE2_SEED = auto()
+class LeakSeed(Seed):
+    class LeakFieldEnum(Enum):
+        LEAK_SEED = auto()
         ENCODE_FUZZ_TYPE = auto()
         ENCODE_BLOCK_LEN = auto()
         ENCODE_BLOCK_NUM = auto()
     
     field_len = {
-        Stage2FieldEnum.STAGE2_SEED: 27,
-        Stage2FieldEnum.ENCODE_FUZZ_TYPE: 2,
-        Stage2FieldEnum.ENCODE_BLOCK_LEN: 2,
-        Stage2FieldEnum.ENCODE_BLOCK_NUM: 2
+        LeakFieldEnum.LEAK_SEED: 26,
+        LeakFieldEnum.ENCODE_FUZZ_TYPE: 2,
+        LeakFieldEnum.ENCODE_BLOCK_LEN: 2,
+        LeakFieldEnum.ENCODE_BLOCK_NUM: 2
     }
 
     field_type = []
@@ -316,31 +330,30 @@ class Stage2Seed(Seed):
         super().__init__(self.seed_length)
         self.coverage = coverage
     
-    def mutate(self):
+    def mutate(self, config, is_full=False):
         self.mutate_begin()
         while True:
-            self.mutate_random_field()
-            if not self.coverage.add_leak_state(self.seed):
-                continue
-            config = self.parse()
+            self.mutate_random_field(is_full)
+            config = self.parse(config)
             if self.config is None:
                 self.config = config
                 break
             elif config != self.config:
-                self.config = config
-                break
+                if self.coverage.add_leak_state(self.seed):
+                    self.config = config
+                    break
         self.mutate_end()
         
         return self.config
 
-    def update_coverage(self, coverage):
-        self.seed = self.coverage.add_coverage(coverage)
+    def update_coverage(self, cover_list):
+        self.seed = self.coverage.update_coverage(cover_list)
 
-    def parse(self):
-        config = {}
-        config['stage2_seed'] = self.get_field(self.Stage2FieldEnum.STAGE2_SEED)
+    def parse(self, config):
+        config = copy.deepcopy(config)
+        config['leak_seed'] = self.get_field(self.LeakFieldEnum.LEAK_SEED)
 
-        encode_fuzz_type = self.get_field(self.Stage2FieldEnum.ENCODE_FUZZ_TYPE)
+        encode_fuzz_type = self.get_field(self.LeakFieldEnum.ENCODE_FUZZ_TYPE)
         match(encode_fuzz_type):
             case 0:
                 config['encode_fuzz_type'] = EncodeType.FUZZ_FRONTEND
@@ -351,9 +364,9 @@ class Stage2Seed(Seed):
             case _:
                 raise Exception("the encode fuzz type is invalid")
 
-        config['encode_block_len'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_LEN) + 4
+        config['encode_block_len'] = self.get_field(self.LeakFieldEnum.ENCODE_BLOCK_LEN) + 4
 
-        config['encode_block_num'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_NUM) + 2
+        config['encode_block_num'] = self.get_field(self.LeakFieldEnum.ENCODE_BLOCK_NUM) + 2
 
         return config
 
@@ -381,11 +394,22 @@ class FuzzManager:
             os.mkdir(repo_path)
 
         self.trans.build_frame()
-        seed = Stage1Seed(self.coverage)
-        config = seed.mutate()
+        seed = TriggerSeed(self.coverage)
+        config = seed.mutate({}, True)
+        seed = AccessSeed(self.coverage)
+        config = seed.mutate(config, True)
+        random.seed(config['trigger_seed'])
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
         self.trans.gen_train_swap_list(True, True)
+
+        seed = AccessSeed(self.coverage)
+        config = seed.mutate(config, True)
+        self.trans.trans_victim.mutate_access(config)
+
+        seed = LeakSeed(self.coverage)
+        config = seed.mutate(config, True)
+        self.trans.trans_victim.mutate_encode(config)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf('duo')
