@@ -9,7 +9,6 @@ from TransDecodeBlock import *
 from TransTrainBlock import *
 from TransFrameBlock import *
 import libconf
-import csv
 import numpy as np
 import struct
 import os

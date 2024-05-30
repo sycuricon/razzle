@@ -263,7 +263,9 @@ class EncodeBlock(TransBlock):
         match self.strategy:
             case EncodeType.FUZZ_FRONTEND:
                 block.inst_list.append(Instruction(f'xor {self.secret_reg}, {self.secret_reg}, {self.secret_reg}'))
-                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, {self.name}_1'))
+                block.inst_list.append(Instruction(f'auipc t0, 0x0'))
+                block.inst_list.append(Instruction(f'add t0, t0, {self.secret_reg}'))
+                block.inst_list.append(Instruction(f'jalr zero, 12(t0)'))
             case EncodeType.FUZZ_PIPELINE:
                 block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
             case EncodeType.FUZZ_BACKEND:
