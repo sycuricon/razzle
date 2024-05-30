@@ -22,7 +22,7 @@ class MemCfg:
         self.mem_len = mem_len
         self.mem_regions = {}
         self.mem_region_kind = ['frame', 'data_train',\
-            'data_decode', 'data_victim', 'data_victim_train', 'swap']
+            'data_decode', 'data_victim', 'swap']
         for kind in self.mem_region_kind:
             self.mem_regions[kind] = []
         self.swap_list = []
@@ -40,17 +40,11 @@ class MemCfg:
         self.swap_list = []
         self.mem_regions['swap'] = []
         for swap_block in swap_block_list:
-            if type(swap_block) == list:
-                for swap_sub_block in swap_block:
-                    if swap_sub_block['swap_id'] not in self.swap_list:
-                        self.mem_regions['swap'].append(swap_sub_block)
-                    self.swap_list.append(swap_sub_block['swap_id'])
-            else:
-                if swap_block['swap_id'] not in self.swap_list:
-                    self.mem_regions['swap'].append(swap_block)
-                self.swap_list.append(swap_block['swap_id'])
+            if swap_block['swap_id'] not in self.swap_list:
+                self.mem_regions['swap'].append(swap_block)
+            self.swap_list.append(swap_block['swap_id'])
     
-    def dump_conf(self, target='both'):
+    def dump_conf(self, target='duo'):
         swap_path = os.path.join(self.code_repo, self.sub_repo, 'swap_mem.cfg')
         with open(swap_path, "wt") as file:
             tmp_mem_cfg = {}
@@ -61,19 +55,20 @@ class MemCfg:
                 regions = copy.deepcopy(regions)
                 for region in regions:
                     match target:
-                        case 'both':
+                        case 'duo':
                             pass
                         case 'dut':
                             if region['type'] == 'vnt':
                                 continue
+                            elif region['type'] == 'duo':
+                                region['type'] = 'dut'
                         case 'vnt':
-                            match region['type']:
-                                case 'dut':
-                                    continue
-                                case 'swap':
-                                    pass
-                                case 'vnt':
-                                    region['type'] = 'dut'
+                            if region['type'] == 'dut':
+                                continue
+                            elif region['type'] == 'duo':
+                                region['type'] = 'dut'
+                            elif region['type'] == 'vnt':
+                                region['type'] = 'dut'
                     region['init_file'] = os.path.join(self.code_repo, self.sub_repo, region['init_file'])
                     mem_region.append(region)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
@@ -392,11 +387,9 @@ class TransManager:
         with open(file_data, "wb") as file:
             file.write(data_byte_array)
         
-        dut_mem_region = {'type':'dut', 'start_addr':data_begin + address_offset,\
+        duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
             'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data_base, 'swap_id':swap_idx}
-        vnt_mem_region = {'type':'vnt', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data_base, 'swap_id':swap_idx}
-        self.mem_cfg.add_mem_region(data_name, [dut_mem_region, vnt_mem_region])
+        self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
     
     def _compute_coverage(self, base_list, variant_list):
         if max(base_list) != 0:
@@ -433,39 +426,30 @@ class TransManager:
         self.trans_train_id = 0
         self.data_train_section.clear()
 
-        windows_param = 0.7 if self.trans_victim.need_train() else 0.4
+        windows_param = 0.8 if self.trans_victim.need_train() else 0.4
 
         swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
         for _ in range(0, 10):
             if random.random() < 1 - windows_param:
                 break
         
-            train_prob = {
-                TrainType.BRANCH_NOT_TAKEN: 0.065,
-                TrainType.BRANCH_TAKEN: 0.065,
-                TrainType.JALR: 0.08,
-                TrainType.CALL: 0.13,
-                TrainType.RETURN: 0.13,
-                TrainType.JMP: 0.03,
+            train_type_array = [
+                TrainType.BRANCH_NOT_TAKEN,
+                TrainType.BRANCH_TAKEN,
+                TrainType.JALR,
+                TrainType.CALL,
+                TrainType.RETURN,
+                TrainType.JMP,
 
-                TrainType.FLOAT:0.01,
-                TrainType.INT:0.01,
-                TrainType.SYSTEM:0.02,
-                TrainType.LOAD:0.02,
-                TrainType.STORE:0.02,
-                TrainType.AMO:0.02
-            }
-            
-            match self.trans_victim.trigger_type:
-                case TriggerType.BRANCH:
-                    train_prob[TrainType.BRANCH_NOT_TAKEN] += 0.2
-                    train_prob[TrainType.BRANCH_TAKEN] += 0.2
-                case TriggerType.JALR | TriggerType.JMP:
-                    train_prob[TrainType.JALR] += 0.4
-                case TriggerType.RETURN:
-                    train_prob[TrainType.CALL] += 0.2
-                    train_prob[TrainType.RETURN] += 0.2
-            train_type = random_choice(train_prob)
+                TrainType.FLOAT,
+                TrainType.INT,
+                TrainType.SYSTEM,
+                TrainType.LOAD,
+                TrainType.STORE,
+                TrainType.AMO
+            ]
+
+            train_type = random.choice(train_type_array)
 
             trans_body = self.trans_train_pool[self.trans_train_id]
             self.trans_train_id += 1
@@ -513,7 +497,7 @@ class TransManager:
         self._generate_frame_block()
 
     def generate(self):
-        self.trans_victim.gen_block('default', None)
+        self.trans_victim.gen_block(EncodeType.FUZZ_DEFAULT, None)
         self._generate_body_block(self.trans_victim)
         self.swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
 

@@ -184,11 +184,18 @@ class AccessSecretBlock(TransBlock):
         self.address = (self.address & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
         self.gen_code()
 
+class EncodeType(Enum):
+    FUZZ_FRONTEND = auto()
+    FUZZ_BACKEND = auto()
+    FUZZ_PIPELINE = auto()
+    FUZZ_DEFAULT = auto()
+
 class EncodeBlock(TransBlock):
     def __init__(self, extension, output_path, secret_reg, strategy, block_len=None, block_num=None):
         super().__init__('encode_block', extension, output_path)
         self.secret_reg = secret_reg
-        assert strategy in ['default', 'fuzz_data', 'fuzz_control']
+        assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
+            EncodeType.FUZZ_PIPELINE, EncodeType.FUZZ_DEFAULT]
         self.strategy = strategy
         self.block_len = block_len
         self.block_num = block_num
@@ -223,33 +230,6 @@ class EncodeBlock(TransBlock):
         self._load_inst_str(inst_exit)
 
     def _gen_random(self):
-        self.encode_block_list = []
-        self.encode_list = []
-        self.encode_block_begin = 0
-        self.encode_block_end = 0
-
-        normal_reg = copy.copy(reg_range[1:])
-        normal_rvc_reg = copy.copy(rvc_reg_range)
-        for reg in normal_rvc_reg:
-            normal_reg.remove(reg)
-        random.shuffle(normal_reg)
-        random.shuffle(normal_rvc_reg)
-        normal_data_reg = set(normal_reg[0:28])
-        normal_data_reg.update(set(normal_rvc_reg[0:6]))
-        normal_data_reg.difference_update({self.secret_reg})
-        normal_control_reg = set(normal_reg[28:])
-        normal_control_reg.update(set(normal_rvc_reg[6:]))
-        normal_control_reg.difference_update({self.secret_reg})
-
-        normal_freg = set(float_range)
-        taint_freg = set()
-        if self.strategy == 'fuzz_data':
-            taint_data_reg = {self.secret_reg}
-            taint_control_reg = set()
-        else:
-            taint_control_reg = {self.secret_reg}
-            taint_data_reg = set()
-
         kind_class = {
             BaseBlockType.INT:IntBlock,
             BaseBlockType.FLOAT:FloatBlock,
@@ -262,75 +242,68 @@ class EncodeBlock(TransBlock):
             BaseBlockType.SYSTEM:SystemBlock
         }
 
+        self.encode_block_list = []
+        self.encode_list = []
+        self.encode_block_begin = 0
+        self.encode_block_end = 0
+
+        normal_reg = copy.copy(reg_range[1:])
+        normal_reg = set(normal_reg)
+        normal_reg.remove(self.secret_reg)
+        taint_reg = set()
+        normal_freg = set(float_range)
+        taint_freg = set()
+
+        if self.strategy == EncodeType.FUZZ_BACKEND:
+            taint_reg.add(self.secret_reg)
+
         block = BaseBlock(f'{self.name}_0', self.extension, True)
         self.encode_block_list.append(block)
         self.inst_block_list.append(block)
+        match self.strategy:
+            case EncodeType.FUZZ_FRONTEND:
+                block.inst_list.append(Instruction(f'xor {self.secret_reg}, {self.secret_reg}, {self.secret_reg}'))
+                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, {self.name}_1'))
+            case EncodeType.FUZZ_PIPELINE:
+                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
+            case EncodeType.FUZZ_BACKEND:
+                pass
+            case _:
+                raise Exception("the strategy type is invalid!!!!")
 
         self.encode_block_begin = 1
         self.encode_block_end = self.encode_block_begin + self.block_num
+        self.encode_list = list(range(self.encode_block_begin, self.encode_block_end))
 
+        match self.strategy:
+            case EncodeType.FUZZ_FRONTEND:
+                block_type_pool = [BaseBlockType.BRANCH, BaseBlockType.JMP, BaseBlockType.CALLRET, BaseBlockType.SYSTEM]
+            case EncodeType.FUZZ_BACKEND:
+                block_type_pool = [BaseBlockType.INT, BaseBlockType.FLOAT, BaseBlockType.LOAD_STORE, BaseBlockType.AMO]
+                if self.trigger_type != TriggerType.V4:
+                    block_type_pool.append(BaseBlockType.CSR)
+            case EncodeType.FUZZ_PIPELINE:
+                block_type_pool = [BaseBlockType.BRANCH, BaseBlockType.JMP, BaseBlockType.CALLRET, BaseBlockType.SYSTEM,\
+                    BaseBlockType.INT, BaseBlockType.FLOAT, BaseBlockType.LOAD_STORE, BaseBlockType.AMO]
+                if self.trigger_type != TriggerType.V4:
+                    block_type_pool.append(BaseBlockType.CSR)
+            case _:
+                raise Exception("the strategy type is invalid!!!!")
+        
         kind = BaseBlockType.NULL
         for i in range(self.encode_block_begin, self.encode_block_end):
-            if self.strategy == 'fuzz_control':
-                kind_prob = {
-                    BaseBlockType.INT:0.1,
-                    BaseBlockType.FLOAT:0.1,
-                    BaseBlockType.LOAD_STORE:0.1,
-                    BaseBlockType.BRANCH:0.1,
-                    BaseBlockType.JMP:0.1,
-                    BaseBlockType.CALLRET:0.1,
-                    BaseBlockType.AMO:0.025,
-                    BaseBlockType.CSR:0.015,
-                    BaseBlockType.SYSTEM:0.01
-                }
-                match(kind):
-                    case BaseBlockType.NULL:
-                        kind_prob[BaseBlockType.INT] += 0.05
-                        kind_prob[BaseBlockType.FLOAT] += 0.06
-                        kind_prob[BaseBlockType.LOAD_STORE] += 0.06
-                        kind_prob[BaseBlockType.CALLRET] += 0.06
-                        kind_prob[BaseBlockType.JMP] += 0.06
-                        kind_prob[BaseBlockType.BRANCH] += 0.06
-                    case BaseBlockType.INT|BaseBlockType.FLOAT|BaseBlockType.LOAD_STORE:
-                        kind_prob[BaseBlockType.INT] = 0.2
-                        kind_prob[BaseBlockType.FLOAT] = 0.2
-                        kind_prob[BaseBlockType.LOAD_STORE] = 0.2
-                        kind_prob[BaseBlockType.JMP] = 0.01
-                        kind_prob[BaseBlockType.CALLRET] = 0.01
-                        kind_prob[BaseBlockType.BRANCH] = 0.01
-                        kind_prob[kind] += 0.32
-                    case BaseBlockType.JMP|BaseBlockType.CALLRET|BaseBlockType.BRANCH:
-                        kind_prob[BaseBlockType.INT] = 0.01
-                        kind_prob[BaseBlockType.FLOAT] = 0.01
-                        kind_prob[BaseBlockType.LOAD_STORE] = 0.01
-                        kind_prob[BaseBlockType.JMP] = 0.2
-                        kind_prob[BaseBlockType.CALLRET] = 0.2
-                        kind_prob[BaseBlockType.BRANCH] = 0.2
-                        kind_prob[kind] += 0.32
+            if kind == BaseBlockType.NULL:
+                base_prob = 1.0 / len(block_type_pool)
+                kind_prob = {key:base_prob for key in block_type_pool}
             else:
-                kind_prob = {
-                    BaseBlockType.INT:0.2,
-                    BaseBlockType.FLOAT:0.2,
-                    BaseBlockType.LOAD_STORE:0.2,
-                    BaseBlockType.AMO:0.025,
-                    BaseBlockType.CSR:0.015,
-                    BaseBlockType.SYSTEM:0.01
-                }
-                match(kind):
-                    case BaseBlockType.NULL:
-                        kind_prob[BaseBlockType.INT] += 0.05
-                        kind_prob[BaseBlockType.FLOAT] += 0.15
-                        kind_prob[BaseBlockType.LOAD_STORE] += 0.15
-                    case _:
-                        kind_prob[kind] += 0.35
+                base_prob = 0.5 / len(block_type_pool)
+                kind_prob = {key:base_prob for key in block_type_pool}
+                kind_prob[kind] += 0.5
             kind = random_choice(kind_prob)
             block = kind_class[kind](f'{self.name}_{i}', self.extension, True, self.block_len)
             self.encode_block_list.append(block)
-            block_list = block.gen_random_block(copy.copy(normal_data_reg),\
-                copy.copy(taint_data_reg), copy.copy(normal_freg), copy.copy(taint_freg))
+            block_list = block.gen_random_block(normal_reg, taint_reg, normal_freg, taint_freg)
             self.inst_block_list.extend(block_list)
-        
-        self.encode_list = list(range(self.encode_block_begin, self.encode_block_end))
 
         self.loop = False
         if self.trigger_type != TriggerType.V4:
@@ -339,22 +312,19 @@ class EncodeBlock(TransBlock):
             block.inst_list.append(Instruction(f'jal zero, {self.encode_block_list[0].name}'))
             self.encode_block_list.append(block)
             self.loop = True
-        
-        if self.strategy == 'fuzz_control':
-            block_index = random.choice(list(range(0, self.encode_block_end)))
-            self.encode_block_list[block_index].inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
 
     def gen_default(self):
         self._gen_block_begin()
 
         match (self.strategy):
-            case 'default':
-                if self.trigger_type == TriggerType.V4:
-                    self.leak_kind = 'cache'
-                else:
-                    self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
+            case EncodeType.FUZZ_DEFAULT:
+                # if self.trigger_type == TriggerType.V4:
+                #     self.leak_kind = 'cache'
+                # else:
+                #     self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
+                self.leak_kind = 'cache'
                 self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
-            case _:
+            case EncodeType.FUZZ_BACKEND|EncodeType.FUZZ_FRONTEND|EncodeType.FUZZ_PIPELINE:
                 self._gen_random()
             
         self._gen_block_end()
@@ -384,7 +354,7 @@ class EncodeBlock(TransBlock):
         self._gen_block_end()
 
     def mutate(self):
-        if self.strategy == 'default':
+        if self.strategy == EncodeType.FUZZ_DEFAULT:
             pass
         else:
             self.inst_block_list = []
@@ -631,7 +601,8 @@ class TransVictimManager(TransBaseManager):
         self.trans_frame = trans_frame
     
     def gen_block(self, config, strategy, template_path):
-        assert strategy in ['default', 'fuzz_data', 'fuzz_control']
+        assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
+            EncodeType.FUZZ_PIPELINE, EncodeType.FUZZ_DEFAULT]
         self.strategy = strategy
 
         if template_path is not None:
@@ -658,8 +629,11 @@ class TransVictimManager(TransBaseManager):
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr(None)
 
+        tmp_random_state = random.getstate()
+        random.seed(config['stage1_access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(access_secret_template)
+        random.setstate(tmp_random_state)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
 
@@ -726,8 +700,11 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.leak_reduce(encode_list)
 
     def mutate_access(self, config):
+        tmp_random_state = random.getstate()
+        random.seed(config['stage1_access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(None)
+        random.setstate(tmp_random_state)
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(None)

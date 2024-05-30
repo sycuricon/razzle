@@ -6,16 +6,68 @@ import hjson
 import random
 import time
 
+global_random_state = random.getstate()
+
 class FuzzResult(Enum):
     SUCCESS = auto()
     FAIL = auto()
-    CONTROL_MAYBE = auto()
-    DATA_MAYBE = auto()
+    MAYBE = auto()
+
+class Coverage:
+    def __init__(self):
+        self.state_list = []
+        self.trigger_struct = None
+        self.trigger_set = set()
+        self.access_list = None
+        self.access_set = None
+        self.leak_list = None
+        self.leak_set = None
+        self.coverage_set = None
+
+    def add_trigger_state(self, trigger_seed):
+        trigger_hash = trigger_seed.uint
+        if trigger_hash in self.trigger_set:
+            return False
+        self.trigger_struct = (trigger_seed, [], [], set(), set(), set())
+        self.trigger_set.add(trigger_hash)
+        self.access_list = self.trigger_struct[1]
+        self.leak_list = self.trigger_struct[2]
+        self.access_set = self.trigger_struct[3]
+        self.leak_set = self.trigger_struct[4]
+        self.coverage_set = self.trigger_struct[5]
+        self.state_list.append(self.trigger_struct)
+        return True
+
+    def add_access_state(self, access_seed):
+        access_hash = access_seed.uint
+        if access_hash in self.access_set:
+            return False
+        self.access_list.append(access_seed)
+        self.access_set.add(access_hash)
+        return True
+    
+    def add_leak_state(self, leak_seed):
+        leak_hash = leak_seed.uint
+        if leak_hash in self.leak_set:
+            return False
+        self.leak_list.append(leak_seed)
+        self.leak_set.add(leak_hash)
+        return True
+
+    def add_coverage(self, coverage):
+        if coverage in self.coverage_set:
+            self.leak_list.pop()
+        else:
+            self.coverage_set.add(coverage)
+        return self.leak_list[-1]
 
 class Seed:
     def __init__(self, length):
         self.seed = BitArray(length=length)
-        self.seed[:] = random.randint(0, 2**length-1)
+        self.seed[:] = random.getrandbits(length)
+        self.tmp_random_state = None
+        self.config = None
+        self.coverage = set()
     
     def parse(self):
         raise Exception("the parse has not been implementated!!!")
@@ -28,130 +80,214 @@ class Seed:
     def getbits(self, base, length):
         return self.seed[base:base+length].uint
 
+    def mutate_begin(self):
+        self.tmp_random_state = random.getstate()
+        random.setstate(global_random_state)
+    
+    def mutate_end(self):
+        global_random_state = random.getstate()
+        random.setstate(self.tmp_random_state)
+    
+    def mutate_random_field(self):
+        for _ in range(len(self.field_type)):
+            field = random.choice(self.field_type)
+            self.mutate_field(field)
+            if random.random() < 0.5:
+                break
+
     def mutate(self):
-        random.seed()
-        self.seed[:] = random.randint(0, 2**self.seed.len-1)
+        self.mutate_begin()
+        while True:
+            self.mutate_random_field()
+            config = self.parse()
+            if self.config is None:
+                self.config = config
+                break
+            elif config != self.config:
+                self.config = config
+                break
+        self.mutate_end()
+        
+        return self.config
     
     def mutate_field(self, field):
         base = self.field_base[field]
         length = self.field_len[field]
-        self.seed[base:base+length] = random.randint(0, 2 ** length - 1)
+        self.seed[base:base+length] = random.getrandbits(length)
 
-class Stage1Seed(Seed):
-    class Stage1FieldEnum(Enum):
-        STAGE1_SEED = auto()
+class TriggerSeed(Seed):
+    class TriggerFieldEnum(Enum):
+        STAGE1_TRIGGER_SEED = auto()
         DELAY_LEN = auto()
         DELAY_FLOAT_RATE = auto()
         DELAY_MEM = auto()
-        ACCESS_SECRET_LI = auto()
-        ACCESS_SECRET_MASK = auto()
-        SECRET_MIGRATE = auto()
         TRIGGER = auto()
     
     field_len = {
-        Stage1FieldEnum.STAGE1_SEED: 32,
-        Stage1FieldEnum.DELAY_LEN: 2,
-        Stage1FieldEnum.DELAY_FLOAT_RATE: 2,
-        Stage1FieldEnum.DELAY_MEM: 1,
-        Stage1FieldEnum.ACCESS_SECRET_LI: 1,
-        Stage1FieldEnum.ACCESS_SECRET_MASK: 4,
-        Stage1FieldEnum.SECRET_MIGRATE: 2,
-        Stage1FieldEnum.TRIGGER: 7
+        TriggerFieldEnum.STAGE1_TRIGGER_SEED: 32,
+        TriggerFieldEnum.DELAY_LEN: 2,
+        TriggerFieldEnum.DELAY_FLOAT_RATE: 2,
+        TriggerFieldEnum.DELAY_MEM: 1,
+        TriggerFieldEnum.TRIGGER: 5,
     }
+
+    field_type = []
 
     seed_length = 0
     field_base = {}
     for key, value in field_len.items():
+        field_type.append(key)
         field_base[key] = seed_length
         seed_length += value
 
     def __init__(self):
-        self.seed = BitArray(length=self.seed_length)
+        super().__init__(self.seed_length)
+
+class AccessSeed(Seed):
+    class AccessFieldEnum(Enum):
+        STAGE1_ACCESS_SEED = auto()
+        ACCESS_SECRET_LI = auto()
+        ACCESS_SECRET_MASK = auto()
+        SECRET_MIGRATE = auto()
+
+    field_len = {
+        AccessFieldEnum.STAGE1_ACCESS_SEED: 15,
+        AccessFieldEnum.ACCESS_SECRET_LI: 1,
+        AccessFieldEnum.ACCESS_SECRET_MASK: 4,
+        AccessFieldEnum.SECRET_MIGRATE: 2,
+    }
+
+    field_type = []
+
+    seed_length = 0
+    field_base = {}
+    for key, value in field_len.items():
+        field_type.append(key)
+        field_base[key] = seed_length
+        seed_length += value
+    
+    def __init__(self):
+        super().__init__(self.seed_length)
+
+class Stage1Seed(Seed):
+    def __init__(self, coverage:Coverage):
+        self.trigger_seed = TriggerSeed()
+        self.access_seed = AccessSeed()
+        self.coverage = coverage
         self.config = {}
 
     def parse(self):
-        self.config['stage1_seed'] = self.get_field(self.Stage1FieldEnum.STAGE1_SEED)
+        config = {}
+        config['stage1_trigger_seed'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.STAGE1_TRIGGER_SEED)
 
-        self.config['delay_len'] = self.get_field(self.Stage1FieldEnum.DELAY_LEN) + 4
-        self.config['delay_float_rate'] = self.get_field(self.Stage1FieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
-        self.config['delay_mem'] = True if self.get_field(self.Stage1FieldEnum.DELAY_MEM) == 1 else False
+        config['delay_len'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_LEN) + 4
+        config['delay_float_rate'] = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
+        config['delay_mem'] = True if self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.DELAY_MEM) == 1 else False
 
-        self.config['access_secret_li'] = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_LI) == 1
-        access_secret_mask_value = self.get_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
-        self.config['access_secret_mask'] = 64 if access_secret_mask_value > 8 or self.config['access_secret_li'] else access_secret_mask_value * 4 + 32
+        trigger_field_value = self.trigger_seed.get_field(self.trigger_seed.TriggerFieldEnum.TRIGGER)
+        match(trigger_field_value):
+            case 0:
+                config['trigger_type'] = TriggerType.ECALL
+            case 1:
+                config['trigger_type'] = TriggerType.ILLEGAL
+            case 2:
+                config['trigger_type'] = TriggerType.EBREAK
+            case 3:
+                config['trigger_type'] = TriggerType.INT
+            case 4:
+                config['trigger_type'] = TriggerType.FLOAT
+            case 5:
+                config['trigger_type'] = TriggerType.LOAD
+            case 6:
+                config['trigger_type'] = TriggerType.STORE
+            case 7:
+                config['trigger_type'] = TriggerType.AMO
+            case 8:
+                config['trigger_type'] = TriggerType.JMP
+            case 9:
+                config['trigger_type'] = TriggerType.AMO_MISALIGN
+            case 10:
+                config['trigger_type'] = TriggerType.STORE_MISALIGN
+            case 11:
+                config['trigger_type'] = TriggerType.LOAD_MISALIGN
+            case 12|13:
+                config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+            case 14|15:
+                config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
+            case 16|17:
+                config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
+            case 18|19:
+                config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
+            case 20|21:
+                config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
+            case 22|23:
+                config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
+            case 24|25:
+                config['trigger_type'] = TriggerType.RETURN
+            case 26|27:
+                config['trigger_type'] = TriggerType.BRANCH
+            case 28|29:
+                config['trigger_type'] = TriggerType.JALR
+            case 30|31:
+                config['trigger_type'] = TriggerType.V4
+            case _:
+                raise Exception(f"the invalid trigger number {trigger_field_value}")
+        
+        config['stage1_access_seed'] = self.access_seed.get_field(self.access_seed.AccessFieldEnum.STAGE1_ACCESS_SEED)
 
-        secret_migrate_field = self.get_field(self.Stage1FieldEnum.SECRET_MIGRATE)
+        secret_migrate_field = self.access_seed.get_field(self.access_seed.AccessFieldEnum.SECRET_MIGRATE)
         match(secret_migrate_field):
             case 0|1:
-                self.config['secret_migrate_type'] = SecretMigrateType.MEMORY
+                config['secret_migrate_type'] = SecretMigrateType.MEMORY
             case 2:
-                self.config['secret_migrate_type'] = SecretMigrateType.CACHE
+                config['secret_migrate_type'] = SecretMigrateType.CACHE
             case 3:
-                self.config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
+                config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
 
-        trigger_field_value = self.get_field(self.Stage1FieldEnum.TRIGGER)
-        trigger_finish = False
-        if not self.config['access_secret_li']:
-            if trigger_field_value < 32:
-                self.config['trigger_type'] = TriggerType.V4
-                trigger_finish = True
-            else:
-                trigger_field_value -= 32
-        else:
-            trigger_field_value = int(trigger_field_value * 96 / 128)
-        if not trigger_finish:
-            match(trigger_field_value):
-                case 0:
-                    self.config['trigger_type'] = TriggerType.ECALL
-                case 1:
-                    self.config['trigger_type'] = TriggerType.ILLEGAL
-                case 2:
-                    self.config['trigger_type'] = TriggerType.EBREAK
-                case 3|4|5|6:
-                    self.config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-                case 7|8:
-                    self.config['trigger_type'] = TriggerType.LOAD_MISALIGN
-                case 9|10|11|12:
-                    self.config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
-                case 13|14|15|16:
-                    self.config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-                case 17|18:
-                    self.config['trigger_type'] = TriggerType.STORE_MISALIGN
-                case 19|20|21|22:
-                    self.config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
-                case 23|24|25|26:
-                    self.config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
-                case 27|28:
-                    self.config['trigger_type'] = TriggerType.AMO_MISALIGN
-                case 29|30|31|32:
-                    self.config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
-                case 33|34:
-                    self.config['trigger_type'] = TriggerType.INT
-                case 35|36:
-                    self.config['trigger_type'] = TriggerType.FLOAT
-                case 37|38:
-                    self.config['trigger_type'] = TriggerType.LOAD
-                case 39|40:
-                    self.config['trigger_type'] = TriggerType.STORE
-                case 41|42:
-                    self.config['trigger_type'] = TriggerType.AMO
-                case _:
-                    if 43 <= trigger_field_value < 47:
-                        self.config['trigger_type'] = TriggerType.JMP
-                    elif 47 <= trigger_field_value < 61:
-                        self.config['trigger_type'] = TriggerType.RETURN
-                    elif 61 <= trigger_field_value < 75:
-                        self.config['trigger_type'] = TriggerType.BRANCH
-                    elif 75 <= trigger_field_value < 96:
-                        self.config['trigger_type'] = TriggerType.JALR
-                    else:
-                        raise Exception(f"the invalid trigger number {trigger_field_value}")
+        access_secret_mask_value = self.access_seed.get_field(self.access_seed.AccessFieldEnum.ACCESS_SECRET_MASK)
+        config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
+        
+        access_secret_li_value = self.access_seed.get_field(self.access_seed.AccessFieldEnum.ACCESS_SECRET_LI)
+        config['access_secret_li'] = True\
+            if config['access_secret_mask'] == 64\
+                and config['trigger_type'] != TriggerType.V4 and\
+                access_secret_li_value == 1\
+            else False
+        
+        return config
+
+    def mutate(self):
+        self.mutate_begin()
+        while True:
+            self.trigger_seed.mutate_random_field()
+            if not self.coverage.add_trigger_state(self.trigger_seed.seed):
+                continue
+            self.access_seed.mutate_random_field()
+            self.coverage.add_access_state(self.access_seed.seed)
+            config = self.parse()
+            if self.config is None:
+                self.config = config
+                break
+            elif config != self.config:
+                self.config = config
+                break
+        self.mutate_end()
         
         return self.config
     
     def mutate_access(self):
-        self.mutate_field(self.Stage1FieldEnum.ACCESS_SECRET_MASK)
-        self.mutate_field(self.Stage1FieldEnum.SECRET_MIGRATE)
+        self.mutate_begin()
+        while True:
+            self.access_seed.mutate_random_field()
+            if not self.coverage.add_access_state(self.access_seed.seed):
+                continue
+            config = self.parse()
+            if config != self.config:
+                self.config = config
+                break
+        self.mutate_end()
+
+        return self.config
 
 class Stage2Seed(Seed):
     class Stage2FieldEnum(Enum):
@@ -162,33 +298,64 @@ class Stage2Seed(Seed):
     
     field_len = {
         Stage2FieldEnum.STAGE2_SEED: 27,
-        Stage2FieldEnum.ENCODE_FUZZ_TYPE: 1,
+        Stage2FieldEnum.ENCODE_FUZZ_TYPE: 2,
         Stage2FieldEnum.ENCODE_BLOCK_LEN: 2,
         Stage2FieldEnum.ENCODE_BLOCK_NUM: 2
     }
 
+    field_type = []
+
     seed_length = 0
     field_base = {}
     for key, value in field_len.items():
+        field_type.append(key)
         field_base[key] = seed_length
         seed_length += value
 
-    def __init__(self):
-        self.seed = BitArray(length=self.seed_length)
-        self.config = {}
+    def __init__(self, coverage:Coverage):
+        super().__init__(self.seed_length)
+        self.coverage = coverage
+    
+    def mutate(self):
+        self.mutate_begin()
+        while True:
+            self.mutate_random_field()
+            if not self.coverage.add_leak_state(self.seed):
+                continue
+            config = self.parse()
+            if self.config is None:
+                self.config = config
+                break
+            elif config != self.config:
+                self.config = config
+                break
+        self.mutate_end()
+        
+        return self.config
+
+    def update_coverage(self, coverage):
+        self.seed = self.coverage.add_coverage(coverage)
 
     def parse(self):
-        self.config['stage2_seed'] = self.get_field(self.Stage2FieldEnum.STAGE2_SEED)
+        config = {}
+        config['stage2_seed'] = self.get_field(self.Stage2FieldEnum.STAGE2_SEED)
 
-        self.config['encode_fuzz_type'] = 'fuzz_data' if self.get_field(
-            self.Stage2FieldEnum.ENCODE_FUZZ_TYPE
-        ) == 1 else 'fuzz_control'
+        encode_fuzz_type = self.get_field(self.Stage2FieldEnum.ENCODE_FUZZ_TYPE)
+        match(encode_fuzz_type):
+            case 0:
+                config['encode_fuzz_type'] = EncodeType.FUZZ_FRONTEND
+            case 1:
+                config['encode_fuzz_type'] = EncodeType.FUZZ_BACKEND
+            case 2|3:
+                config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
+            case _:
+                raise Exception("the encode fuzz type is invalid")
 
-        self.config['encode_block_len'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_LEN) + 4
+        config['encode_block_len'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_LEN) + 4
 
-        self.config['encode_block_num'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_NUM) + 2
+        config['encode_block_num'] = self.get_field(self.Stage2FieldEnum.ENCODE_BLOCK_NUM) + 2
 
-        return self.config
+        return config
 
 class FuzzManager:
     def __init__(self, hjson_filename, output_path, virtual):
@@ -199,14 +366,13 @@ class FuzzManager:
         config = hjson.load(hjson_file)
         self.trans = TransManager(config, self.output_path, virtual, self.mem_cfg)
         self.ACCESS_TAINT_THRESHOLD = config['access_taint_threshold']
-        self.LEAK_DATA_TAINT_THRESHOLD = config['leak_data_taint_threshold']
-        self.LEAK_CONTROL_TAINT_COSIM_THRESHOLD = config['leak_control_taint_cosim_threshold']
-        self.LEAK_CONTROL_TAINT_DIST_THRESHOLD = config['leak_control_taint_dist_threshold']
-        self.DECODE_CONTROL_TAINT_COSIM_THRESHOLD = config['decode_control_taint_cosim_threshold']
-        self.DECODE_CONTROL_TAINT_DIST_THRESHOLD = config['decode_control_taint_dist_threshold']
-        self.TAINT_EXPLODE_THRESHOLD = config['taint_explode_threshold']
+        self.LEAK_REMAIN_THRESHOLD = config['leak_remain_threshold']
+        self.LEAK_EXPLODE_THRESHOLD = config['leak_explode_threshold']
+        self.LEAK_COSIM_THRESHOLD = config['leak_cosim_threshold']
+        self.LEAK_DIST_THRESHOLD = config['leak_dist_threshold']
         self.train_single = eval(config['train_single'])
         self.train_align = eval(config['train_align'])
+        self.coverage = Coverage()
 
     def generate(self):
         self.update_sub_repo('gen')
@@ -215,17 +381,16 @@ class FuzzManager:
             os.mkdir(repo_path)
 
         self.trans.build_frame()
-        seed = Stage1Seed()
-        seed.mutate()
-        seed.parse()
-        self.trans.trans_victim.gen_block(seed.config, 'default', None)
+        seed = Stage1Seed(self.coverage)
+        config = seed.mutate()
+        self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
         self.trans.gen_train_swap_list(True, True)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        self.mem_cfg.dump_conf()
+        self.mem_cfg.dump_conf('duo')
     
-    def stage_simulate(self, mode, target="both"):
+    def stage_simulate(self, mode, target="duo"):
         self.mem_cfg.dump_conf(target)
 
         assert mode in ['normal', 'robprofile', 'variant']
@@ -260,7 +425,7 @@ class FuzzManager:
         return is_trigger, taint_folder
 
     def stage1_access_analysis(self):
-        taint_folder = self.stage_simulate('variant', 'both')
+        taint_folder = self.stage_simulate('variant', 'duo')
         with open(f'{taint_folder}.csv', "r") as file:
             taint_log = csv.reader(file)
             _ = next(taint_log)
@@ -292,13 +457,13 @@ class FuzzManager:
         self.mem_cfg.add_swap_list(swap_block_list)
     
     def fuzz_stage1(self, stage1_seed, access_judge=True):
-        stage1_config = stage1_seed.parse()
-        random.seed(stage1_config['stage1_seed'])
-        self.trans.trans_victim.gen_block(stage1_config, 'default', None)
+        stage1_config = stage1_seed.config
+        random.seed(stage1_config['stage1_trigger_seed'])
+        self.trans.trans_victim.gen_block(stage1_config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
 
         TRAIN_GEN_MAX_ITER = 6
-        ENCODE_MUTATE_MAX_ITER = 3
+        ENCODE_MUTATE_MAX_ITER = 4
 
         max_train_gen = TRAIN_GEN_MAX_ITER
         for _ in range(max_train_gen):
@@ -322,8 +487,7 @@ class FuzzManager:
             return FuzzResult.SUCCESS, taint_folder
         else:
             for _ in range(ENCODE_MUTATE_MAX_ITER):
-                stage1_seed.mutate_access()
-                config = stage1_seed.parse()
+                config = stage1_seed.mutate_access()
                 self.trans.trans_victim.mutate_access(config)
                 self.trans._generate_body_block(self.trans.trans_victim)
                 is_access, taint_folder = self.stage1_access_analysis()
@@ -406,9 +570,24 @@ class FuzzManager:
         ave_dist = abs(np.average(base_array - variant_array))
 
         return cosim_result, ave_dist, max_taint
+
+    def compute_coverage(self, base_list):
+        idx = 0.0
+        list_len = len(base_list) - 1
+        interval = list_len/101
+        diff_rate_byte_array = []
+        for _ in range(100):
+            idx = min(idx, list_len)
+            new_idx = min(idx + interval, list_len)
+            sample_base_diff = base_list[int(new_idx)] - base_list[int(idx)]
+            diff_rate_byte_array.append(struct.pack('<i', sample_base_diff))
+            idx = new_idx
+        
+        coverage_hash = hash(b''.join(diff_rate_byte_array))
+        return coverage_hash
     
     def stage2_leak_analysis(self, strategy):
-        taint_folder = self.stage_simulate('variant', 'both')
+        taint_folder = self.stage_simulate('variant', 'duo')
 
         with open(f'{taint_folder}.csv', "r") as file:
             taint_log = csv.reader(file)
@@ -423,42 +602,46 @@ class FuzzManager:
         
         sync_time = 0
         vicitm_end = 0
+        texe_begin = 0
+        texe_enq_num = 0
+        texe_deq_num = 0
         is_trigger = False
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             if exec_info == 'DELAY_END_DEQ' and sync_time == 0:
                 sync_time = int(exec_time) + 1
-            if exec_info == 'VCTM_END_DEQ':
+            if exec_info == 'VCTM_END_ENQ' and sync_time != 0 and vicitm_end == 0:
                 vicitm_end = int(exec_time)
+            if exec_info == "TEXE_START_ENQ" and texe_begin == 0:
+                texe_begin = int(exec_time)
             if exec_info == "TEXE_START_ENQ":
-                is_trigger = True
+                texe_enq_num += 1
+            if exec_info == "TEXE_START_DEQ":
+                texe_deq_num += 1
+        
+        is_trigger = texe_enq_num > texe_deq_num
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, None, taint_folder
+            return FuzzResult.FAIL, None, None, taint_folder, 0
+
+        coverage = self.compute_coverage(base_list[texe_begin:vicitm_end])
 
         base_spread_list = base_list[sync_time:vicitm_end]
         variant_spread_list = variant_list[sync_time:vicitm_end]
 
         cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
-        if strategy == 'fuzz_control':
-            if cosim_result > self.LEAK_CONTROL_TAINT_COSIM_THRESHOLD or\
-                ave_dist > self.LEAK_CONTROL_TAINT_DIST_THRESHOLD:
-                stage2_result = FuzzResult.SUCCESS
-            elif max_taint < self.ACCESS_TAINT_THRESHOLD:
-                stage2_result = FuzzResult.FAIL
-            else:
-                stage2_result = FuzzResult.CONTROL_MAYBE
-        else:
-            if max_taint > self.TAINT_EXPLODE_THRESHOLD:
-                stage2_result = FuzzResult.SUCCESS
-            elif max_taint >  self.LEAK_DATA_TAINT_THRESHOLD:
-                stage2_result = FuzzResult.DATA_MAYBE
-            else:
-                stage2_result = FuzzResult.FAIL
+        stage2_result = FuzzResult.FAIL
+        if cosim_result > self.LEAK_COSIM_THRESHOLD or\
+            ave_dist > self.LEAK_DIST_THRESHOLD or\
+            max_taint > self.LEAK_EXPLODE_THRESHOLD:
+            stage2_result = FuzzResult.SUCCESS
+        elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
+            if max_taint > self.LEAK_REMAIN_THRESHOLD:
+                stage2_result = FuzzResult.MAYBE
         
-        return stage2_result, cosim_result, max_taint, taint_folder
+        return stage2_result, cosim_result, max_taint, taint_folder, coverage
 
     def stage3_decode_analysis(self):
         taint_folder = self.stage_simulate('robprofile', 'dut')
@@ -486,12 +669,11 @@ class FuzzManager:
         
         return stage3_result, None, None, taint_folder
     
-    def fuzz_stage2(self, stage2_seed):
-        config = stage2_seed.parse()
-        random.seed(config['stage2_seed'])
-        self.trans.trans_victim.mutate_encode(config)
+    def fuzz_stage2(self, stage2_config):
+        random.seed(stage2_config['stage2_seed'])
+        self.trans.trans_victim.mutate_encode(stage2_config)
         self.trans._generate_body_block(self.trans.trans_victim)
-        return self.stage2_leak_analysis(config['encode_fuzz_type'])
+        return self.stage2_leak_analysis(stage2_config['encode_fuzz_type'])
     
     def fuzz_stage3(self):
         self.trans.trans_decode.gen_block(self.trans.trans_victim, None)
@@ -510,7 +692,7 @@ class FuzzManager:
         stage1_config = stage1_seed.parse()
         stage2_config = stage2_seed.parse()
         config = {**stage1_config, **stage2_config}
-        self.trans.load_template(iter_num, repo_path, "leak_template", 'default', config)
+        self.trans.load_template(iter_num, repo_path, "leak_template", EncodeType.FUZZ_DEFAULT, config)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.stage_simulate('variant')
     
@@ -540,12 +722,12 @@ class FuzzManager:
         trigger_folder = 'trigger_template'
         leak_folder = 'leak_template'
 
-        stage1_seed = Stage1Seed()
+        stage1_seed = Stage1Seed(self.coverage)
         trigger_sub_repo = None
         last_trigger_sub_repo = None
 
         FUZZ_MAX_ITER = 200
-        STAGE2_FUZZ_MAX_ITER = 20
+        STAGE2_FUZZ_MAX_ITER = 40
         for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
             last_trigger_sub_repo = trigger_sub_repo
             trigger_sub_repo = f'trigger_{stage1_iter_num}'
@@ -566,9 +748,7 @@ class FuzzManager:
             else:
                 self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
 
-            # continue
-            
-            stage2_seed = Stage2Seed()
+            stage2_seed = Stage2Seed(self.coverage)
             stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
             if not os.path.exists(stage2_iter_num_file):
                 stage2_begin_iter_num = 0
@@ -576,29 +756,24 @@ class FuzzManager:
                 with open(stage2_iter_num_file, "rt") as file:
                     stage2_begin_iter_num = 1 + int(file.readline().strip())
 
-            for stage2_iter_num in range(stage2_begin_iter_num, stage2_begin_iter_num + STAGE2_FUZZ_MAX_ITER):
+            stage2_iter_end = stage2_begin_iter_num + STAGE2_FUZZ_MAX_ITER
+            stage2_iter_num = stage2_begin_iter_num
+            while stage2_iter_num < stage2_iter_end:
                 leak_sub_repo = f'leak_{stage2_iter_num}'
                 self.update_sub_repo(leak_sub_repo)
                 os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
 
-                stage2_seed.mutate()
-                stage2_result, cosim_result, max_taint, stage2_taint_folder = self.fuzz_stage2(stage2_seed)
-                final_config = {**stage1_seed.config, **stage2_seed.config}
-                if stage2_result == FuzzResult.FAIL or stage2_result == FuzzResult.SUCCESS:
-                    self.record_fuzz(stage2_iter_num, stage2_result, cosim_result, max_taint, final_config, stage_num = 2, taint_folder=stage2_taint_folder)
-                    if stage2_result == FuzzResult.SUCCESS:
-                        self.store_template(stage2_iter_num, self.repo_path, leak_folder, stage2_taint_folder)
-                    continue
+                stage2_config = stage2_seed.mutate()
+                stage2_result, cosim_result, max_taint, stage2_taint_folder, coverage = self.fuzz_stage2(stage2_config)
+                stage2_seed.update_coverage(coverage)
 
-                stage3_result, _, _, stage3_taint_folder = self.fuzz_stage3()
-                if stage3_result == FuzzResult.SUCCESS:
-                    self.mem_cfg.dump_conf('both')
+                final_config = {**stage1_seed.config, **stage2_seed.config}
+                self.record_fuzz(stage2_iter_num, stage2_result, cosim_result, max_taint, final_config, stage_num = 2, taint_folder=stage2_taint_folder)
+                if stage2_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
                     self.store_template(stage2_iter_num, self.repo_path, leak_folder, stage2_taint_folder)
-                self.trans.swap_block_list.pop(-2)
-                self.mem_cfg.mem_regions['data_decode'] = []
-                self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-                self.record_fuzz(stage2_iter_num, stage3_result,  cosim_result, max_taint, final_config, stage_num = 2, taint_folder = stage2_taint_folder)
-            
+                    stage2_iter_end += STAGE2_FUZZ_MAX_ITER//2
+                
+                stage2_iter_num += 1
 
     def trigger_test(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
         if repo_path is None:
@@ -721,19 +896,17 @@ class FuzzManager:
                 self.update_sub_repo(leak_sub_repo)
                 os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
                 
-                stage1_seed.mutate_access()
-                config = stage1_seed.parse()
+                config = stage1_seed.mutate_access()
                 self.trans.trans_victim.mutate_access(config)
 
-                stage2_seed.mutate()
-                config = stage2_seed.parse()
+                config = stage2_seed.mutate()
                 random.seed(config['stage2_seed'])
                 self.trans.trans_victim.mutate_encode(config)
                 self.trans._generate_body_block(self.trans.trans_victim)
 
                 stage_result, _, _, taint_folder = self.fuzz_stage3()
                 if stage_result == FuzzResult.SUCCESS:
-                    self.mem_cfg.dump_conf('both')
+                    self.mem_cfg.dump_conf('duo')
                     self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
 
                 self.trans.swap_block_list.pop(-2)

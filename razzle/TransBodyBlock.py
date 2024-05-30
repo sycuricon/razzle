@@ -202,27 +202,9 @@ class DelayBlock(TransBlock):
 
     def gen_default(self):
         self._gen_block_begin()
-
-        # do_random = random.choice([True, False, False, False])
-        # if do_random:
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
         self.result_reg = dep_list[-1]
-        # else:
-        #     inst_list = [
-        #         f'{self.name}_body:',
-        #         'fcvt.s.lu fa4, t0',
-        #         'fcvt.s.lu fa5, t1',
-        #         'fdiv.s	fa5, fa5, fa4',
-        #         'fdiv.s	fa5, fa5, fa4',
-        #         'fdiv.s	fa5, fa5, fa4',
-        #         'fdiv.s	fa5, fa5, fa4',
-        #         'fdiv.s	fa5, fa5, fa4',
-        #         'fcvt.lu.s t0, fa5',
-        #     ]
-        #     self._load_inst_str(inst_list, mutate=True)
-        #     self.result_reg = 'T0'
-
         reg = self.result_reg.lower()
         imm = random.randint(-0x800, 0x7ff)
         inst_offset = [

@@ -71,7 +71,7 @@ class TransDecodeManager(TransBaseManager):
         self.replace_block.gen_instr(None)
 
         if encode_template is not None:
-            self.encode_block = EncodeBlock(self.extension, self.output_path, 'S0', 'default')
+            self.encode_block = EncodeBlock(self.extension, self.output_path, 'S0', EncodeType.FUZZ_DEFAULT)
             self.encode_block.gen_instr(encode_template)
         else:
             self.encode_block = copy.deepcopy(trans_victim.encode_block)
