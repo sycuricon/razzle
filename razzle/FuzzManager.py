@@ -13,6 +13,21 @@ class FuzzResult(Enum):
     FAIL = auto()
     MAYBE = auto()
 
+class FuzzLog:
+    def __init__(self, repo_path):
+        self.log_filename = os.path.join(repo_path, 'fuzz.log')
+
+    def log_record(self, string):
+        with open(self.log_filename, "at") as file:
+            file.write(string)
+            file.write('\n')
+
+    def log_state(self, last_state, next_state, iter_num):
+        self.log_record(f'state switch: [{last_state}] -{iter_num}-> [{next_state}]')
+    
+    def log_cover(self, cover_inc):
+        self.log_record(f'inc coverage: {cover_inc}')
+
 class Coverage:
     def __init__(self):
         self.state_list = []
@@ -24,6 +39,8 @@ class Coverage:
         self.access_set = None
         self.leak_list = None
         self.leak_set = None
+
+        self.acc_state = True
         
 
     def add_trigger_state(self, trigger_seed):
@@ -58,18 +75,25 @@ class Coverage:
         self.leak_set.add(leak_hash)
         return True
 
+    def accumulate(self):
+        self.coverage_list = []
+
     def update_coverage(self, cover_list):
         cov_inc = 0
         for cover_state in cover_list:
-            if cover_state in self.coverage_set:
+            if cover_state not in self.coverage_set:
                 cov_inc += 1
-        self.coverage_list.pop(0)
         self.coverage_list.append(cov_inc)
+        if len(self.coverage_list) > 10:
+            self.coverage_list.pop(0)
 
         if cov_inc == 0:
             self.leak_list.pop()
 
         return self.leak_list[-1]
+    
+    def evalute_coverage(self):
+        return sum(self.coverage_list)
 
 class Seed:
     def __init__(self, length):
@@ -163,10 +187,7 @@ class TriggerSeed(Seed):
         while True:
             self.mutate_random_field(is_full)
             config = self.parse(config)
-            if self.config is None:
-                self.config = config
-                break
-            elif config != self.config:
+            if self.config is None or config != self.config:
                 if self.coverage.add_trigger_state(self.seed):
                     self.config = config
                     break
@@ -266,10 +287,7 @@ class AccessSeed(Seed):
         while True:
             self.mutate_random_field(is_full)
             config = self.parse(config)
-            if self.config is None:
-                self.config = config
-                break
-            elif config != self.config:
+            if self.config is None or config != self.config:
                 if self.coverage.add_access_state(self.seed):
                     self.config = config
                     break
@@ -335,10 +353,7 @@ class LeakSeed(Seed):
         while True:
             self.mutate_random_field(is_full)
             config = self.parse(config)
-            if self.config is None:
-                self.config = config
-                break
-            elif config != self.config:
+            if self.config is None or config != self.config:
                 if self.coverage.add_leak_state(self.seed):
                     self.config = config
                     break
@@ -430,7 +445,7 @@ class FuzzManager:
 
         return f'{self.taint_log}_{mode}/wave/swap_mem.cfg.taint'
     
-    def stage1_trigger_analysis(self):
+    def trigger_analysis(self):
         taint_folder = self.stage_simulate('robprofile', 'dut')
         texe_enq_num = 0
         texe_deq_num = 0
@@ -448,7 +463,7 @@ class FuzzManager:
 
         return is_trigger, taint_folder
 
-    def stage1_access_analysis(self):
+    def access_analysis(self):
         taint_folder = self.stage_simulate('variant', 'duo')
         with open(f'{taint_folder}.csv', "r") as file:
             taint_log = csv.reader(file)
@@ -461,66 +476,122 @@ class FuzzManager:
                 base_list.append(int(base))
                 variant_list.append(int(variant))
         
-        is_access = max(base_list) > self.ACCESS_TAINT_THRESHOLD
-        return is_access, taint_folder
+        max_taint = max(base_list)
+        is_access = max_taint > self.ACCESS_TAINT_THRESHOLD
+        return is_access, taint_folder, max_taint
 
-    def _trigger_reduce(self):
-        swap_block_list = self.trans.swap_block_list
-        for _ in range(len(swap_block_list)-2):
-            for i in range(0, len(swap_block_list)-2):
-                tmp_swap_block_list = copy.copy(swap_block_list)
-                tmp_swap_block_list.pop(i)
-                self.mem_cfg.add_swap_list(tmp_swap_block_list)
-                is_trigger, _ = self.stage1_trigger_analysis()
-                if is_trigger:
-                    swap_block_list = tmp_swap_block_list
+    def _trigger_reduce(self, is_trigger):
+        if is_trigger:
+            swap_block_list = self.trans.swap_block_list
+            for _ in range(len(swap_block_list)-2):
+                for i in range(0, len(swap_block_list)-2):
+                    tmp_swap_block_list = copy.copy(swap_block_list)
+                    tmp_swap_block_list.pop(i)
+                    self.mem_cfg.add_swap_list(tmp_swap_block_list)
+                    is_trigger, _ = self.trigger_analysis()
+                    if is_trigger:
+                        swap_block_list = tmp_swap_block_list
+                        break
+                else:
                     break
-            else:
-                break
-        self.trans.swap_block_list = swap_block_list
-        self.mem_cfg.add_swap_list(swap_block_list)
+            reduce_list = [swap_mem['swap_id'] for swap_mem in self.trans.swap_block_list if swap_mem not in swap_block_list]
+            self.trans.swap_block_list = swap_block_list
+            self.mem_cfg.add_swap_list(swap_block_list)
+            
+            if len(swap_block_list) > 2:
+                swap_region = swap_block_list[0]
+                for iter_swap_region in swap_block_list:
+                    if iter_swap_region['swap_id'] > swap_region['swap_id']:
+                        swap_region = iter_swap_region
+                self.mem_cfg.add_mem_region('data_train', [swap_region])
+            
+            reduce_baker = BuildManager(
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"reduce_trigger.sh"
+            )
+            rm_asm = ShellCommand("rm", [])
+            for idx in reduce_list:
+                reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
+            reduce_baker.run()
+        else:
+            if len(self.trans.swap_block_list) > 2:
+                reduce_baker = BuildManager(
+                    {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"reduce_trigger.sh"
+                )
+                rm_asm = ShellCommand("rm", [])
+                for swap_mem in self.trans.swap_block_list:
+                    idx = swap_mem['swap_id']
+                    if idx == 0 or idx == 1:
+                        continue
+                    reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
+                reduce_baker.run()
+
     
-    def fuzz_stage1(self, stage1_seed, access_judge=True):
-        stage1_config = stage1_seed.config
-        random.seed(stage1_config['stage1_trigger_seed'])
-        self.trans.trans_victim.gen_block(stage1_config, EncodeType.FUZZ_DEFAULT, None)
+    def get_sub_repo(self, stage_name):
+        iter_num_file = os.path.join(self.repo_path, f"{stage_name}_iter_num")
+        if not os.path.exists(iter_num_file):
+            iter_num = 0
+        else:
+            with open(iter_num_file, "rt") as file:
+                iter_num = 1 + int(file.readline().strip())
+
+        sub_repo = f'{stage_name}_{iter_num}'
+        self.update_sub_repo(sub_repo)
+        return iter_num, sub_repo
+    
+    def fuzz_trigger(self, config, old_trigger_repo):
+        trigger_iter_num, trigger_sub_repo = self.get_sub_repo('trigger')
+
+        trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
+        if old_trigger_repo is None:
+            if not os.path.exists(trigger_repo):
+                os.makedirs(trigger_repo)
+            self.trans.build_frame()
+        else:
+            os.system(f'cp -r {old_trigger_repo} {trigger_repo}')
+
+        random.seed(config['trigger_seed'])
+        self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
 
         TRAIN_GEN_MAX_ITER = 6
         ENCODE_MUTATE_MAX_ITER = 4
 
         max_train_gen = TRAIN_GEN_MAX_ITER
+        trigger_result = FuzzResult.FAIL
         for _ in range(max_train_gen):
             self.trans.gen_train_swap_list(self.train_align, self.train_single)
             self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-            is_trigger, taint_folder = self.stage1_trigger_analysis()
-            if not is_trigger:
-                continue
-            else:
-                self._trigger_reduce()
+            is_trigger, taint_folder = self.trigger_analysis()
+            self._trigger_reduce(is_trigger)
+            if is_trigger:
+                trigger_result = FuzzResult.SUCCESS
                 break
 
-        if not is_trigger:
-            return FuzzResult.FAIL, taint_folder
-        
-        if not access_judge:
-            return FuzzResult.SUCCESS, taint_folder
+        self.record_fuzz(trigger_iter_num, trigger_result, None, None, config, 'trigger', taint_folder = taint_folder)
+        if trigger_result == FuzzResult.SUCCESS:
+            self.store_template(trigger_iter_num, self.repo_path, 'trigger', taint_folder)
 
-        is_access, taint_folder = self.stage1_access_analysis()
-        if is_access:
-            return FuzzResult.SUCCESS, taint_folder
-        else:
-            for _ in range(ENCODE_MUTATE_MAX_ITER):
-                config = stage1_seed.mutate_access()
-                self.trans.trans_victim.mutate_access(config)
-                self.trans._generate_body_block(self.trans.trans_victim)
-                is_access, taint_folder = self.stage1_access_analysis()
-                if is_access:
-                    return FuzzResult.SUCCESS, taint_folder
-                
-        return FuzzResult.FAIL, taint_folder
+        return trigger_repo, trigger_result
     
-    def store_template(self, iter_num, repo_path, folder, taint_folder):
+    def fuzz_access(self, config, trigger_repo):
+        access_iter_num, access_sub_repo = self.get_sub_repo('access')
+
+        access_repo = os.path.join(self.output_path, access_sub_repo)
+        os.system(f'cp -r {trigger_repo} {access_repo}')
+
+        self.trans.trans_victim.mutate_access(config)
+        self.trans._generate_body_block(self.trans.trans_victim)
+        is_access, taint_folder, max_taint = self.access_analysis()
+        access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
+
+        self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder = taint_folder)
+        if access_result == FuzzResult.SUCCESS:
+            self.store_template(access_iter_num, self.repo_path, 'access', taint_folder)
+        
+        return access_repo, access_result
+    
+    def store_template(self, iter_num, repo_path, stage_name, taint_folder):
+        folder = f'{stage_name}_template'
         template_repo_path = os.path.join(repo_path, folder)
         if not os.path.exists(template_repo_path):
             os.mkdir(template_repo_path)
@@ -541,8 +612,8 @@ class FuzzManager:
             cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{template_repo_path}']))
         cp_baker.run()
 
-    def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_num, taint_folder):
-        with open(os.path.join(self.repo_path, f'stage{stage_num}_iter_record'), "at") as file:
+    def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_name, taint_folder):
+        with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'virtual:\t{self.virtual}\n')
             file.write(f'result:\t{result}\n')
@@ -559,7 +630,7 @@ class FuzzManager:
             self.trans.record_fuzz(file)
             file.write('\n')
         
-        with open(os.path.join(self.repo_path, f"stage{stage_num}_iter_num"), "wt") as file:
+        with open(os.path.join(self.repo_path, f"{stage_name}_iter_num"), "wt") as file:
             file.write(f'{iter_num}\n')
         
         cp_baker = BuildManager(
@@ -570,6 +641,7 @@ class FuzzManager:
             cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{self.output_path}/{self.sub_repo}']))
         if os.path.exists(f'{taint_folder}.csv'):
             cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{self.output_path}/{self.sub_repo}']))
+        
         rm_asm = ShellCommand("rm", [])
         cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.elf']))
         cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.symbol']))
@@ -596,21 +668,13 @@ class FuzzManager:
         return cosim_result, ave_dist, max_taint
 
     def compute_coverage(self, base_list):
-        idx = 0.0
-        list_len = len(base_list) - 1
-        interval = list_len/101
-        diff_rate_byte_array = []
-        for _ in range(100):
-            idx = min(idx, list_len)
-            new_idx = min(idx + interval, list_len)
-            sample_base_diff = base_list[int(new_idx)] - base_list[int(idx)]
-            diff_rate_byte_array.append(struct.pack('<i', sample_base_diff))
-            idx = new_idx
-        
-        coverage_hash = hash(b''.join(diff_rate_byte_array))
-        return coverage_hash
+        coverage = []
+        for i, taint in enumerate(base_list[:-1]):
+            cover_state = (taint, base_list[i+1] - taint)
+            coverage.append(cover_state)
+        return coverage
     
-    def stage2_leak_analysis(self, strategy):
+    def leak_analysis(self, strategy):
         taint_folder = self.stage_simulate('variant', 'duo')
 
         with open(f'{taint_folder}.csv', "r") as file:
@@ -647,7 +711,7 @@ class FuzzManager:
         is_trigger = texe_enq_num > texe_deq_num
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, None, taint_folder, 0
+            return FuzzResult.FAIL, None, None, taint_folder, [(0,0)]
 
         coverage = self.compute_coverage(base_list[texe_begin:vicitm_end])
 
@@ -656,18 +720,34 @@ class FuzzManager:
 
         cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
-        stage2_result = FuzzResult.FAIL
+        leak_result = FuzzResult.FAIL
         if cosim_result > self.LEAK_COSIM_THRESHOLD or\
             ave_dist > self.LEAK_DIST_THRESHOLD or\
             max_taint > self.LEAK_EXPLODE_THRESHOLD:
-            stage2_result = FuzzResult.SUCCESS
+            leak_result = FuzzResult.SUCCESS
         elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
             if max_taint > self.LEAK_REMAIN_THRESHOLD:
-                stage2_result = FuzzResult.MAYBE
+                leak_result = FuzzResult.MAYBE
         
-        return stage2_result, cosim_result, max_taint, taint_folder, coverage
+        return leak_result, cosim_result, max_taint, taint_folder, coverage
 
-    def stage3_decode_analysis(self):
+    def fuzz_leak(self, config, access_repo):
+        leak_iter_num, leak_sub_repo = self.get_sub_repo('leak')
+
+        leak_repo = os.path.join(self.output_path, leak_sub_repo)
+        os.system(f'cp -r {access_repo} {leak_repo}')
+
+        self.trans.trans_victim.mutate_encode(config)
+        self.trans._generate_body_block(self.trans.trans_victim)
+        leak_result, cosim_result, max_taint, taint_folder, coverage = self.leak_analysis(config['encode_fuzz_type'])
+
+        self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder = taint_folder)
+        if leak_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
+            self.store_template(leak_iter_num, self.repo_path, 'leak', taint_folder)
+        
+        return leak_repo, leak_result, coverage
+
+    def decode_analysis(self):
         taint_folder = self.stage_simulate('robprofile', 'dut')
         
         base_decode_end = 0
@@ -687,35 +767,42 @@ class FuzzManager:
                 variant_decode_end = int(exec_time)
 
         if base_decode_end != variant_decode_end:
-            stage3_result = FuzzResult.SUCCESS
+            decode_result = FuzzResult.SUCCESS
         else:
-            stage3_result = FuzzResult.FAIL
+            decode_result = FuzzResult.FAIL
         
-        return stage3_result, None, None, taint_folder
+        return decode_result, taint_folder
     
-    def fuzz_stage2(self, stage2_config):
-        random.seed(stage2_config['stage2_seed'])
-        self.trans.trans_victim.mutate_encode(stage2_config)
-        self.trans._generate_body_block(self.trans.trans_victim)
-        return self.stage2_leak_analysis(stage2_config['encode_fuzz_type'])
-    
-    def fuzz_stage3(self):
+    def fuzz_decode(self, config, leak_repo):
+        decode_iter_num, decode_sub_repo = self.get_sub_repo('decode')
+
+        decode_repo = os.path.join(self.output_path, decode_sub_repo)
+        os.system(f'cp -r {leak_repo} {decode_repo}')
+
         self.trans.trans_decode.gen_block(self.trans.trans_victim, None)
         self.trans._generate_body_block(self.trans.trans_decode)
         self.trans.swap_block_list.insert(-1, self.trans.trans_decode.mem_region)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        return self.stage3_decode_analysis()
+        decode_result, taint_folder = self.decode_analysis()
+
+        self.record_fuzz(decode_iter_num, decode_result, None, None, config, 'decode', taint_folder = taint_folder)
+        if decode_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
+            self.store_template(decode_iter_num, self.repo_path, 'decode', taint_folder)
+        
+        return decode_repo, decode_result, decode_repo
+
     
     def load_example(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, iter_num):
         self.rtl_sim = rtl_sim
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
         self.trans.build_frame()
-        stage1_seed = Stage1Seed()
-        stage2_seed = Stage2Seed()
-        stage1_config = stage1_seed.parse()
-        stage2_config = stage2_seed.parse()
-        config = {**stage1_config, **stage2_config}
+        trigger_seed = TriggerSeed(self.coverage)
+        access_seed = AccessSeed(self.coverage)
+        leak_seed = LeakSeed(self.coverage)
+        config = trigger_seed.parse({})
+        config = access_seed.parse(config)
+        config = leak_seed.parse(config)
         self.trans.load_template(iter_num, repo_path, "leak_template", EncodeType.FUZZ_DEFAULT, config)
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.stage_simulate('variant')
@@ -726,6 +813,8 @@ class FuzzManager:
         self.trans.update_sub_repo(sub_repo)
     
     def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
+        self.fuzz_log = FuzzLog(repo_path)
+
         if repo_path is None:
             self.repo_path = self.output_path
         else:
@@ -737,208 +826,107 @@ class FuzzManager:
         self.rtl_sim_mode = rtl_sim_mode
         self.taint_log = taint_log
 
-        stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
-        if not os.path.exists(stage1_iter_num_file):
-            stage1_begin_iter_num = 0
-        else:
-            with open(stage1_iter_num_file, "rt") as file:
-                stage1_begin_iter_num = 1 + int(file.readline().strip())
-        trigger_folder = 'trigger_template'
-        leak_folder = 'leak_template'
+        class FuzzFSM(Enum):
+            IDLE = auto()
+            MUTATE_TRIGGER = auto()
+            MUTATE_ACCESS = auto()
+            ACCUMULATE = auto()
+            MUTATE_LEAK = auto()
+            STOP = auto()
 
-        stage1_seed = Stage1Seed(self.coverage)
-        trigger_sub_repo = None
-        last_trigger_sub_repo = None
+        last_state = FuzzFSM.IDLE
+        state = FuzzFSM.IDLE
 
-        FUZZ_MAX_ITER = 200
-        STAGE2_FUZZ_MAX_ITER = 40
-        for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
-            last_trigger_sub_repo = trigger_sub_repo
-            trigger_sub_repo = f'trigger_{stage1_iter_num}'
-            self.update_sub_repo(trigger_sub_repo)
-            trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
-            if stage1_iter_num == stage1_begin_iter_num:
-                if not os.path.exists(trigger_repo):
-                    os.makedirs(trigger_repo)
-                self.trans.build_frame()
-            else:
-                os.system(f'cp -r {os.path.join(self.output_path, last_trigger_sub_repo)} {os.path.join(self.output_path, trigger_repo)}')
+        trigger_seed = TriggerSeed(self.coverage)
+        access_seed = AccessSeed(self.coverage)
+        leak_seed = LeakSeed(self.coverage)
+        config = {}
+        access_mutate_flag = 0
+        stop_flag = 0
+        trigger_repo = None
+        access_repo = None
+        leak_repo = None
 
-            stage1_seed.mutate()
-            stage1_result, taint_folder = self.fuzz_stage1(stage1_seed)
-            self.record_fuzz(stage1_iter_num, stage1_result, None, None, stage1_seed.config, stage_num = 1, taint_folder = taint_folder)
-            if stage1_result == FuzzResult.FAIL:
-                continue
-            else:
-                self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
+        MAX_TRIGGER_MUTATE_ITER = 40
+        MAX_ACCESS_MUTATE_ITER = 10
+        LEAK_ACCUMULATE_ITER = 20
+        ACCESS_MUTATE_THRES = 2
+        STOP_THRES = 2
+        LEAK_MUTATE_THRES = 40
+        TRIGGER_MUTATE_THRES = 10
+        while True:
+            iter_num = 0
+            last_state = state
+            match(state):
+                case FuzzFSM.IDLE:
+                    if stop_flag == STOP_THRES:
+                        break
+                    else:
+                        trigger_seed = TriggerSeed(self.coverage)
+                        config = trigger_seed.mutate({}, True)
+                        access_seed = AccessSeed(self.coverage)
+                        config = access_seed.mutate(config, True)
+                        state = FuzzFSM.MUTATE_TRIGGER
+                case FuzzFSM.MUTATE_TRIGGER:
+                    for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
+                        trigger_repo, trigger_result = self.fuzz_trigger(config, trigger_repo)
+                        if trigger_result == FuzzResult.SUCCESS:
+                            state = FuzzFSM.MUTATE_ACCESS
+                            break
+                        else:
+                            config = trigger_seed.mutate({})
+                            config = access_seed.parse(config)
+                    else:
+                        state = FuzzFSM.IDLE
+                case FuzzFSM.MUTATE_ACCESS:
+                    for iter_num in range(MAX_ACCESS_MUTATE_ITER):
+                        access_repo, access_result = self.fuzz_access(config, trigger_repo)
+                        if access_result == FuzzResult.SUCCESS:
+                            leak_seed = LeakSeed(self.coverage)
+                            state = FuzzFSM.ACCUMULATE
+                            break
+                        else:
+                            config = access_seed.mutate(config)
+                    else:
+                        config = access_seed.mutate(config, True)
+                        state = FuzzFSM.MUTATE_TRIGGER
+                case FuzzFSM.ACCUMULATE:
+                    if access_mutate_flag == ACCESS_MUTATE_THRES:
+                        state = FuzzFSM.MUTATE_ACCESS
+                        config = access_seed.mutate(config)
+                    else:
+                        self.coverage.accumulate()
+                        config = leak_seed.mutate(config, True)
+                        for iter_num in range(LEAK_ACCUMULATE_ITER):
+                            leak_repo, leak_result, coverage = self.fuzz_leak(config, access_repo)
+                            leak_seed.update_coverage(coverage)
+                            self.fuzz_log.log_cover(self.coverage.coverage_list[-1])
+                            config = leak_seed.mutate(config)
+                        state = FuzzFSM.MUTATE_LEAK
+                case FuzzFSM.MUTATE_LEAK:
+                    while True:
+                        leak_repo, leak_result, coverage = self.fuzz_leak(config, access_repo)
+                        leak_seed.update_coverage(coverage)
+                        self.fuzz_log.log_cover(self.coverage.coverage_list[-1])
+                        cover_contr = self.coverage.evalute_coverage()
+                        iter_num += 1
+                        if cover_contr < TRIGGER_MUTATE_THRES:
+                            state = FuzzFSM.IDLE
+                            stop_flag += 1
+                            access_mutate_flag = 0
+                            break
+                        elif cover_contr < LEAK_MUTATE_THRES:
+                            state = FuzzFSM.ACCUMULATE
+                            access_mutate_flag += 1
+                            break
+                        else:
+                            config = leak_seed.mutate(config, False)
+                            stop_flag = 0
+                            access_mutate_flag = 0
+            self.fuzz_log.log_state(last_state, state, iter_num)
 
-            stage2_seed = Stage2Seed(self.coverage)
-            stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
-            if not os.path.exists(stage2_iter_num_file):
-                stage2_begin_iter_num = 0
-            else:
-                with open(stage2_iter_num_file, "rt") as file:
-                    stage2_begin_iter_num = 1 + int(file.readline().strip())
+                        
 
-            stage2_iter_end = stage2_begin_iter_num + STAGE2_FUZZ_MAX_ITER
-            stage2_iter_num = stage2_begin_iter_num
-            while stage2_iter_num < stage2_iter_end:
-                leak_sub_repo = f'leak_{stage2_iter_num}'
-                self.update_sub_repo(leak_sub_repo)
-                os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
 
-                stage2_config = stage2_seed.mutate()
-                stage2_result, cosim_result, max_taint, stage2_taint_folder, coverage = self.fuzz_stage2(stage2_config)
-                stage2_seed.update_coverage(coverage)
-
-                final_config = {**stage1_seed.config, **stage2_seed.config}
-                self.record_fuzz(stage2_iter_num, stage2_result, cosim_result, max_taint, final_config, stage_num = 2, taint_folder=stage2_taint_folder)
-                if stage2_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
-                    self.store_template(stage2_iter_num, self.repo_path, leak_folder, stage2_taint_folder)
-                    stage2_iter_end += STAGE2_FUZZ_MAX_ITER//2
-                
-                stage2_iter_num += 1
-
-    def trigger_test(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
-        if repo_path is None:
-            self.repo_path = self.output_path
-        else:
-            self.repo_path = repo_path
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
-        self.rtl_sim = rtl_sim
-        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
-        self.rtl_sim_mode = rtl_sim_mode
-        self.taint_log = taint_log
-
-        stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
-        if not os.path.exists(stage1_iter_num_file):
-            stage1_begin_iter_num = 0
-        else:
-            with open(stage1_iter_num_file, "rt") as file:
-                stage1_begin_iter_num = 1 + int(file.readline().strip())
-        trigger_folder = 'trigger_template'
-
-        stage1_seed = Stage1Seed()
-        trigger_sub_repo = None
-        last_trigger_sub_repo = None
-
-        time_begin = datetime.datetime.now()
-
-        FUZZ_MAX_ITER = 4000
-        for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
-            
-            time_end = datetime.datetime.now()
-            diff = (time_end - time_begin).seconds
-            if diff > 3600:
-                break   
-            
-            last_trigger_sub_repo = trigger_sub_repo
-            trigger_sub_repo = f'trigger_{stage1_iter_num}'
-            self.update_sub_repo(trigger_sub_repo)
-            trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
-            if stage1_iter_num == stage1_begin_iter_num:
-                if not os.path.exists(trigger_repo):
-                    os.makedirs(trigger_repo)
-                self.trans.build_frame()
-            else:
-                os.system(f'cp -r {os.path.join(self.output_path, last_trigger_sub_repo)} {os.path.join(self.output_path, trigger_repo)}')
-
-            stage1_seed.mutate()
-            stage1_result, taint_folder = self.fuzz_stage1(stage1_seed, access_judge=False)
-            self.record_fuzz(stage1_iter_num, stage1_result, None, None, stage1_seed.config, stage_num = 1, taint_folder=taint_folder)
-            if stage1_result == FuzzResult.FAIL:
-                continue
-            else:
-                self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
-
-    def front_end_test(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
-        if repo_path is None:
-            self.repo_path = self.output_path
-        else:
-            self.repo_path = repo_path
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
-        self.rtl_sim = rtl_sim
-        assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
-        self.rtl_sim_mode = rtl_sim_mode
-        self.taint_log = taint_log
-
-        stage1_iter_num_file = os.path.join(self.repo_path, "stage1_iter_num")
-        if not os.path.exists(stage1_iter_num_file):
-            stage1_begin_iter_num = 0
-        else:
-            with open(stage1_iter_num_file, "rt") as file:
-                stage1_begin_iter_num = 1 + int(file.readline().strip())
-        trigger_folder = 'trigger_template'
-        leak_folder = 'leak_template'
-
-        stage1_seed = Stage1Seed()
-        trigger_sub_repo = None
-        last_trigger_sub_repo = None
-
-        time_begin = datetime.datetime.now()
-
-        FUZZ_MAX_ITER = 40000
-        STAGE2_FUZZ_MAX_ITER = 20
-        for stage1_iter_num in range(stage1_begin_iter_num, stage1_begin_iter_num+FUZZ_MAX_ITER):
-            
-            time_end = datetime.datetime.now()
-            diff = (time_end - time_begin).seconds
-            if diff > 3600 * 4:
-                break   
-            
-            last_trigger_sub_repo = trigger_sub_repo
-            trigger_sub_repo = f'trigger_{stage1_iter_num}'
-            self.update_sub_repo(trigger_sub_repo)
-            trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
-            if stage1_iter_num == stage1_begin_iter_num:
-                if not os.path.exists(trigger_repo):
-                    os.makedirs(trigger_repo)
-                self.trans.build_frame()
-            else:
-                os.system(f'cp -r {os.path.join(self.output_path, last_trigger_sub_repo)} {os.path.join(self.output_path, trigger_repo)}')
-
-            stage1_seed.mutate()
-            stage1_result, taint_folder = self.fuzz_stage1(stage1_seed, access_judge=False)
-            self.record_fuzz(stage1_iter_num, stage1_result, None, None, stage1_seed.config, stage_num = 1, taint_folder=taint_folder)
-            if stage1_result == FuzzResult.FAIL:
-                continue
-            else:
-                self.store_template(stage1_iter_num, self.repo_path, trigger_folder, taint_folder)
-            
-            stage2_seed = Stage2Seed()
-            stage2_iter_num_file = os.path.join(self.repo_path, "stage2_iter_num")
-            if not os.path.exists(stage2_iter_num_file):
-                stage2_begin_iter_num = 0
-            else:
-                with open(stage2_iter_num_file, "rt") as file:
-                    stage2_begin_iter_num = 1 + int(file.readline().strip())
-
-            for stage2_iter_num in range(stage2_begin_iter_num, stage2_begin_iter_num + STAGE2_FUZZ_MAX_ITER):
-                leak_sub_repo = f'leak_{stage2_iter_num}'
-                self.update_sub_repo(leak_sub_repo)
-                os.system(f'cp -r {trigger_repo} {os.path.join(self.output_path, leak_sub_repo)}')
-                
-                config = stage1_seed.mutate_access()
-                self.trans.trans_victim.mutate_access(config)
-
-                config = stage2_seed.mutate()
-                random.seed(config['stage2_seed'])
-                self.trans.trans_victim.mutate_encode(config)
-                self.trans._generate_body_block(self.trans.trans_victim)
-
-                stage_result, _, _, taint_folder = self.fuzz_stage3()
-                if stage_result == FuzzResult.SUCCESS:
-                    self.mem_cfg.dump_conf('duo')
-                    self.store_template(stage2_iter_num, self.repo_path, leak_folder, taint_folder)
-
-                self.trans.swap_block_list.pop(-2)
-                self.mem_cfg.mem_regions['data_decode'] = []
-                self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-                final_config = {**stage1_seed.config, **stage2_seed.config}
-                self.record_fuzz(stage2_iter_num, stage_result,  None, None, final_config, stage_num = 2, taint_folder=taint_folder)
-
-            
 
 

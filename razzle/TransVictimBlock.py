@@ -215,11 +215,11 @@ class EncodeBlock(TransBlock):
     def _gen_block_end(self):
 
         inst_len = self._get_inst_len()
-        assert inst_len < 160
+        need_inst_len = (inst_len + 32 + 8 - 1) // 8 * 8 
         inst_dummy = [
             "encode_nop_fill:",
         ]
-        inst_dummy.extend(['c.nop' for _ in range((160 - inst_len)//2)])
+        inst_dummy.extend(['c.nop' for _ in range((need_inst_len - inst_len)//2)])
         self._load_inst_str(inst_dummy)
 
         inst_exit = [

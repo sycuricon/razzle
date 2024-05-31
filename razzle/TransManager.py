@@ -425,6 +425,7 @@ class TransManager:
     def gen_train_swap_list(self, align, single):
         self.trans_train_id = 0
         self.data_train_section.clear()
+        self.mem_cfg.add_mem_region('data_train', [])
 
         windows_param = 0.8 if self.trans_victim.need_train() else 0.4
 
