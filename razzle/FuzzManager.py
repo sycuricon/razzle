@@ -82,6 +82,7 @@ class Coverage:
         cov_inc = 0
         for cover_state in cover_list:
             if cover_state not in self.coverage_set:
+                self.coverage_set.add(cover_state)
                 cov_inc += 1
         self.coverage_list.append(cov_inc)
         if len(self.coverage_list) > 10:
@@ -597,20 +598,8 @@ class FuzzManager:
             os.mkdir(template_repo_path)
 
         template_repo_path = os.path.join(repo_path, folder, str(iter_num))
-        if not os.path.exists(template_repo_path):
-            os.mkdir(template_repo_path)
-
-        cp_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, repo_path, file_name=f"store_taint_log.sh"
-            )
-        gen_asm = ShellCommand("cp", [])
-        cp_baker.add_cmd(gen_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/swap_mem.cfg'\
-            , f'{template_repo_path}']))
-        if os.path.exists(f'{taint_folder}.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{template_repo_path}']))
-        if os.path.exists(f'{taint_folder}.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{template_repo_path}']))
-        cp_baker.run()
+        target_repo_path = os.path.join(self.output_path, self.sub_repo)
+        os.system(f'ln -s {target_repo_path} {template_repo_path}')
 
     def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_name, taint_folder):
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
