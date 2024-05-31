@@ -12,7 +12,8 @@ def coverage_draw(curve_fuzz):
             cov_inc.append(int(line.split()[-1])+cov_inc[-1])
         elif line.startswith("state switch:"):
             _, _, state1, _, state2 = line.split()
-            if state1 == '[FuzzFSM.MUTATE_LEAK]' and state2 == '[FuzzFSM.IDLE]':
+            if state1 == '[FuzzFSM.MUTATE_LEAK]' and state2 == '[FuzzFSM.IDLE]' or\
+                state1 == '[FuzzFSM.MUTATE_ACCESS]' and state2 == '[FuzzFSM.MUTATE_TRIGGER]':
                 trigger_mutate.append(len(cov_inc))
             elif state1 == '[FuzzFSM.ACCUMULATE]' and state2 == '[FuzzFSM.MUTATE_ACCESS]':
                 access_mutate.append(len(cov_inc))
