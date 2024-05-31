@@ -499,6 +499,7 @@ class FuzzManager:
             self.trans.swap_block_list = swap_block_list
             self.mem_cfg.add_swap_list(swap_block_list)
             
+            self.mem_cfg.add_mem_region('data_train', [])
             if len(swap_block_list) > 2:
                 swap_region = swap_block_list[0]
                 for iter_swap_region in swap_block_list:
