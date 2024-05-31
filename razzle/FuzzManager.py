@@ -88,7 +88,7 @@ class Coverage:
         if len(self.coverage_list) > 10:
             self.coverage_list.pop(0)
 
-        if cov_inc == 0:
+        if cov_inc == 0 and len(self.leak_list) > 1:
             self.leak_list.pop()
 
         return self.leak_list[-1]
@@ -844,6 +844,7 @@ class FuzzManager:
         access_seed = AccessSeed(self.coverage)
         leak_seed = LeakSeed(self.coverage)
         config = {}
+        leak_mutate_flag = 0
         access_mutate_flag = 0
         stop_flag = 0
         trigger_repo = None
@@ -852,11 +853,11 @@ class FuzzManager:
 
         MAX_TRIGGER_MUTATE_ITER = 40
         MAX_ACCESS_MUTATE_ITER = 10
-        LEAK_ACCUMULATE_ITER = 20
-        ACCESS_MUTATE_THRES = 2
+        LEAK_ACCUMULATE_ITER = 15
         STOP_THRES = 2
-        LEAK_MUTATE_THRES = 40
-        TRIGGER_MUTATE_THRES = 10
+        LEAK_MUTATE_THRES = 20
+        ACCESS_MUTATE_THRES = 2
+        TRIGGER_MUTATE_THRES = 2
         while True:
             iter_num = 0
             last_state = state
@@ -896,10 +897,11 @@ class FuzzManager:
                         config = access_seed.mutate(config)
                         state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.ACCUMULATE:
-                    if access_mutate_flag == ACCESS_MUTATE_THRES:
+                    if leak_mutate_flag == ACCESS_MUTATE_THRES:
                         state = FuzzFSM.MUTATE_ACCESS
                         config = access_seed.mutate(config)
-                        access_mutate_flag = 0
+                        leak_mutate_flag = 0
+                        access_mutate_flag += 1
                     else:
                         self.coverage.accumulate()
                         config = leak_seed.mutate(config, True)
@@ -916,18 +918,21 @@ class FuzzManager:
                         self.fuzz_log.log_cover(self.coverage.coverage_list[-1])
                         cover_contr = self.coverage.evalute_coverage()
                         iter_num += 1
-                        if cover_contr < TRIGGER_MUTATE_THRES:
-                            state = FuzzFSM.IDLE
-                            stop_flag += 1
-                            access_mutate_flag = 0
-                            break
-                        elif cover_contr < LEAK_MUTATE_THRES:
-                            state = FuzzFSM.ACCUMULATE
-                            access_mutate_flag += 1
-                            break
+                        if cover_contr < LEAK_MUTATE_THRES:
+                            if access_mutate_flag == TRIGGER_MUTATE_THRES:
+                                state = FuzzFSM.IDLE
+                                stop_flag += 1
+                                leak_mutate_flag = 0
+                                access_mutate_flag = 0
+                                break
+                            else:
+                                state = FuzzFSM.ACCUMULATE
+                                leak_mutate_flag += 1
+                                break
                         else:
                             config = leak_seed.mutate(config, False)
                             stop_flag = 0
+                            leak_mutate_flag = 0
                             access_mutate_flag = 0
             self.fuzz_log.log_state(last_state, state, iter_num)
 
