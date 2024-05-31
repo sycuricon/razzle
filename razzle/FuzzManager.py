@@ -677,43 +677,56 @@ class FuzzManager:
                 base_list.append(int(base))
                 variant_list.append(int(variant))
         
-        sync_time = 0
-        vicitm_end = 0
-        texe_begin = 0
-        texe_enq_num = 0
-        texe_deq_num = 0
+        dut_sync_time = 0
+        dut_vicitm_end = 0
+        vnt_sync_time = 0
+        vnt_vicitm_end = 0
+        dut_texe_begin = 0
+        dut_texe_enq_num = 0
+        dut_texe_deq_num = 0
         is_trigger = False
         for line in open(f'{taint_folder}.log', 'rt'):
-            exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
+            exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'DELAY_END_DEQ' and sync_time == 0:
-                sync_time = int(exec_time) + 1
-            if exec_info == 'VCTM_END_ENQ' and sync_time != 0 and vicitm_end == 0:
-                vicitm_end = int(exec_time)
-            if exec_info == "TEXE_START_ENQ" and texe_begin == 0:
-                texe_begin = int(exec_time)
-            if exec_info == "TEXE_START_ENQ":
-                texe_enq_num += 1
-            if exec_info == "TEXE_START_DEQ":
-                texe_deq_num += 1
+            is_dut = True if int(is_dut) == 1 else False
+            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
+                dut_sync_time = exec_time + 1
+            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+                dut_vicitm_end = exec_time
+
+            if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
+                vnt_sync_time = exec_time + 1
+            if exec_info == 'VCTM_END_ENQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
+                vnt_vicitm_end = exec_time
+
+            if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
+                dut_texe_begin = exec_time
+            if exec_info == "TEXE_START_ENQ" and is_dut:
+                dut_texe_enq_num += 1
+            if exec_info == "TEXE_START_DEQ" and is_dut:
+                dut_texe_deq_num += 1
         
-        is_trigger = texe_enq_num > texe_deq_num
+        is_trigger = dut_texe_enq_num > dut_texe_deq_num
+        is_divergent = dut_vicitm_end != vnt_vicitm_end
 
         if not is_trigger:
             return FuzzResult.FAIL, None, None, taint_folder, [(0,0)]
 
-        coverage = self.compute_coverage(base_list[texe_begin:vicitm_end])
+        coverage = self.compute_coverage(base_list[dut_texe_begin:dut_vicitm_end])
 
-        base_spread_list = base_list[sync_time:vicitm_end]
-        variant_spread_list = variant_list[sync_time:vicitm_end]
+        base_spread_list = base_list[dut_sync_time:dut_vicitm_end]
+        variant_spread_list = variant_list[dut_sync_time:dut_vicitm_end]
 
         cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
         leak_result = FuzzResult.FAIL
-        if cosim_result > self.LEAK_COSIM_THRESHOLD or\
+        if strategy in [EncodeType.FUZZ_PIPELINE]:
+            if is_divergent:
+                leak_result = FuzzResult.SUCCESS
+            elif cosim_result > self.LEAK_COSIM_THRESHOLD or\
             ave_dist > self.LEAK_DIST_THRESHOLD or\
             max_taint > self.LEAK_EXPLODE_THRESHOLD:
-            leak_result = FuzzResult.SUCCESS
+                leak_result = FuzzResult.MAYBE
         elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
             if max_taint > self.LEAK_REMAIN_THRESHOLD:
                 leak_result = FuzzResult.MAYBE
@@ -849,6 +862,7 @@ class FuzzManager:
             match(state):
                 case FuzzFSM.IDLE:
                     if stop_flag == STOP_THRES:
+                        stop_flag = 0
                         break
                     else:
                         trigger_seed = TriggerSeed(self.coverage)
@@ -877,12 +891,14 @@ class FuzzManager:
                         else:
                             config = access_seed.mutate(config)
                     else:
-                        config = access_seed.mutate(config, True)
+                        config = trigger_seed.mutate({})
+                        config = access_seed.mutate(config)
                         state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.ACCUMULATE:
                     if access_mutate_flag == ACCESS_MUTATE_THRES:
                         state = FuzzFSM.MUTATE_ACCESS
                         config = access_seed.mutate(config)
+                        access_mutate_flag = 0
                     else:
                         self.coverage.accumulate()
                         config = leak_seed.mutate(config, True)
