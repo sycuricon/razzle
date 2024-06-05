@@ -43,6 +43,8 @@ class LinkerManager:
                 f.write("\t}\n")
             f.write("\t_end = .;\n")
             f.write("}\n")
+        
+        return ld_name
 
 
 if __name__ == "__main__":

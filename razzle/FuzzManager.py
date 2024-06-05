@@ -115,7 +115,7 @@ class Coverage:
         iter_inc = len(self.coverage_list)
         local_rate = cov_inc/iter_inc
         global_rate = (self.coverage_sum - cov_inc)/(self.coverage_iter - iter_inc)
-        return local_rate/global_rate
+        return local_rate/(global_rate + 1)
 
 class Seed:
     def __init__(self, length):
@@ -570,7 +570,7 @@ class FuzzManager:
                 reduce_baker.run()
 
     
-    def get_sub_repo(self, stage_name):
+    def get_repo(self, stage_name):
         iter_num_file = os.path.join(self.repo_path, f"{stage_name}_iter_num")
         if not os.path.exists(iter_num_file):
             iter_num = 0
@@ -580,18 +580,14 @@ class FuzzManager:
 
         sub_repo = f'{stage_name}_{iter_num}'
         self.update_sub_repo(sub_repo)
-        return iter_num, sub_repo
-    
-    def fuzz_trigger(self, config, old_trigger_repo):
-        trigger_iter_num, trigger_sub_repo = self.get_sub_repo('trigger')
+        repo = os.path.join(self.output_path, sub_repo)
+        if not os.path.exists(repo):
+            os.makedirs(repo)
 
-        trigger_repo = os.path.join(self.output_path, trigger_sub_repo)
-        if old_trigger_repo is None:
-            if not os.path.exists(trigger_repo):
-                os.makedirs(trigger_repo)
-            self.trans.build_frame()
-        else:
-            os.system(f'cp -r {old_trigger_repo} {trigger_repo}')
+        return iter_num, repo
+    
+    def fuzz_trigger(self, config):
+        trigger_iter_num, trigger_repo = self.get_repo('trigger')
 
         random.seed(config['trigger_seed'])
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
@@ -616,11 +612,8 @@ class FuzzManager:
 
         return trigger_repo, trigger_result
     
-    def fuzz_access(self, config, trigger_repo):
-        access_iter_num, access_sub_repo = self.get_sub_repo('access')
-
-        access_repo = os.path.join(self.output_path, access_sub_repo)
-        os.system(f'cp -r {trigger_repo} {access_repo}')
+    def fuzz_access(self, config):
+        access_iter_num, access_repo = self.get_repo('access')
 
         self.trans.trans_victim.mutate_access(config)
         self.trans._generate_body_block(self.trans.trans_victim)
@@ -781,11 +774,8 @@ class FuzzManager:
         
         return leak_result, cosim_result, max_taint, taint_folder, coverage
 
-    def fuzz_leak(self, config, access_repo):
-        leak_iter_num, leak_sub_repo = self.get_sub_repo('leak')
-
-        leak_repo = os.path.join(self.output_path, leak_sub_repo)
-        os.system(f'cp -r {access_repo} {leak_repo}')
+    def fuzz_leak(self, config):
+        leak_iter_num, leak_repo = self.get_repo('leak')
 
         self.trans.trans_victim.mutate_encode(config)
         self.trans._generate_body_block(self.trans.trans_victim)
@@ -823,11 +813,8 @@ class FuzzManager:
         
         return decode_result, taint_folder
     
-    def fuzz_decode(self, config, leak_repo):
-        decode_iter_num, decode_sub_repo = self.get_sub_repo('decode')
-
-        decode_repo = os.path.join(self.output_path, decode_sub_repo)
-        os.system(f'cp -r {leak_repo} {decode_repo}')
+    def fuzz_decode(self, config):
+        decode_iter_num, decode_repo = self.get_repo('decode')
 
         self.trans.trans_decode.gen_block(self.trans.trans_victim, None)
         self.trans._generate_body_block(self.trans.trans_decode)
@@ -904,6 +891,12 @@ class FuzzManager:
             last_state = state
             match(state):
                 case FuzzFSM.IDLE:
+                    self.update_sub_repo('frame')
+                    path = os.path.join(self.output_path, 'frame')
+                    if not os.path.exists(path):
+                        os.mkdir(path)
+                    self.trans.build_frame()
+
                     trigger_seed = TriggerSeed(self.coverage)
                     config = trigger_seed.mutate({}, True)
                     access_seed = AccessSeed(self.coverage)
@@ -911,7 +904,7 @@ class FuzzManager:
                     state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.MUTATE_TRIGGER:
                     for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
-                        trigger_repo, trigger_result = self.fuzz_trigger(config, trigger_repo)
+                        trigger_repo, trigger_result = self.fuzz_trigger(config)
                         if trigger_result == FuzzResult.SUCCESS:
                             state = FuzzFSM.MUTATE_ACCESS
                             break
@@ -923,7 +916,7 @@ class FuzzManager:
                         config = access_seed.mutate(config, True)
                 case FuzzFSM.MUTATE_ACCESS:
                     for iter_num in range(MAX_ACCESS_MUTATE_ITER):
-                        access_repo, access_result, coverage, access_iter_num = self.fuzz_access(config, trigger_repo)
+                        access_repo, access_result, coverage, access_iter_num = self.fuzz_access(config)
                         cov_inc = self.coverage.update_coverage(coverage, is_leak=False)
                         self.fuzz_log.log_cover(access_iter_num, cov_inc)
                         if access_result == FuzzResult.SUCCESS:
@@ -940,14 +933,14 @@ class FuzzManager:
                     self.coverage.accumulate()
                     config = leak_seed.mutate(config, True)
                     for iter_num in range(LEAK_ACCUMULATE_ITER):
-                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config, access_repo)
+                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config)
                         cov_inc = leak_seed.update_coverage(coverage)
                         self.fuzz_log.log_cover(leak_iter_num, cov_inc)
                         config = leak_seed.mutate(config)
                     state = FuzzFSM.MUTATE_LEAK
                 case FuzzFSM.MUTATE_LEAK:
                     while True:
-                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config, access_repo)
+                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config)
                         cov_inc = leak_seed.update_coverage(coverage)
                         self.fuzz_log.log_cover(leak_iter_num, cov_inc)
                         cover_contr = self.coverage.evalute_coverage()

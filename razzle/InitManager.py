@@ -112,5 +112,5 @@ class InitManager(SectionManager):
     def _write_file(self, path, name):
         self._reg_init_generate()
         self._reg_asm_generate(path, name)
-        self.dut_file_list.append(f"$OUTPUT_PATH/{name}")
+        self.dut_file_list.append(os.path.join(path, name))
 

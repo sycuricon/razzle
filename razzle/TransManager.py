@@ -69,7 +69,6 @@ class MemCfg:
                                 region['type'] = 'dut'
                             elif region['type'] == 'vnt':
                                 region['type'] = 'dut'
-                    region['init_file'] = os.path.join(self.code_repo, self.sub_repo, region['init_file'])
                     mem_region.append(region)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
@@ -132,6 +131,7 @@ class TransManager:
         self.linker = LinkerManager(self.virtual)
 
         self.file_list = []
+        self.link_file = None
         self.mem_cfg = mem_cfg
         self.coverage = {}
 
@@ -206,7 +206,7 @@ class TransManager:
             self.section_list.extend(self.page_table.get_section_list())
 
         self.linker.append_section_list(self.section_list)
-        self.linker.file_generate(self.output_path, ld_name)
+        self.link_file = self.linker.file_generate(self.output_path, ld_name)
 
         self.frame_file_list = []
         for file in self.file_list:
@@ -232,7 +232,7 @@ class TransManager:
                 f"-I$RAZZLE_ROOT/template",
                 f"-I$RAZZLE_ROOT/template/trans",
                 f"-I$RAZZLE_ROOT/template/loader",
-                f"-T$OUTPUT_PATH/link.ld",
+                f"-T{self.link_file}",
             ],
         )
 
@@ -323,10 +323,14 @@ class TransManager:
         with open(file_variant_common, "wb") as file:
             file.write(common_byte_array)
 
+        origin_text_base = 'origin_common.bin'
+        origin_text = os.path.join(self.output_path, origin_text_base)
+        variant_text_base = 'variant_common.bin'
+        variant_text = os.path.join(self.output_path, variant_text_base)
         dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':'origin_common.bin', 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':origin_text, 'swap_id':self.trans_exit.swap_idx}
         vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':'variant_common.bin', 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':variant_text, 'swap_id':self.trans_exit.swap_idx}
         self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
 
         file_text_swap_base = f'text_swap_{swap_idx}.bin'
@@ -338,7 +342,7 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap_base, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
         self.trans_exit.register_memory_region(mem_region)
 
         self.trans_frame.move_data_section()
@@ -373,7 +377,7 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap_base, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
         trans_block.register_memory_region(mem_region)
 
         data_begin_label = f'_{data_name}_start'
@@ -388,7 +392,7 @@ class TransManager:
             file.write(data_byte_array)
         
         duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data_base, 'swap_id':swap_idx}
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
         self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
     
     def _compute_coverage(self, base_list, variant_list):
