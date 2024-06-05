@@ -49,7 +49,11 @@ class ReturnBlock(TransBlock):
         super().__init__('return_block', extension, output_path)
 
     def gen_default(self):
-        self._load_inst_str(['ebreak'])
+        self._load_inst_str(
+            ['INFO_VCTM_END',
+             'fence',
+             'ebreak']
+        )
 
 class DelayBlock(TransBlock):
     def __init__(self, extension, output_path, delay_len, delay_float_rate, delay_mem):

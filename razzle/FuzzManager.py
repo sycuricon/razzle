@@ -16,17 +16,23 @@ class FuzzResult(Enum):
 class FuzzLog:
     def __init__(self, repo_path):
         self.log_filename = os.path.join(repo_path, 'fuzz.log')
+        self.begin_time = time.time()
 
     def log_record(self, string):
+        end_time = time.time()
         with open(self.log_filename, "at") as file:
+            file.write(f'{end_time - self.begin_time}\t')
             file.write(string)
             file.write('\n')
 
     def log_state(self, last_state, next_state, iter_num):
-        self.log_record(f'state switch: [{last_state}] -{iter_num}-> [{next_state}]')
+        self.log_record(f'state_switch [{last_state}] -{iter_num}-> [{next_state}]')
     
-    def log_cover(self, cover_inc):
-        self.log_record(f'inc coverage: {cover_inc}')
+    def log_cover(self, iter_num, cover_inc):
+        self.log_record(f'inc_coverage ({iter_num}) {cover_inc}')
+    
+    def log_diverage(self):
+        self.log_record(f'coverage_diverage')
 
 class Coverage:
     def __init__(self):
@@ -41,7 +47,9 @@ class Coverage:
         self.leak_set = None
 
         self.acc_state = True
-        
+
+        self.coverage_sum = 0
+        self.coverage_iter = 0
 
     def add_trigger_state(self, trigger_seed):
         trigger_hash = trigger_seed.uint
@@ -77,24 +85,37 @@ class Coverage:
 
     def accumulate(self):
         self.coverage_list = []
-
-    def update_coverage(self, cover_list):
+    
+    def update_coverage(self, cover_list, is_leak=True):
         cov_inc = 0
         for cover_state in cover_list:
             if cover_state not in self.coverage_set:
                 self.coverage_set.add(cover_state)
                 cov_inc += 1
-        self.coverage_list.append(cov_inc)
-        if len(self.coverage_list) > 10:
-            self.coverage_list.pop(0)
+
+        if is_leak:
+            self.coverage_list.append(cov_inc)
+            if len(self.coverage_list) > 10:
+                self.coverage_list.pop(0)
+            self.coverage_sum += cov_inc
+            self.coverage_iter += 1
+
+        return cov_inc
+
+    def leak_update_coverage(self, cover_list):
+        cov_inc = self.update_coverage(cover_list)
 
         if cov_inc == 0 and len(self.leak_list) > 1:
             self.leak_list.pop()
 
-        return self.leak_list[-1]
+        return self.leak_list[-1], cov_inc
     
     def evalute_coverage(self):
-        return sum(self.coverage_list)
+        cov_inc = sum(self.coverage_list)
+        iter_inc = len(self.coverage_list)
+        local_rate = cov_inc/iter_inc
+        global_rate = (self.coverage_sum - cov_inc)/(self.coverage_iter - iter_inc)
+        return local_rate/global_rate
 
 class Seed:
     def __init__(self, length):
@@ -253,6 +274,7 @@ class TriggerSeed(Seed):
                 config['trigger_type'] = TriggerType.V4
             case _:
                 raise Exception(f"the invalid trigger number {trigger_field_value}")
+
         return config
 
 
@@ -363,7 +385,8 @@ class LeakSeed(Seed):
         return self.config
 
     def update_coverage(self, cover_list):
-        self.seed = self.coverage.update_coverage(cover_list)
+        self.seed, cov_inc = self.coverage.leak_update_coverage(cover_list)
+        return cov_inc
 
     def parse(self, config):
         config = copy.deepcopy(config)
@@ -371,12 +394,12 @@ class LeakSeed(Seed):
 
         encode_fuzz_type = self.get_field(self.LeakFieldEnum.ENCODE_FUZZ_TYPE)
         match(encode_fuzz_type):
-            case 0:
+            case 0|1:
                 config['encode_fuzz_type'] = EncodeType.FUZZ_FRONTEND
-            case 1:
-                config['encode_fuzz_type'] = EncodeType.FUZZ_BACKEND
             case 2|3:
-                config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
+                config['encode_fuzz_type'] = EncodeType.FUZZ_BACKEND
+            # case 2|3:
+                # config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
             case _:
                 raise Exception("the encode fuzz type is invalid")
 
@@ -399,6 +422,8 @@ class FuzzManager:
         self.LEAK_EXPLODE_THRESHOLD = config['leak_explode_threshold']
         self.LEAK_COSIM_THRESHOLD = config['leak_cosim_threshold']
         self.LEAK_DIST_THRESHOLD = config['leak_dist_threshold']
+        self.TRIGGER_RARE = config['trigger_rate']
+        self.ACCESS_RATE = config['access_rate']
         self.train_single = eval(config['train_single'])
         self.train_align = eval(config['train_align'])
         self.coverage = Coverage()
@@ -479,7 +504,24 @@ class FuzzManager:
         
         max_taint = max(base_list)
         is_access = max_taint > self.ACCESS_TAINT_THRESHOLD
-        return is_access, taint_folder, max_taint
+
+        dut_sync_time = 0
+        dut_window_begin = 0
+        dut_vicitm_end = 0
+        for line in open(f'{taint_folder}.log', 'rt'):
+            exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
+            exec_time = int(exec_time)
+            is_dut = True if int(is_dut) == 1 else False
+            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
+                dut_window_begin = exec_time + 1 
+            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
+                dut_sync_time = exec_time + 1
+            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+                dut_vicitm_end = exec_time
+
+        coverage = self.compute_coverage(base_list[dut_window_begin:dut_vicitm_end])
+
+        return is_access, taint_folder, max_taint, coverage
 
     def _trigger_reduce(self, is_trigger):
         if is_trigger:
@@ -555,8 +597,7 @@ class FuzzManager:
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
 
-        TRAIN_GEN_MAX_ITER = 6
-        ENCODE_MUTATE_MAX_ITER = 4
+        TRAIN_GEN_MAX_ITER = 4
 
         max_train_gen = TRAIN_GEN_MAX_ITER
         trigger_result = FuzzResult.FAIL
@@ -583,14 +624,14 @@ class FuzzManager:
 
         self.trans.trans_victim.mutate_access(config)
         self.trans._generate_body_block(self.trans.trans_victim)
-        is_access, taint_folder, max_taint = self.access_analysis()
+        is_access, taint_folder, max_taint, coverage = self.access_analysis()
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
 
         self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder = taint_folder)
         if access_result == FuzzResult.SUCCESS:
             self.store_template(access_iter_num, self.repo_path, 'access', taint_folder)
         
-        return access_repo, access_result
+        return access_repo, access_result, coverage, access_iter_num
     
     def store_template(self, iter_num, repo_path, stage_name, taint_folder):
         folder = f'{stage_name}_template'
@@ -660,7 +701,7 @@ class FuzzManager:
     def compute_coverage(self, base_list):
         coverage = []
         for i, taint in enumerate(base_list[:-1]):
-            cover_state = (taint, base_list[i+1] - taint)
+            cover_state = (i, taint, base_list[i+1] - taint)
             coverage.append(cover_state)
         return coverage
     
@@ -679,8 +720,10 @@ class FuzzManager:
                 variant_list.append(int(variant))
         
         dut_sync_time = 0
+        dut_window_begin = 0
         dut_vicitm_end = 0
         vnt_sync_time = 0
+        vnt_window_begin = 0
         vnt_vicitm_end = 0
         dut_texe_begin = 0
         dut_texe_enq_num = 0
@@ -690,14 +733,18 @@ class FuzzManager:
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
+            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
+                dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
                 dut_vicitm_end = exec_time
 
+            if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
+                vnt_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
                 vnt_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_ENQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
+            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
                 vnt_vicitm_end = exec_time
 
             if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
@@ -713,7 +760,7 @@ class FuzzManager:
         if not is_trigger:
             return FuzzResult.FAIL, None, None, taint_folder, [(0,0)]
 
-        coverage = self.compute_coverage(base_list[dut_texe_begin:dut_vicitm_end])
+        coverage = self.compute_coverage(base_list[dut_window_begin:dut_vicitm_end])
 
         base_spread_list = base_list[dut_sync_time:dut_vicitm_end]
         variant_spread_list = variant_list[dut_sync_time:dut_vicitm_end]
@@ -748,7 +795,7 @@ class FuzzManager:
         if leak_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
             self.store_template(leak_iter_num, self.repo_path, 'leak', taint_folder)
         
-        return leak_repo, leak_result, coverage
+        return leak_repo, leak_result, coverage, leak_iter_num
 
     def decode_analysis(self):
         taint_folder = self.stage_simulate('robprofile', 'dut')
@@ -844,34 +891,24 @@ class FuzzManager:
         access_seed = AccessSeed(self.coverage)
         leak_seed = LeakSeed(self.coverage)
         config = {}
-        leak_mutate_flag = 0
-        access_mutate_flag = 0
-        stop_flag = 0
         trigger_repo = None
         access_repo = None
         leak_repo = None
 
-        MAX_TRIGGER_MUTATE_ITER = 40
+        MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 10
         LEAK_ACCUMULATE_ITER = 15
-        STOP_THRES = 2
-        LEAK_MUTATE_THRES = 20
-        ACCESS_MUTATE_THRES = 2
-        TRIGGER_MUTATE_THRES = 2
+
         while True:
             iter_num = 0
             last_state = state
             match(state):
                 case FuzzFSM.IDLE:
-                    if stop_flag == STOP_THRES:
-                        stop_flag = 0
-                        break
-                    else:
-                        trigger_seed = TriggerSeed(self.coverage)
-                        config = trigger_seed.mutate({}, True)
-                        access_seed = AccessSeed(self.coverage)
-                        config = access_seed.mutate(config, True)
-                        state = FuzzFSM.MUTATE_TRIGGER
+                    trigger_seed = TriggerSeed(self.coverage)
+                    config = trigger_seed.mutate({}, True)
+                    access_seed = AccessSeed(self.coverage)
+                    config = access_seed.mutate(config, True)
+                    state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.MUTATE_TRIGGER:
                     for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
                         trigger_repo, trigger_result = self.fuzz_trigger(config, trigger_repo)
@@ -882,10 +919,13 @@ class FuzzManager:
                             config = trigger_seed.mutate({})
                             config = access_seed.parse(config)
                     else:
-                        state = FuzzFSM.IDLE
+                        config = trigger_seed.mutate({}, True)
+                        config = access_seed.mutate(config, True)
                 case FuzzFSM.MUTATE_ACCESS:
                     for iter_num in range(MAX_ACCESS_MUTATE_ITER):
-                        access_repo, access_result = self.fuzz_access(config, trigger_repo)
+                        access_repo, access_result, coverage, access_iter_num = self.fuzz_access(config, trigger_repo)
+                        cov_inc = self.coverage.update_coverage(coverage, is_leak=False)
+                        self.fuzz_log.log_cover(access_iter_num, cov_inc)
                         if access_result == FuzzResult.SUCCESS:
                             leak_seed = LeakSeed(self.coverage)
                             state = FuzzFSM.ACCUMULATE
@@ -897,43 +937,34 @@ class FuzzManager:
                         config = access_seed.mutate(config)
                         state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.ACCUMULATE:
-                    if leak_mutate_flag == ACCESS_MUTATE_THRES:
-                        state = FuzzFSM.MUTATE_ACCESS
-                        config = access_seed.mutate(config)
-                        leak_mutate_flag = 0
-                        access_mutate_flag += 1
-                    else:
-                        self.coverage.accumulate()
-                        config = leak_seed.mutate(config, True)
-                        for iter_num in range(LEAK_ACCUMULATE_ITER):
-                            leak_repo, leak_result, coverage = self.fuzz_leak(config, access_repo)
-                            leak_seed.update_coverage(coverage)
-                            self.fuzz_log.log_cover(self.coverage.coverage_list[-1])
-                            config = leak_seed.mutate(config)
-                        state = FuzzFSM.MUTATE_LEAK
+                    self.coverage.accumulate()
+                    config = leak_seed.mutate(config, True)
+                    for iter_num in range(LEAK_ACCUMULATE_ITER):
+                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config, access_repo)
+                        cov_inc = leak_seed.update_coverage(coverage)
+                        self.fuzz_log.log_cover(leak_iter_num, cov_inc)
+                        config = leak_seed.mutate(config)
+                    state = FuzzFSM.MUTATE_LEAK
                 case FuzzFSM.MUTATE_LEAK:
                     while True:
-                        leak_repo, leak_result, coverage = self.fuzz_leak(config, access_repo)
-                        leak_seed.update_coverage(coverage)
-                        self.fuzz_log.log_cover(self.coverage.coverage_list[-1])
+                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config, access_repo)
+                        cov_inc = leak_seed.update_coverage(coverage)
+                        self.fuzz_log.log_cover(leak_iter_num, cov_inc)
                         cover_contr = self.coverage.evalute_coverage()
                         iter_num += 1
-                        if cover_contr < LEAK_MUTATE_THRES:
-                            if access_mutate_flag == TRIGGER_MUTATE_THRES:
-                                state = FuzzFSM.IDLE
-                                stop_flag += 1
-                                leak_mutate_flag = 0
-                                access_mutate_flag = 0
-                                break
-                            else:
-                                state = FuzzFSM.ACCUMULATE
-                                leak_mutate_flag += 1
-                                break
+                        if cover_contr < self.TRIGGER_RARE:
+                            config = trigger_seed.mutate({}, True)
+                            config = access_seed.mutate(config, True)
+                            state = FuzzFSM.MUTATE_TRIGGER
+                            break
+                        elif cover_contr < self.ACCESS_RATE:
+                            config = access_seed.mutate(config, True)
+                            state = FuzzFSM.MUTATE_ACCESS
+                            break
                         else:
                             config = leak_seed.mutate(config, False)
-                            stop_flag = 0
-                            leak_mutate_flag = 0
-                            access_mutate_flag = 0
+                case FuzzFSM.STOP:
+                    break
             self.fuzz_log.log_state(last_state, state, iter_num)
 
                         

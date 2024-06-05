@@ -74,7 +74,7 @@ void setup_pmp();
 
 #ifndef __ASSEMBLER__
 #define INFO_VCTM_START     asm("slti zero, zero, " macro_2_str(ENUM_INFO_VCTM_START)     "\n");   // 0x00002013
-#define INFO_VCTM_END       asm("fence\nslti zero, zero, " macro_2_str(ENUM_INFO_VCTM_END)"\n");   // 0x00102013
+#define INFO_VCTM_END       asm("slti zero, zero, " macro_2_str(ENUM_INFO_VCTM_END)"\n");   // 0x00102013
 #define INFO_DELAY_START    asm("slti zero, zero, " macro_2_str(ENUM_INFO_DELAY_START)    "\n");   // 0x00202013
 #define INFO_DELAY_END      asm("slti zero, zero, " macro_2_str(ENUM_INFO_DELAY_END)      "\n");   // 0x00302013
 #define INFO_TEXE_START     asm("slti zero, zero, " macro_2_str(ENUM_INFO_TEXE_START)     "\n");   // 0x00402013
@@ -88,7 +88,7 @@ void setup_pmp();
                                 :: [default_mode] "r" ((CMD_SWITCH_STATE | STATE_DEFAULT)));
 #else
 #define INFO_VCTM_START     slti zero, zero, ENUM_INFO_VCTM_START
-#define INFO_VCTM_END       fence; slti zero, zero, ENUM_INFO_VCTM_END
+#define INFO_VCTM_END       slti zero, zero, ENUM_INFO_VCTM_END
 #define INFO_DELAY_START    slti zero, zero, ENUM_INFO_DELAY_START
 #define INFO_DELAY_END      slti zero, zero, ENUM_INFO_DELAY_END
 #define INFO_TEXE_START     slti zero, zero, ENUM_INFO_TEXE_START

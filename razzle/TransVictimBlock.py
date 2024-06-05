@@ -207,6 +207,7 @@ class EncodeBlock(TransBlock):
     def _gen_block_begin(self):
 
         inst_list = [
+            "INFO_VCTM_END",
             "INFO_TEXE_START"
         ]
 
@@ -215,11 +216,10 @@ class EncodeBlock(TransBlock):
     def _gen_block_end(self):
 
         inst_len = self._get_inst_len()
-        need_inst_len = (inst_len + 32 + 8 - 1) // 8 * 8 
         inst_dummy = [
             "encode_nop_fill:",
         ]
-        inst_dummy.extend(['c.nop' for _ in range((need_inst_len - inst_len)//2)])
+        inst_dummy.extend(['c.nop' for _ in range((192 - inst_len)//2)])
         self._load_inst_str(inst_dummy)
 
         inst_exit = [
@@ -320,12 +320,7 @@ class EncodeBlock(TransBlock):
 
         match (self.strategy):
             case EncodeType.FUZZ_DEFAULT:
-                # if self.trigger_type == TriggerType.V4:
-                #     self.leak_kind = 'cache'
-                # else:
-                #     self.leak_kind = random.choice(['cache', 'FPUport', 'LSUport'])
-                self.leak_kind = 'cache'
-                self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], f"template/trans/encode_block.{self.leak_kind}.text.S"), mutate=True)
+                pass
             case EncodeType.FUZZ_BACKEND|EncodeType.FUZZ_FRONTEND|EncodeType.FUZZ_PIPELINE:
                 self._gen_random()
             
