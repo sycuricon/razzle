@@ -417,7 +417,6 @@ class FuzzManager:
         hjson_file = open(hjson_filename)
         config = hjson.load(hjson_file)
         self.trans = TransManager(config, self.output_path, virtual, self.mem_cfg)
-        self.ACCESS_TAINT_THRESHOLD = config['access_taint_threshold']
         self.LEAK_REMAIN_THRESHOLD = config['leak_remain_threshold']
         self.LEAK_EXPLODE_THRESHOLD = config['leak_explode_threshold']
         self.LEAK_COSIM_THRESHOLD = config['leak_cosim_threshold']
@@ -501,9 +500,6 @@ class FuzzManager:
                 time_list.append(int(time))
                 base_list.append(int(base))
                 variant_list.append(int(variant))
-        
-        max_taint = max(base_list)
-        is_access = max_taint > self.ACCESS_TAINT_THRESHOLD
 
         dut_sync_time = 0
         dut_window_begin = 0
@@ -516,10 +512,18 @@ class FuzzManager:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
                 dut_vicitm_end = exec_time
+        
+        is_access = False
+        base_list = base_list[dut_window_begin:dut_vicitm_end]
+        for i in range(len(base_list)-1):
+            if base_list[i+1] > base_list[i]:
+                is_access = True
+                break
+        max_taint = max(base_list)
 
-        coverage = self.compute_coverage(base_list[dut_window_begin:dut_vicitm_end])
+        coverage = self.compute_coverage(base_list)
 
         return is_access, taint_folder, max_taint, coverage
 
@@ -617,6 +621,8 @@ class FuzzManager:
 
         self.trans.trans_victim.mutate_access(config)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
+        self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         is_access, taint_folder, max_taint, coverage = self.access_analysis()
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
 
@@ -693,8 +699,12 @@ class FuzzManager:
 
     def compute_coverage(self, base_list):
         coverage = []
+        start_point = 0
         for i, taint in enumerate(base_list[:-1]):
-            cover_state = (i, taint, base_list[i+1] - taint)
+            delta_taint = base_list[i + 1] - taint
+            if delta_taint != 0:
+                start_point = i
+            cover_state = (start_point, taint, delta_taint)
             coverage.append(cover_state)
         return coverage
     
@@ -730,14 +740,14 @@ class FuzzManager:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
                 dut_vicitm_end = exec_time
 
             if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
                 vnt_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
                 vnt_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
+            if exec_info == 'VCTM_END_ENQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
                 vnt_vicitm_end = exec_time
 
             if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
@@ -779,6 +789,8 @@ class FuzzManager:
 
         self.trans.trans_victim.mutate_encode(config)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
+        self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         leak_result, cosim_result, max_taint, taint_folder, coverage = self.leak_analysis(config['encode_fuzz_type'])
 
         self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder = taint_folder)
@@ -794,7 +806,7 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'VCTM_END_DEQ':
+            if exec_info == 'VCTM_END_ENQ':
                 base_decode_end = int(exec_time)
         
         taint_folder = self.stage_simulate('robprofile', 'vnt')
@@ -803,7 +815,7 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'VCTM_END_DEQ':
+            if exec_info == 'VCTM_END_ENQ':
                 variant_decode_end = int(exec_time)
 
         if base_decode_end != variant_decode_end:
@@ -883,7 +895,7 @@ class FuzzManager:
         leak_repo = None
 
         MAX_TRIGGER_MUTATE_ITER = 10
-        MAX_ACCESS_MUTATE_ITER = 10
+        MAX_ACCESS_MUTATE_ITER = 5
         LEAK_ACCUMULATE_ITER = 15
 
         while True:
