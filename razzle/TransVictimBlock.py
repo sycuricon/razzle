@@ -557,12 +557,13 @@ class SecretMigrateBlock(TransBlock):
         used_reg = list(map(str.lower, used_reg[0:2]))
         
         if self.secret_migrate_type == SecretMigrateType.MEMORY:
-            inst_list.extend(['c.nop'] * 6)
+            inst_list.extend(['c.nop'] * 8)
         else:
             inst_list.extend(
                 [
                     f'la {used_reg[0]}, secret',
-                    f'ld {used_reg[1]}, 0({used_reg[0]})'
+                    f'ld {used_reg[1]}, 0({used_reg[0]})',
+                    f'mv {used_reg[1]}, zero'
                 ]
             )
         
@@ -589,7 +590,7 @@ class SecretMigrateBlock(TransBlock):
         self.gen_code()
     
     def _get_inst_len(self):
-        return (20 + 6) * 2
+        return (20 + 8) * 2
         
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
@@ -649,13 +650,8 @@ class TransVictimManager(TransBaseManager):
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(secret_migrate_template)
 
-        inst_len = self.load_init_block._get_inst_len() + self.delay_block._get_inst_len()\
-              + self.secret_migrate_block._get_inst_len() + self.trigger_block._get_inst_len()
-        if self.trigger_block.trigger_inst.is_rvc():
-            inst_len -= 2
-        else:
-            inst_len -= 4
-        nop_inst_len = (inst_len + 16*4 + 8 - 1) // 8 * 8 - inst_len
+        inst_len = self.load_init_block._get_inst_len() + self.secret_migrate_block._get_inst_len()
+        nop_inst_len = (inst_len + 16*4 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr(None)
@@ -704,6 +700,12 @@ class TransVictimManager(TransBaseManager):
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(None)
 
+        self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
+        self.encode_block.trigger_type = self.trigger_block.trigger_type
+        self.encode_block.gen_instr(None)
+
+        self.load_init_block = copy.deepcopy(self.temp_load_init_block)
+
     def mutate_encode(self, config):
         random.seed(config['leak_seed'])
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
@@ -745,15 +747,16 @@ class TransVictimManager(TransBaseManager):
 
         self.data_section.clear()
 
+        self._set_section(empty_section, self.data_section, [self.access_secret_block])
         self._set_section(text_swap_section, self.data_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
         
         if not self.return_front:
-            self._set_section(text_swap_section, self.data_section, [self.access_secret_block])
+            self._set_section(text_swap_section, empty_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block, self.return_block])
         else:
             self._set_section(text_swap_section, empty_section, [self.return_block])
-            self._set_section(text_swap_section, self.data_section, [self.access_secret_block])
+            self._set_section(text_swap_section, empty_section, [self.access_secret_block])
             self._set_section(text_swap_section, empty_section, [self.encode_block])
     
     def need_train(self):

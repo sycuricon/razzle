@@ -50,9 +50,11 @@ class ReturnBlock(TransBlock):
 
     def gen_default(self):
         self._load_inst_str(
-            ['INFO_VCTM_END',
-             'fence',
-             'ebreak']
+            [
+                'fence',
+                'INFO_VCTM_END',
+                'ebreak'
+            ]
         )
 
 class DelayBlock(TransBlock):
@@ -232,8 +234,9 @@ class NopBlock(TransBlock):
 
     def gen_default(self):
         inst_list = [
-            'c.nop' for _ in range(self.c_nop_len//2)
+            'c.nop' for _ in range(self.c_nop_len//2 - 2)
         ]
+        inst_list.insert(0, 'fence')
 
         self._load_inst_str(inst_list)
 

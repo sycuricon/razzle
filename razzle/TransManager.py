@@ -69,6 +69,7 @@ class MemCfg:
                                 region['type'] = 'dut'
                             elif region['type'] == 'vnt':
                                 region['type'] = 'dut'
+                    region['mode'] = 'Mv'
                     mem_region.append(region)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
@@ -467,7 +468,7 @@ class TransManager:
     def store_template(self, iter_num, repo_path, template_folder):
         self.swap_list = []
         for swap_block in self.swap_block_list:
-                self.swap_list.append(swap_block['swap_id'])
+            self.swap_list.append(swap_block['swap_id'])
 
         trigger_repo_path = os.path.join(repo_path, template_folder)
         if not os.path.exists(trigger_repo_path):

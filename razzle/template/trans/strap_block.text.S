@@ -1,5 +1,5 @@
-    INFO_VCTM_END
     fence
+    INFO_VCTM_END
 #ifdef __TRAP_DEBUG__
 dump_strap_info:
     ld t0, strap_ptr_mode
