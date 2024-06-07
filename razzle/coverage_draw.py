@@ -4,26 +4,32 @@ import matplotlib.pyplot as plt
 
 def coverage_draw(curve_fuzz):
     cov_inc = [0]
-    trigger_mutate = [0]
+    cov_time = [0]
+    trigger_mutate = []
     access_mutate = []
-    leak_mutate = []
+    state = None
     for line in open(curve_fuzz, "rt"):
-        if line.startswith("inc coverage:"):
-            cov_inc.append(int(line.split()[-1])+cov_inc[-1])
-        elif line.startswith("state switch:"):
-            _, _, state1, _, state2 = line.split()
-            if state1 == '[FuzzFSM.MUTATE_LEAK]' and state2 == '[FuzzFSM.IDLE]' or\
-                state1 == '[FuzzFSM.MUTATE_ACCESS]' and state2 == '[FuzzFSM.MUTATE_TRIGGER]':
-                trigger_mutate.append(len(cov_inc))
-            elif state1 == '[FuzzFSM.ACCUMULATE]' and state2 == '[FuzzFSM.MUTATE_ACCESS]':
-                access_mutate.append(len(cov_inc))
-            elif state1 == '[FuzzFSM.MUTATE_LEAK]' and state2 == '[FuzzFSM.ACCUMULATE]':
-                leak_mutate.append(len(cov_inc))
+        line_token = line.split()
+        log_time = float(line_token[0])
+        log_type = line_token[1]
+        log_info = line_token[2:]
+        match log_type:
+            case 'inc_coverage':
+                if state != '[FuzzFSM.MUTATE_ACCESS]':
+                    new_cov_inc = int(log_info[-1])
+                    cov_inc.append(cov_inc[-1]+new_cov_inc)
+                    cov_time.append(log_time)
+            case 'state_switch':
+                from_state = log_info[0]
+                to_state = log_info[2]
+                state = to_state
+                if to_state == '[FuzzFSM.MUTATE_TRIGGER]':
+                    trigger_mutate.append(log_time)
+                elif to_state == '[FuzzFSM.MUTATE_ACCESS]':
+                    access_mutate.append(log_time)
     curve_folder = os.path.dirname(curve_fuzz)
-    plt.plot(cov_inc)
+    plt.plot(cov_time, cov_inc)
 
-    for line in leak_mutate:
-        plt.axvline(line, color='red')
     for line in access_mutate:
         plt.axvline(line, color='green')
     for line in trigger_mutate:
