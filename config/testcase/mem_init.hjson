@@ -1,7 +1,6 @@
 {
     attack: U
     victim: U
-    access_taint_threshold: 20
     leak_remain_threshold: 50
     leak_explode_threshold: 1000
     leak_cosim_threshold: 20
