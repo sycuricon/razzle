@@ -1,0 +1,155 @@
+import os
+import random
+import sys
+import copy
+from enum import *
+from BuildManager import *
+from SectionUtils import *
+from SectionManager import *
+from TransBlockUtils import *
+from TransBodyBlock import *
+from TransVictimBlock import *
+
+from payload.Instruction import *
+from payload.MagicDevice import *
+from payload.Block import *
+
+class SecretMigrateType(Enum):
+    MEMORY = auto()
+    CACHE = auto()
+    LOAD_BUFFER = auto()
+
+class SecretMigrateBlock(TransBlock):
+    def __init__(self, extension, output_path, protect_gpr_list, secret_migrate_type):
+        super().__init__('secret_migrate_block', extension, output_path)
+        self.protected_gpr_list = protect_gpr_list
+        self.secret_migrate_type = secret_migrate_type
+
+    def store_template(self, folder):
+        type_name = os.path.join(folder, f'{self.name}.type')
+        with open(type_name, "wt") as file:
+            file.write(f'{self.secret_migrate_type}')
+    
+    def load_template(self, template):
+        with open(f'{template}.type', "rt") as file:
+            self.secret_migrate_type = eval(file.readline().strip())
+        self.gen_code()
+    
+    def gen_code(self):
+        if len(self.protected_gpr_list) >= 30:
+            self.secret_migrate_type = SecretMigrateType.MEMORY
+
+        inst_list = []
+        used_reg = list(set(reg_range) - {'ZERO'} - set(self.protected_gpr_list))
+        used_reg.sort()
+        used_reg = list(map(str.lower, used_reg[0:2]))
+        
+        if self.secret_migrate_type == SecretMigrateType.MEMORY:
+            inst_list.extend(['c.nop'] * 8)
+        else:
+            inst_list.extend(
+                [
+                    f'la {used_reg[0]}, secret',
+                    f'ld {used_reg[1]}, 0({used_reg[0]})',
+                    f'mv {used_reg[1]}, zero'
+                ]
+            )
+        
+        if self.secret_migrate_type == SecretMigrateType.LOAD_BUFFER:
+            inst_list.extend(
+                [
+                    f'la {used_reg[0]}, dummy_data_block_data_top',
+                    f'lui {used_reg[1]}, 0x1',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                    f'sd zero, 0({used_reg[0]})',
+                ]
+            )
+        else:
+            inst_list.extend(['c.nop'] * 20)
+
+        self._load_inst_str(inst_list)
+
+    def gen_default(self):
+        self.gen_code()
+    
+    def _get_inst_len(self):
+        return (20 + 8) * 2
+        
+class TransAdjustManager(TransBaseManager):
+    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
+        super().__init__(config, extension, victim_privilege, virtual, output_path)
+        self.data_section = data_section
+        self.trans_frame = trans_frame
+    
+    def gen_block(self, config, trans_victim, template_path):
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
+        self.secret_migrate_block.gen_instr(None)
+
+        self.encode_block = EncodeBlock(self.extension, self.output_path, None, EncodeType.FUZZ_DEFAULT)
+        self.encode_block.gen_instr(None)
+
+        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [])
+        self.load_init_block.gen_instr(None)
+
+        self.return_block = ReturnBlock(self.extension, self.output_path)
+        self.return_block.gen_instr(None)
+
+        nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
+        need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
+        self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
+        self.nop_block.gen_instr(None)
+        
+    def mutate_access(self, config, trans_victim):
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
+        self.secret_migrate_block.gen_instr(None)
+
+    def mutate_encode(self, config, trans_victim):
+        self.encode_block = copy.deepcopy(trans_victim.encode_block)
+        if self.encode_block.loop:
+            self.encode_block.break_loop()
+        
+        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.encode_block])
+        self.load_init_block.gen_instr(None)
+
+        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
+        self.secret_migrate_block.gen_instr(None)
+
+        nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
+        need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
+        self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
+        self.nop_block.gen_instr(None)
+
+    def record_fuzz(self, file):
+        file.write(f'victim_train: {self.swap_idx}\n')
+        file.write(f'\tsecret_migrate_type: {self.secret_migrate_block.secret_migrate_type}\t')
+
+    def _generate_sections(self):
+        
+        text_swap_section = self.section[".text_swap"] = FuzzSection(
+            ".text_swap", Flag.U | Flag.X | Flag.R
+        )
+
+        self.section[".data_victim"] = self.data_section
+
+        empty_section = FuzzSection(
+            "", 0
+        )
+
+        self.data_section.clear()
+
+        self._set_section(text_swap_section, self.data_section, [self.load_init_block])
+        self._set_section(text_swap_section, empty_section, [self.secret_migrate_block, self.nop_block, self.encode_block, self.return_block])
+
+
+            
+
+
+
+
+        
+

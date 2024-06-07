@@ -5,6 +5,7 @@ from PageTableManager import *
 from SectionUtils import *
 from TransBlockUtils import *
 from TransVictimBlock import *
+from TransAdjustBlock import *
 from TransDecodeBlock import *
 from TransTrainBlock import *
 from TransFrameBlock import *
@@ -21,7 +22,7 @@ class MemCfg:
         self.mem_start = mem_start
         self.mem_len = mem_len
         self.mem_regions = {}
-        self.mem_region_kind = ['frame', 'data_train',\
+        self.mem_region_kind = ['frame', 'data_train', 'data_adjust',\
             'data_decode', 'data_victim', 'swap']
         for kind in self.mem_region_kind:
             self.mem_regions[kind] = []
@@ -149,6 +150,9 @@ class TransManager:
         self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_section, self.trans_frame)
         self._distr_swap_id(self.trans_victim)
 
+        self.trans_adjust = TransAdjustManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_adjust_section, self.trans_frame)
+        self._distr_swap_id(self.trans_adjust)
+
         self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_decode_section, self.trans_frame)
         self._distr_swap_id(self.trans_decode)
             
@@ -165,9 +169,10 @@ class TransManager:
         self.swap_id += 1
 
     def get_data_section(self):
-        data_frame_section, data_train_section, data_victim_section, data_decode_section = self.trans_frame.get_data_section()
+        data_frame_section, data_train_section, data_adjust_section, data_victim_section, data_decode_section = self.trans_frame.get_data_section()
         self.data_frame_section = data_frame_section
         self.data_train_section = data_train_section
+        self.data_adjust_section = data_adjust_section
         self.data_victim_section = data_victim_section
         self.data_decode_section = data_decode_section
 
@@ -273,6 +278,8 @@ class TransManager:
                 data_name = 'data_decode'
             elif trans_body_type == TransTrainManager:
                 data_name = 'data_train'
+            elif trans_body_type == TransAdjustManager:
+                data_name = 'data_adjust'
             else:
                 raise Exception('the type of trans_body is invalid')
             baker.add_cmd(
@@ -434,7 +441,7 @@ class TransManager:
 
         windows_param = 0.8 if self.trans_victim.need_train() else 0.4
 
-        swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
+        swap_block_list = [self.trans_adjust.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
         for _ in range(0, 10):
             if random.random() < 1 - windows_param:
                 break

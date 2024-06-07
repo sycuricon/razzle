@@ -113,16 +113,19 @@ class TransFrameManager(TransBaseManager):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
         self.dist = False
 
-        self.section[".data_frame"] = FuzzSection(
+        self.section[".data_frame"] = TransDataSection(
             ".data_frame", Flag.U | Flag.W | Flag.R
         )
-        self.section[".data_train"] = FuzzSection(
+        self.section[".data_train"] = TransDataSection(
             ".data_train", Flag.U | Flag.W | Flag.R
         )
-        self.section[".data_victim"] = FuzzSection(
+        self.section[".data_adjust"] = TransDataSection(
+            ".data_adjust", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_victim"] = TransDataSection(
             ".data_victim", Flag.U | Flag.W | Flag.R
         )
-        self.section[".data_decode"] = FuzzSection(
+        self.section[".data_decode"] = TransDataSection(
             ".data_decode", Flag.U | Flag.W | Flag.R
         )
 
@@ -154,12 +157,14 @@ class TransFrameManager(TransBaseManager):
     def get_data_section(self):
         data_frame_section = self.section['.data_frame']
         data_train_section = self.section['.data_train']
+        data_adjust_section = self.section['.data_adjust']
         data_victim_section = self.section['.data_victim']
         data_decode_section = self.section['.data_decode']
-        return  data_frame_section, data_train_section, data_victim_section, data_decode_section
+        return  data_frame_section, data_train_section, data_adjust_section, data_victim_section, data_decode_section
 
     def move_data_section(self):
         self.section.pop('.data_train')
+        self.section.pop('.data_adjust')
         self.section.pop('.data_victim')
         self.section.pop('.data_decode')
 
@@ -304,6 +309,14 @@ class TransFrameManager(TransBaseManager):
 
         offset += length
         length = Page.size
+        self.section[".data_adjust"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
         self.section[".data_train"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
@@ -344,8 +357,6 @@ class TransFrameManager(TransBaseManager):
             self.memory_bound[1][1] - offset,
             length,
         )
-
-
 
 class ExitBlock(TransBlock):
     def __init__(self, extension, output_path):

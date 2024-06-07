@@ -800,6 +800,21 @@ class FuzzSection(Section):
     def _generate_body(self):
         return self.inst_list
 
+class TransDataSection(FuzzSection):
+    def __init__(self, name, flag):
+        super().__init__(name, flag)
+        self.inst_list = ['.space 0x200\n']
+
+    def add_inst_list(self, list):
+        self.inst_list.extend(list)
+        self.inst_list.append("\n")
+    
+    def clear(self):
+        self.inst_list = ['.space 0x200\n']
+
+    def _generate_body(self):
+        return self.inst_list
+
 def inst_simlutor(baker, block_list):
     if not os.path.exists(baker.output_path):
         os.makedirs(baker.output_path)

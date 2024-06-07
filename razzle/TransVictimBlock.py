@@ -525,73 +525,6 @@ class LoadInitTriggerBlock(LoadInitBlock):
         super().load_template(template)
         self.update_init_seq()
         
-
-class SecretMigrateType(Enum):
-    MEMORY = auto()
-    CACHE = auto()
-    LOAD_BUFFER = auto()
-
-class SecretMigrateBlock(TransBlock):
-    def __init__(self, extension, output_path, protect_gpr_list, secret_migrate_type):
-        super().__init__('secret_migrate_block', extension, output_path)
-        self.protected_gpr_list = protect_gpr_list
-        self.secret_migrate_type = secret_migrate_type
-
-    def store_template(self, folder):
-        type_name = os.path.join(folder, f'{self.name}.type')
-        with open(type_name, "wt") as file:
-            file.write(f'{self.secret_migrate_type}')
-    
-    def load_template(self, template):
-        with open(f'{template}.type', "rt") as file:
-            self.secret_migrate_type = eval(file.readline().strip())
-        self.gen_code()
-    
-    def gen_code(self):
-        if len(self.protected_gpr_list) >= 30:
-            self.secret_migrate_type = SecretMigrateType.MEMORY
-
-        inst_list = []
-        used_reg = list(set(reg_range) - {'ZERO'} - set(self.protected_gpr_list))
-        used_reg.sort()
-        used_reg = list(map(str.lower, used_reg[0:2]))
-        
-        if self.secret_migrate_type == SecretMigrateType.MEMORY:
-            inst_list.extend(['c.nop'] * 8)
-        else:
-            inst_list.extend(
-                [
-                    f'la {used_reg[0]}, secret',
-                    f'ld {used_reg[1]}, 0({used_reg[0]})',
-                    f'mv {used_reg[1]}, zero'
-                ]
-            )
-        
-        if self.secret_migrate_type == SecretMigrateType.LOAD_BUFFER:
-            inst_list.extend(
-                [
-                    f'la {used_reg[0]}, dummy_data_block_data_top',
-                    f'lui {used_reg[1]}, 0x1',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
-                ]
-            )
-        else:
-            inst_list.extend(['c.nop'] * 20)
-
-        self._load_inst_str(inst_list)
-
-    def gen_default(self):
-        self.gen_code()
-    
-    def _get_inst_len(self):
-        return (20 + 8) * 2
-        
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
         super().__init__(config, extension, victim_privilege, virtual, output_path)
@@ -608,14 +541,12 @@ class TransVictimManager(TransBaseManager):
             with open(os.path.join(template_path, 'return_front'), 'rt') as file:
                 return_front = eval(file.readline().strip())
             delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_path, 'delay_block')
-            secret_migrate_template = None if 'secret_migrate_block.type' not in template_list else os.path.join(template_path, 'secret_migrate_block')
             access_secret_template = None if 'access_secret_block.type' not in template_list else os.path.join(template_path, 'access_secret_block')
             encode_template = None if 'encode_block.text' not in template_list else os.path.join(template_path, 'encode_block')
             trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_path, 'trigger_block')
             load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
         else:
             delay_template = None
-            secret_migrate_template = None
             access_secret_template = None
             encode_template = None
             trigger_template = None
@@ -647,10 +578,7 @@ class TransVictimManager(TransBaseManager):
         self.load_init_block.gen_instr(load_init_template)
         self.temp_load_init_block = self.load_init_block
 
-        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
-        self.secret_migrate_block.gen_instr(secret_migrate_template)
-
-        inst_len = self.load_init_block._get_inst_len() + self.secret_migrate_block._get_inst_len()
+        inst_len = self.load_init_block._get_inst_len() + 64
         nop_inst_len = (inst_len + 16*4 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
@@ -697,9 +625,6 @@ class TransVictimManager(TransBaseManager):
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(None)
 
-        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
-        self.secret_migrate_block.gen_instr(None)
-
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr(None)
@@ -726,7 +651,6 @@ class TransVictimManager(TransBaseManager):
         file.write(f'\treturn_front: {self.return_front}\n')
         file.write(f'\ttrigger_type: {self.trigger_block.trigger_type}\t')
         file.write(f'\ttrigger_inst: {self.trigger_block.trigger_inst.to_asm()}\n')
-        file.write(f'\tsecret_migrate_type: {self.secret_migrate_block.secret_migrate_type}\t')
         file.write(f'\taccess_secret_address: {hex(self.access_secret_block.address)}\n')
         file.write(f'\tencode_type: ')
         for i in self.encode_block.encode_list:
@@ -749,7 +673,7 @@ class TransVictimManager(TransBaseManager):
 
         self._set_section(empty_section, self.data_section, [self.access_secret_block])
         self._set_section(text_swap_section, self.data_section, [self.load_init_block])
-        self._set_section(text_swap_section, empty_section, [self.secret_migrate_block ,self.nop_block, self.delay_block, self.trigger_block])
+        self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block, self.trigger_block])
         
         if not self.return_front:
             self._set_section(text_swap_section, empty_section, [self.access_secret_block])

@@ -530,8 +530,8 @@ class FuzzManager:
     def _trigger_reduce(self, is_trigger):
         if is_trigger:
             swap_block_list = self.trans.swap_block_list
-            for _ in range(len(swap_block_list)-2):
-                for i in range(0, len(swap_block_list)-2):
+            for _ in range(len(swap_block_list)-3):
+                for i in range(0, len(swap_block_list)-3):
                     tmp_swap_block_list = copy.copy(swap_block_list)
                     tmp_swap_block_list.pop(i)
                     self.mem_cfg.add_swap_list(tmp_swap_block_list)
@@ -546,7 +546,7 @@ class FuzzManager:
             self.mem_cfg.add_swap_list(swap_block_list)
             
             self.mem_cfg.add_mem_region('data_train', [])
-            if len(swap_block_list) > 2:
+            if len(swap_block_list) > 3:
                 swap_region = swap_block_list[0]
                 for iter_swap_region in swap_block_list:
                     if iter_swap_region['swap_id'] > swap_region['swap_id']:
@@ -561,14 +561,14 @@ class FuzzManager:
                 reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
             reduce_baker.run()
         else:
-            if len(self.trans.swap_block_list) > 2:
+            if len(self.trans.swap_block_list) > 3:
                 reduce_baker = BuildManager(
                     {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"reduce_trigger.sh"
                 )
                 rm_asm = ShellCommand("rm", [])
                 for swap_mem in self.trans.swap_block_list:
                     idx = swap_mem['swap_id']
-                    if idx == 0 or idx == 1:
+                    if idx == 0 or idx == 1 or idx == 2:
                         continue
                     reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
                 reduce_baker.run()
@@ -596,6 +596,8 @@ class FuzzManager:
         random.seed(config['trigger_seed'])
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_adjust.gen_block(config, self.trans.trans_victim, None)
+        self.trans._generate_body_block(self.trans.trans_adjust)
 
         TRAIN_GEN_MAX_ITER = 4
 
@@ -621,7 +623,10 @@ class FuzzManager:
 
         self.trans.trans_victim.mutate_access(config)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_adjust.mutate_access(config, self.trans.trans_victim)
+        self.trans._generate_body_block(self.trans.trans_adjust)
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
+        self.trans.swap_block_list[-3] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         is_access, taint_folder, max_taint, coverage = self.access_analysis()
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
@@ -789,7 +794,10 @@ class FuzzManager:
 
         self.trans.trans_victim.mutate_encode(config)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_adjust.mutate_encode(config, self.trans.trans_victim)
+        self.trans._generate_body_block(self.trans.trans_adjust)
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
+        self.trans.swap_block_list[-3] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         leak_result, cosim_result, max_taint, taint_folder, coverage = self.leak_analysis(config['encode_fuzz_type'])
 
