@@ -180,8 +180,8 @@ class DelayBlock(TransBlock):
                     'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x800, 8))
                 instr.solve()
                 instr['RS1'] = 'T0'
-                if instr['CATEGORY'] == 'LOAD' and (instr['RD'] in dep_list or instr['RD'] == 'T0'):
-                    instr['RD'] = random.choice([reg for reg in self.GPR_list if reg not in dep_list and reg != 'T0'])
+                if instr['CATEGORY'] == 'LOAD' and (instr['RD'] in dep_list or instr['RD'] in ['T0', 'A0']):
+                    instr['RD'] = random.choice([reg for reg in self.GPR_list if reg not in dep_list and reg not in ['T0', 'A0']])
                 elif instr['CATEGORY'] == 'FLOAT_LOAD' and instr['FRD'] in dep_list:
                     instr['FRD'] = random.choice([freg for freg in self.FLOAT_list if freg not in dep_list])
                 insert_place = random.randint(1, len(block.inst_list) - 1)
