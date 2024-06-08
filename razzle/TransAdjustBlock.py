@@ -18,6 +18,7 @@ class SecretMigrateType(Enum):
     MEMORY = auto()
     CACHE = auto()
     LOAD_BUFFER = auto()
+    STORE_BUFFER = auto()
 
 class SecretMigrateBlock(TransBlock):
     def __init__(self, extension, output_path, protect_gpr_list, secret_migrate_type):
@@ -44,34 +45,48 @@ class SecretMigrateBlock(TransBlock):
         used_reg.sort()
         used_reg = list(map(str.lower, used_reg[0:2]))
         
-        if self.secret_migrate_type == SecretMigrateType.MEMORY:
-            inst_list.extend(['c.nop'] * 8)
-        else:
+        if self.secret_migrate_type == SecretMigrateType.STORE_BUFFER:
             inst_list.extend(
                 [
-                    f'la {used_reg[0]}, secret',
+                    f'la {used_reg[0]}, give_me_secret',
                     f'ld {used_reg[1]}, 0({used_reg[0]})',
-                    f'mv {used_reg[1]}, zero'
-                ]
-            )
-        
-        if self.secret_migrate_type == SecretMigrateType.LOAD_BUFFER:
-            inst_list.extend(
-                [
-                    f'la {used_reg[0]}, dummy_data_block_data_top',
-                    f'lui {used_reg[1]}, 0x1',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
-                    f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
-                    f'sd zero, 0({used_reg[0]})',
+                    f'csrrw {used_reg[0]}, 0x800, {used_reg[1]}',
+                    f'la {used_reg[1]}, secret',
+                    f'ld {used_reg[0]}, 0({used_reg[1]})',
+                    f'mv {used_reg[0]}, zero',
                 ]
             )
         else:
-            inst_list.extend(['c.nop'] * 20)
+            if self.secret_migrate_type != SecretMigrateType.MEMORY:
+                inst_list.extend(
+                    [
+                        f'la {used_reg[0]}, secret',
+                        f'ld {used_reg[1]}, 0({used_reg[0]})',
+                        f'mv {used_reg[1]}, zero'
+                    ]
+                )
+            
+            if self.secret_migrate_type == SecretMigrateType.LOAD_BUFFER:
+                inst_list.extend(
+                    [
+                        f'la {used_reg[0]}, dummy_data_block_data_top',
+                        f'lui {used_reg[1]}, 0x1',
+                        f'sd zero, 0({used_reg[0]})',
+                        f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                        f'sd zero, 0({used_reg[0]})',
+                        f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                        f'sd zero, 0({used_reg[0]})',
+                        f'add {used_reg[0]}, {used_reg[0]}, {used_reg[1]}',
+                        f'sd zero, 0({used_reg[0]})',
+                    ]
+                )
 
+        self._load_inst_str(inst_list)
+
+        need_len = self._get_inst_len()
+        now_len = TransBlock._get_inst_len(self)
+        inst_list = ['c.nop'] * ((need_len - now_len)//2)
+        inst_list.insert(0, f'{self.name}_fill_nop:')
         self._load_inst_str(inst_list)
 
     def gen_default(self):
@@ -81,12 +96,14 @@ class SecretMigrateBlock(TransBlock):
         return (20 + 8) * 2
         
 class TransAdjustManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
-        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    def __init__(self, config, extension, output_path, data_section, trans_frame):
+        super().__init__(config, extension, output_path)
         self.data_section = data_section
         self.trans_frame = trans_frame
     
     def gen_block(self, config, trans_victim, template_path):
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr(None)
 
@@ -108,6 +125,8 @@ class TransAdjustManager(TransBaseManager):
         self.gen_block(config, trans_victim, None)
 
     def mutate_encode(self, config, trans_victim):
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+
         self.encode_block = copy.deepcopy(trans_victim.encode_block)
         if self.encode_block.loop:
             self.encode_block.break_loop()
@@ -124,7 +143,7 @@ class TransAdjustManager(TransBaseManager):
         self.nop_block.gen_instr(None)
 
     def record_fuzz(self, file):
-        file.write(f'victim_train: {self.swap_idx}\n')
+        file.write(f'adjust: {self.swap_idx}\n')
         file.write(f'\tsecret_migrate_type: {self.secret_migrate_block.secret_migrate_type}\t')
 
     def _generate_sections(self):

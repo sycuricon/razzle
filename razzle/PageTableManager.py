@@ -69,9 +69,8 @@ class PageTableSection(Section):
 
 
 class PageTableManager(SectionManager):
-    def __init__(self, config, set_U):
+    def __init__(self, config):
         super().__init__(config)
-        self.set_U = set_U
         self.xLen = config["xLen"]
         self.pg_level = config["pg_level"]
         self.page_tables = []
@@ -128,8 +127,6 @@ class PageTableManager(SectionManager):
             vaddr = info["vaddr"]
             paddr = info["paddr"]
             flag = info["flag"]
-            if not self.set_U:
-                flag &= ~Flag.U
             length = info["length"]
             if vaddr == paddr:
                 continue

@@ -52,23 +52,6 @@ class STrapBlock(TransBlock):
 
     def gen_default(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.text.S"))
-        self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.data.S"))
-
-class SecretProtectBlock(TransBlock):
-    def __init__(self, extension, output_path, victim_privilege, virtual):
-        super().__init__('secret_protect_block', extension, output_path)
-        self.victim_privilege = victim_privilege
-        self.virtual = virtual
-
-    def gen_default(self):
-        self._add_inst_block(BaseBlock(self.entry, self.extension, False))
-        if (
-            self.victim_privilege == "M" or self.victim_privilege == "S"
-        ) and self.virtual:
-            self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.S.text.S"))
-        if self.victim_privilege == "M":
-            self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.M.text.S"))
-        self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_protect_block.ret.text.S"))
 
 class DummyDataBlock(TransBlock):
     def __init__(self, extension, output_path):
@@ -109,8 +92,8 @@ class RandomDataBlock(TransBlock):
         random_data_line(0x1800)
 
 class TransFrameManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path):
-        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    def __init__(self, config, extension, output_path):
+        super().__init__(config, extension, output_path)
         self.dist = False
 
         self.section[".data_frame"] = TransDataSection(
@@ -121,6 +104,9 @@ class TransFrameManager(TransBaseManager):
         )
         self.section[".data_adjust"] = TransDataSection(
             ".data_adjust", Flag.U | Flag.W | Flag.R
+        )
+        self.section[".data_protect"] = TransDataSection(
+            ".data_protect", Flag.U | Flag.W | Flag.R
         )
         self.section[".data_victim"] = TransDataSection(
             ".data_victim", Flag.U | Flag.W | Flag.R
@@ -134,7 +120,6 @@ class TransFrameManager(TransBaseManager):
         self.channel_block = ChannelBlock(self.extension, self.output_path)
         self.init_block = InitBlock(self.extension, self.output_path)
         self.mtrap_block = MTrapBlock(self.extension, self.output_path)
-        self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, self.victim_privilege, self.virtual)
         self.strap_block = STrapBlock(self.extension, self.output_path)
         self.random_data_block = RandomDataBlock(self.extension, self.output_path)
         self.access_fault_block = AccessFaultDataBlock(self.extension, self.output_path)
@@ -146,7 +131,6 @@ class TransFrameManager(TransBaseManager):
         self.channel_block.gen_instr(None)
         self.init_block.gen_instr(None)
         self.mtrap_block.gen_instr(None)
-        self.secret_protect_block.gen_instr(None)
         self.strap_block.gen_instr(None)
         self.random_data_block.gen_instr(None)
         self.access_fault_block.gen_instr(None)
@@ -158,13 +142,15 @@ class TransFrameManager(TransBaseManager):
         data_frame_section = self.section['.data_frame']
         data_train_section = self.section['.data_train']
         data_adjust_section = self.section['.data_adjust']
+        data_protect_section = self.section['.data_protect']
         data_victim_section = self.section['.data_victim']
         data_decode_section = self.section['.data_decode']
-        return  data_frame_section, data_train_section, data_adjust_section, data_victim_section, data_decode_section
+        return  data_frame_section, data_train_section, data_adjust_section, data_protect_section, data_victim_section, data_decode_section
 
     def move_data_section(self):
         self.section.pop('.data_train')
         self.section.pop('.data_adjust')
+        self.section.pop('.data_protect')
         self.section.pop('.data_victim')
         self.section.pop('.data_decode')
 
@@ -206,7 +192,7 @@ class TransFrameManager(TransBaseManager):
 
         self._set_section(empty_section, secret_section, [self.secret_block])
         self._set_section(empty_section, channel_section, [self.channel_block])
-        self._set_section(mtrap_section, mtrap_section, [self.mtrap_block, self.secret_protect_block])
+        self._set_section(mtrap_section, mtrap_section, [self.mtrap_block])
         self._set_section(strap_section, strap_section, [self.strap_block])
         self._set_section(empty_section, random_data_section, [self.random_data_block])
         self._set_section(text_frame_section, empty_section, [self.init_block])
@@ -218,7 +204,6 @@ class TransFrameManager(TransBaseManager):
         mtrap_section.add_global_label(
             [
                 self.mtrap_block.entry,
-                self.secret_protect_block.entry,
                 "mtrap_stack_bottom",
             ]
         )
@@ -317,6 +302,14 @@ class TransFrameManager(TransBaseManager):
 
         offset += length
         length = Page.size
+        self.section[".data_protect"].get_bound(
+            self.virtual_memory_bound[0][0] + offset,
+            self.memory_bound[0][0] + offset,
+            length,
+        )
+
+        offset += length
+        length = Page.size
         self.section[".data_train"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
@@ -367,12 +360,13 @@ class ExitBlock(TransBlock):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
 class TransExitManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
-        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    def __init__(self, config, extension, output_path, data_section, trans_frame):
+        super().__init__(config, extension, output_path)
         self.data_section = data_section
         self.trans_frame = trans_frame
     
     def gen_block(self):
+        self.mode = 'Mp'
         self.exit_block = ExitBlock(self.extension, self.output_path)
         self.exit_block.gen_instr(None)
     

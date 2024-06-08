@@ -17,13 +17,14 @@
 
 #define CMD_POWER_OFF       0xAF1B608E883B0000ul
 #define CMD_SWAP_MEM        0xAF1B608E883C0000ul
+#define CMD_GIVE_ME_SECRET  0xAF1B608E883D0000ul
 
 // deprecated
 #define GUESS_START         100
 #define GUESS_END           105
 
 #ifndef PARAFUZZ_PREDEFINE
-    #define GUESS_TARGET    101
+    #define GUESS_TARGET    0xff
     #define LEAK_TARGET     1
     // secret is "deadbeef is a magic number that used by prarafuzz to disclose transient execution vulnerability in the processor. :P"
     #define LEAK_SECRET     {100, 101, 97, 100, 98, 101, 101, 102, 32, 105, 115, 32, 97, 32, 109, 97, 103, 105, 99, 32, 110, 117, 109, 98, 101, 114, 32, 116, 104, 97, 116, 32, 117, 115, 101, 100, 32, 98, 121, 32, 112, 114, 97, 114, 97, 102, 117, 122, 122, 32, 116, 111, 32, 100, 105, 115, 99, 108, 111, 115, 101, 32, 116, 114, 97, 110, 115, 105, 101, 110, 116, 32, 101, 120, 101, 99, 117, 116, 105, 111, 110, 32, 118, 117, 108, 110, 101, 114, 97, 98, 105, 108, 105, 116, 121, 32, 105, 110, 32, 116, 104, 101, 32, 112, 114, 111, 99, 101, 115, 115, 111, 114, 46, 32, 58, 80, 0}

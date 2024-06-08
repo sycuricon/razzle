@@ -6,23 +6,23 @@ if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def genonly_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz = FuzzManager(args.input, args.output)
     fuzz.generate()
 
 def load_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz = FuzzManager(args.input, args.output)
     fuzz.load_example(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.iter_num)
 
 def fuzz_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz = FuzzManager(args.input, args.output)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
 
 def trigger_test_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz = FuzzManager(args.input, args.output)
     fuzz.trigger_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
 
 def front_end_test_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.virtual)
+    fuzz = FuzzManager(args.input, args.output)
     fuzz.front_end_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
 
 if __name__ == "__main__":
@@ -32,13 +32,6 @@ if __name__ == "__main__":
     parser.add_argument("-I", "--input", dest="input", required=True, help="input hjson")
     parser.add_argument(
         "-O", "--output", dest="output", required=True, help="output of the fuzz code"
-    )
-    parser.add_argument(
-        "-V",
-        "--virtual",
-        dest="virtual",
-        action="store_true",
-        help="link in virtual address",
     )
 
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])

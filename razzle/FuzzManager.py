@@ -182,6 +182,7 @@ class TriggerSeed(Seed):
         DELAY_FLOAT_RATE = auto()
         DELAY_MEM = auto()
         TRIGGER = auto()
+        PRIV_MODE = auto()
     
     field_len = {
         TriggerFieldEnum.TRIGGER_SEED: 22,
@@ -189,6 +190,7 @@ class TriggerSeed(Seed):
         TriggerFieldEnum.DELAY_FLOAT_RATE: 2,
         TriggerFieldEnum.DELAY_MEM: 1,
         TriggerFieldEnum.TRIGGER: 5,
+        TriggerFieldEnum.PRIV_MODE: 4
     }
 
     field_type = []
@@ -220,6 +222,12 @@ class TriggerSeed(Seed):
     def parse(self, config):
         config = copy.deepcopy(config)
 
+        priv_mode = self.get_field(self.TriggerFieldEnum.PRIV_MODE)
+        config['attack_priv'], config['attack_addr'] = \
+            ['Mp', 'Sv', 'Up', 'Uv'][priv_mode >> 2]
+        config['victim_priv'], config['victim_addr'] = \
+            ['Mp', 'Sv', 'Up', 'Uv'][priv_mode & 0b11]
+
         config['trigger_seed'] = self.get_field(self.TriggerFieldEnum.TRIGGER_SEED)
 
         config['delay_len'] = self.get_field(self.TriggerFieldEnum.DELAY_LEN) + 4
@@ -227,56 +235,97 @@ class TriggerSeed(Seed):
         config['delay_mem'] = True if self.get_field(self.TriggerFieldEnum.DELAY_MEM) == 1 else False
 
         trigger_field_value = self.get_field(self.TriggerFieldEnum.TRIGGER)
-        match(trigger_field_value):
-            case 0:
-                config['trigger_type'] = TriggerType.ECALL
-            case 1:
-                config['trigger_type'] = TriggerType.ILLEGAL
-            case 2:
-                config['trigger_type'] = TriggerType.EBREAK
-            case 3:
-                config['trigger_type'] = TriggerType.INT
-            case 4:
-                config['trigger_type'] = TriggerType.FLOAT
-            case 5:
-                config['trigger_type'] = TriggerType.LOAD
-            case 6:
-                config['trigger_type'] = TriggerType.STORE
-            case 7:
-                config['trigger_type'] = TriggerType.AMO
-            case 8:
-                config['trigger_type'] = TriggerType.JMP
-            case 9:
-                config['trigger_type'] = TriggerType.AMO_MISALIGN
-            case 10:
-                config['trigger_type'] = TriggerType.STORE_MISALIGN
-            case 11:
-                config['trigger_type'] = TriggerType.LOAD_MISALIGN
-            case 12|13:
-                config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
-            case 14|15:
-                config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
-            case 16|17:
-                config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-            case 18|19:
-                config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
-            case 20|21:
-                config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-            case 22|23:
-                config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
-            case 24|25:
-                config['trigger_type'] = TriggerType.RETURN
-            case 26|27:
-                config['trigger_type'] = TriggerType.BRANCH
-            case 28|29:
-                config['trigger_type'] = TriggerType.JALR
-            case 30|31:
-                config['trigger_type'] = TriggerType.V4
-            case _:
-                raise Exception(f"the invalid trigger number {trigger_field_value}")
-
+        if config['victim_addr'] == 'v':
+            match trigger_field_value:
+                case 0:
+                    config['trigger_type'] = TriggerType.ECALL
+                case 1:
+                    config['trigger_type'] = TriggerType.ILLEGAL
+                case 2:
+                    config['trigger_type'] = TriggerType.EBREAK
+                case 3:
+                    config['trigger_type'] = TriggerType.INT
+                case 4:
+                    config['trigger_type'] = TriggerType.FLOAT
+                case 5:
+                    config['trigger_type'] = TriggerType.LOAD
+                case 6:
+                    config['trigger_type'] = TriggerType.STORE
+                case 7:
+                    config['trigger_type'] = TriggerType.AMO
+                case 8:
+                    config['trigger_type'] = TriggerType.JMP
+                case 9:
+                    config['trigger_type'] = TriggerType.AMO_MISALIGN
+                case 10:
+                    config['trigger_type'] = TriggerType.STORE_MISALIGN
+                case 11:
+                    config['trigger_type'] = TriggerType.LOAD_MISALIGN
+                case 12|13:
+                    config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+                case 14|15:
+                    config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
+                case 16|17:
+                    config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
+                case 18|19:
+                    config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
+                case 20|21:
+                    config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
+                case 22|23:
+                    config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
+                case 24|25:
+                    config['trigger_type'] = TriggerType.RETURN
+                case 26|27:
+                    config['trigger_type'] = TriggerType.BRANCH
+                case 28|29:
+                    config['trigger_type'] = TriggerType.JALR
+                case 30|31:
+                    config['trigger_type'] = TriggerType.V4
+                case _:
+                    raise Exception(f"the invalid trigger number {trigger_field_value}")
+        else:
+            match trigger_field_value:
+                case 0|1:
+                    config['trigger_type'] = TriggerType.ECALL
+                case 2|3:
+                    config['trigger_type'] = TriggerType.ILLEGAL
+                case 4|5:
+                    config['trigger_type'] = TriggerType.EBREAK
+                case 6:
+                    config['trigger_type'] = TriggerType.INT
+                case 7:
+                    config['trigger_type'] = TriggerType.FLOAT
+                case 8:
+                    config['trigger_type'] = TriggerType.LOAD
+                case 9:
+                    config['trigger_type'] = TriggerType.STORE
+                case 10:
+                    config['trigger_type'] = TriggerType.AMO
+                case 11:
+                    config['trigger_type'] = TriggerType.JMP
+                case 12|13:
+                    config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+                case 14|15:
+                    config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
+                case 16|17:
+                    config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
+                case 18|19:
+                    config['trigger_type'] = TriggerType.AMO_MISALIGN
+                case 20|21:
+                    config['trigger_type'] = TriggerType.STORE_MISALIGN
+                case 22|23:
+                    config['trigger_type'] = TriggerType.LOAD_MISALIGN
+                case 24|25:
+                    config['trigger_type'] = TriggerType.RETURN
+                case 26|27:
+                    config['trigger_type'] = TriggerType.BRANCH
+                case 28|29:
+                    config['trigger_type'] = TriggerType.JALR
+                case 30|31:
+                    config['trigger_type'] = TriggerType.V4
+                case _:
+                    raise Exception(f"the invalid trigger number {trigger_field_value}")
         return config
-
 
 class AccessSeed(Seed):
     class AccessFieldEnum(Enum):
@@ -324,8 +373,10 @@ class AccessSeed(Seed):
 
         secret_migrate_field = self.get_field(self.AccessFieldEnum.SECRET_MIGRATE)
         match(secret_migrate_field):
-            case 0|1:
+            case 0:
                 config['secret_migrate_type'] = SecretMigrateType.MEMORY
+            case 1:
+                config['secret_migrate_type'] = SecretMigrateType.STORE_BUFFER
             case 2:
                 config['secret_migrate_type'] = SecretMigrateType.CACHE
             case 3:
@@ -410,13 +461,12 @@ class LeakSeed(Seed):
         return config
 
 class FuzzManager:
-    def __init__(self, hjson_filename, output_path, virtual):
+    def __init__(self, hjson_filename, output_path):
         self.output_path = output_path
-        self.virtual = virtual
         self.mem_cfg = MemCfg(0x80000000, 0x40000, self.output_path)
         hjson_file = open(hjson_filename)
         config = hjson.load(hjson_file)
-        self.trans = TransManager(config, self.output_path, virtual, self.mem_cfg)
+        self.trans = TransManager(config, self.output_path, self.mem_cfg)
         self.LEAK_REMAIN_THRESHOLD = config['leak_remain_threshold']
         self.LEAK_EXPLODE_THRESHOLD = config['leak_explode_threshold']
         self.LEAK_COSIM_THRESHOLD = config['leak_cosim_threshold']
@@ -441,15 +491,25 @@ class FuzzManager:
         random.seed(config['trigger_seed'])
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
-        self.trans.gen_train_swap_list(True, True)
+        self.trans.trans_protect.gen_block(config, None)
+        self.trans._generate_body_block(self.trans.trans_protect)
+        self.trans.trans_adjust.gen_block(config, self.trans.trans_victim, None)
+        self.trans._generate_body_block(self.trans.trans_adjust)
+        self.trans.gen_train_swap_list(config, True, True)
 
         seed = AccessSeed(self.coverage)
         config = seed.mutate(config, True)
         self.trans.trans_victim.mutate_access(config)
+        self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_adjust.mutate_access(config, self.trans.trans_victim)
+        self.trans._generate_body_block(self.trans.trans_adjust)
 
         seed = LeakSeed(self.coverage)
         config = seed.mutate(config, True)
         self.trans.trans_victim.mutate_encode(config)
+        self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_adjust.mutate_encode(config, self.trans.trans_victim)
+        self.trans._generate_body_block(self.trans.trans_adjust)
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf('duo')
@@ -530,8 +590,8 @@ class FuzzManager:
     def _trigger_reduce(self, is_trigger):
         if is_trigger:
             swap_block_list = self.trans.swap_block_list
-            for _ in range(len(swap_block_list)-3):
-                for i in range(0, len(swap_block_list)-3):
+            for _ in range(len(swap_block_list)-4):
+                for i in range(0, len(swap_block_list)-4):
                     tmp_swap_block_list = copy.copy(swap_block_list)
                     tmp_swap_block_list.pop(i)
                     self.mem_cfg.add_swap_list(tmp_swap_block_list)
@@ -546,7 +606,7 @@ class FuzzManager:
             self.mem_cfg.add_swap_list(swap_block_list)
             
             self.mem_cfg.add_mem_region('data_train', [])
-            if len(swap_block_list) > 3:
+            if len(swap_block_list) > 4:
                 swap_region = swap_block_list[0]
                 for iter_swap_region in swap_block_list:
                     if iter_swap_region['swap_id'] > swap_region['swap_id']:
@@ -561,14 +621,14 @@ class FuzzManager:
                 reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
             reduce_baker.run()
         else:
-            if len(self.trans.swap_block_list) > 3:
+            if len(self.trans.swap_block_list) > 4:
                 reduce_baker = BuildManager(
                     {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"reduce_trigger.sh"
                 )
                 rm_asm = ShellCommand("rm", [])
                 for swap_mem in self.trans.swap_block_list:
                     idx = swap_mem['swap_id']
-                    if idx == 0 or idx == 1 or idx == 2:
+                    if 0 <= idx < 4:
                         continue
                     reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
                 reduce_baker.run()
@@ -596,6 +656,8 @@ class FuzzManager:
         random.seed(config['trigger_seed'])
         self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
         self.trans._generate_body_block(self.trans.trans_victim)
+        self.trans.trans_protect.gen_block(config, None)
+        self.trans._generate_body_block(self.trans.trans_protect)
         self.trans.trans_adjust.gen_block(config, self.trans.trans_victim, None)
         self.trans._generate_body_block(self.trans.trans_adjust)
 
@@ -604,7 +666,7 @@ class FuzzManager:
         max_train_gen = TRAIN_GEN_MAX_ITER
         trigger_result = FuzzResult.FAIL
         for _ in range(max_train_gen):
-            self.trans.gen_train_swap_list(self.train_align, self.train_single)
+            self.trans.gen_train_swap_list(config, self.train_align, self.train_single)
             self.mem_cfg.add_swap_list(self.trans.swap_block_list)
             is_trigger, taint_folder = self.trigger_analysis()
             self._trigger_reduce(is_trigger)
@@ -626,7 +688,7 @@ class FuzzManager:
         self.trans.trans_adjust.mutate_access(config, self.trans.trans_victim)
         self.trans._generate_body_block(self.trans.trans_adjust)
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
-        self.trans.swap_block_list[-3] = self.trans.trans_adjust.mem_region
+        self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         is_access, taint_folder, max_taint, coverage = self.access_analysis()
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
@@ -650,7 +712,6 @@ class FuzzManager:
     def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_name, taint_folder):
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
-            file.write(f'virtual:\t{self.virtual}\n')
             file.write(f'result:\t{result}\n')
             if cosim_result is not None:
                 file.write(f'cosim:\t{cosim_result}\n')
@@ -797,7 +858,7 @@ class FuzzManager:
         self.trans.trans_adjust.mutate_encode(config, self.trans.trans_victim)
         self.trans._generate_body_block(self.trans.trans_adjust)
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
-        self.trans.swap_block_list[-3] = self.trans.trans_adjust.mem_region
+        self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         leak_result, cosim_result, max_taint, taint_folder, coverage = self.leak_analysis(config['encode_fuzz_type'])
 

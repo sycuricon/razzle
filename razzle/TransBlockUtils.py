@@ -745,11 +745,9 @@ class TransBlock:
         self.data_list = []
 
 class TransBaseManager(SectionManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path):
+    def __init__(self, config, extension, output_path):
         super().__init__(config)
         self.extension = extension
-        self.victim_privilege = victim_privilege
-        self.virtual = virtual
         self.output_path = output_path
     
     def gen_block(self):
@@ -791,8 +789,6 @@ class TransBaseManager(SectionManager):
     def _write_headers(self, f):
         f.write(f'#include "parafuzz.h"\n')
         f.write(f'#include "fuzzing.h"\n')
-        if self.virtual:
-            f.write('#define __VIRTUAL__\n')
         f.write('\n')
 
 

@@ -6,6 +6,7 @@ from SectionUtils import *
 from TransBlockUtils import *
 from TransVictimBlock import *
 from TransAdjustBlock import *
+from TransProtectBlock import *
 from TransDecodeBlock import *
 from TransTrainBlock import *
 from TransFrameBlock import *
@@ -22,7 +23,7 @@ class MemCfg:
         self.mem_start = mem_start
         self.mem_len = mem_len
         self.mem_regions = {}
-        self.mem_region_kind = ['frame', 'data_train', 'data_adjust',\
+        self.mem_region_kind = ['frame', 'data_train', 'data_adjust', 'data_protect',\
             'data_decode', 'data_victim', 'swap']
         for kind in self.mem_region_kind:
             self.mem_regions[kind] = []
@@ -70,7 +71,6 @@ class MemCfg:
                                 region['type'] = 'dut'
                             elif region['type'] == 'vnt':
                                 region['type'] = 'dut'
-                    region['mode'] = 'Mv'
                     mem_region.append(region)
             tmp_mem_cfg['memory_regions'] = tuple(mem_region)
             tmp_mem_cfg['swap_list'] = self.swap_list
@@ -81,27 +81,16 @@ class MemCfg:
             self.mem_cfg = libconf.load(file)
 
 class TransManager:
-    def __init__(self, config, output_path, virtual, mem_cfg):
+    def __init__(self, config, output_path, mem_cfg):
         self.config = config
 
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
         )
-        
-        self.attack_privilege = self.config["attack"]
-        self.victim_privilege = self.config["victim"]
-        privilege_stage = {"M": 3, "S": 1, "U": 0}
-
-        # TODO: is this really necessary ?
-        assert (
-            privilege_stage[self.attack_privilege]
-            <= privilege_stage[self.victim_privilege]
-        ), "the privilege of vicitm smaller than attack's is meanless"
 
         self.output_path = output_path
         self.sup_repo = output_path
         self.sub_repo = None
-        self.virtual = virtual if self.attack_privilege != "M" else False
 
         self.extension = [
             "RV_I",
@@ -122,15 +111,13 @@ class TransManager:
 
         self.init = InitManager(
             self.config['init'],
-            self.virtual,
-            self.victim_privilege, 
             self.output_path
         )
 
         self.page_table = PageTableManager(
-            self.config["page_table"], self.attack_privilege == "U"
+            self.config["page_table"]
         )
-        self.linker = LinkerManager(self.virtual)
+        self.linker = LinkerManager()
 
         self.file_list = []
         self.link_file = None
@@ -141,25 +128,28 @@ class TransManager:
         self.swap_id = 0
         self.swap_map = {}
 
-        self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.victim_privilege, self.virtual, self.output_path)
+        self.trans_frame = TransFrameManager(self.config['trans_frame'], self.extension, self.output_path)
         self.get_data_section()
 
-        self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_frame_section, self.trans_frame)
+        self.trans_exit = TransExitManager(self.config['trans_body'], self.extension, self.output_path, self.data_frame_section, self.trans_frame)
         self._distr_swap_id(self.trans_exit)
 
-        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_victim_section, self.trans_frame)
+        self.trans_victim = TransVictimManager(self.config['trans_body'], self.extension, self.output_path, self.data_victim_section, self.trans_frame)
         self._distr_swap_id(self.trans_victim)
 
-        self.trans_adjust = TransAdjustManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_adjust_section, self.trans_frame)
+        self.trans_protect = TransProtectManager(self.config['trans_body'], self.extension, self.output_path, self.data_protect_section, self.trans_frame)
+        self._distr_swap_id(self.trans_protect)
+
+        self.trans_adjust = TransAdjustManager(self.config['trans_body'], self.extension, self.output_path, self.data_adjust_section, self.trans_frame)
         self._distr_swap_id(self.trans_adjust)
 
-        self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_decode_section, self.trans_frame)
+        self.trans_decode = TransDecodeManager(self.config['trans_body'], self.extension, self.output_path, self.data_decode_section, self.trans_frame)
         self._distr_swap_id(self.trans_decode)
             
         self.trans_train_pool = []
         self.trans_train_id = 0
         for _ in range(10):
-            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.victim_privilege, self.virtual, self.output_path, self.data_train_section, self.trans_frame)
+            trans_train = TransTrainManager(self.config['trans_body'], self.extension, self.output_path, self.data_train_section, self.trans_frame)
             self.trans_train_pool.append(trans_train)
             self._distr_swap_id(trans_train)
     
@@ -169,10 +159,11 @@ class TransManager:
         self.swap_id += 1
 
     def get_data_section(self):
-        data_frame_section, data_train_section, data_adjust_section, data_victim_section, data_decode_section = self.trans_frame.get_data_section()
+        data_frame_section, data_train_section, data_adjust_section, data_protect_section, data_victim_section, data_decode_section = self.trans_frame.get_data_section()
         self.data_frame_section = data_frame_section
         self.data_train_section = data_train_section
         self.data_adjust_section = data_adjust_section
+        self.data_protect_section = data_protect_section
         self.data_victim_section = data_victim_section
         self.data_decode_section = data_decode_section
 
@@ -204,12 +195,11 @@ class TransManager:
         self.section_list.extend(self.trans_frame.get_section_list())
         self.section_list.extend(self.trans_exit.get_section_list())
 
-        if self.virtual:
-            self.page_table.register_sections(self.section_list)
-            self._collect_compile_file(
-                self.page_table.file_generate(self.output_path, page_table_name)
-            )
-            self.section_list.extend(self.page_table.get_section_list())
+        self.page_table.register_sections(self.section_list)
+        self._collect_compile_file(
+            self.page_table.file_generate(self.output_path, page_table_name)
+        )
+        self.section_list.extend(self.page_table.get_section_list())
 
         self.linker.append_section_list(self.section_list)
         self.link_file = self.linker.file_generate(self.output_path, ld_name)
@@ -280,6 +270,8 @@ class TransManager:
                 data_name = 'data_train'
             elif trans_body_type == TransAdjustManager:
                 data_name = 'data_adjust'
+            elif trans_body_type == TransProtectManager:
+                data_name = 'data_protect'
             else:
                 raise Exception('the type of trans_body is invalid')
             baker.add_cmd(
@@ -308,11 +300,8 @@ class TransManager:
         file_origin = os.path.join(self.output_path, f'Testbench_{swap_idx}.bin')
         with open(file_origin, "rb") as file:
             origin_byte_array = bytearray(file.read())
-        
-        if self.virtual:
-            address_base = 0
-        else:
-            address_base = 0x80000000
+
+        address_base = 0
         
         address_offset = 0x80000000
         
@@ -336,9 +325,9 @@ class TransManager:
         variant_text_base = 'variant_common.bin'
         variant_text = os.path.join(self.output_path, variant_text_base)
         dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':origin_text, 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':origin_text, 'swap_id':self.trans_exit.swap_idx, 'mode':'Uv'}
         vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':variant_text, 'swap_id':self.trans_exit.swap_idx}
+                    'max_len':up_align(common_end, Page.size), 'init_file':variant_text, 'swap_id':self.trans_exit.swap_idx, 'mode':'Uv'}
         self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
 
         file_text_swap_base = f'text_swap_{swap_idx}.bin'
@@ -350,7 +339,7 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx, 'mode':self.trans_exit.mode}
         self.trans_exit.register_memory_region(mem_region)
 
         self.trans_frame.move_data_section()
@@ -369,11 +358,7 @@ class TransManager:
         with open(file_origin, "rb") as file:
             origin_byte_array = bytearray(file.read())
         
-        if self.virtual:
-            address_base = 0
-        else:
-            address_base = 0x80000000
-        
+        address_base = 0
         address_offset = 0x80000000
         
         file_text_swap_base = f'text_swap_{swap_idx}.bin'
@@ -385,7 +370,7 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx}
+                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx, 'mode':trans_block.mode}
         trans_block.register_memory_region(mem_region)
 
         data_begin_label = f'_{data_name}_start'
@@ -400,7 +385,7 @@ class TransManager:
             file.write(data_byte_array)
         
         duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx}
+            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx, 'mode':trans_block.mode}
         self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
     
     def _compute_coverage(self, base_list, variant_list):
@@ -434,14 +419,14 @@ class TransManager:
         else:
             return False
     
-    def gen_train_swap_list(self, align, single):
+    def gen_train_swap_list(self, config, align, single):
         self.trans_train_id = 0
         self.data_train_section.clear()
         self.mem_cfg.add_mem_region('data_train', [])
 
         windows_param = 0.8 if self.trans_victim.need_train() else 0.4
 
-        swap_block_list = [self.trans_adjust.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
+        swap_block_list = [self.trans_adjust.mem_region, self.trans_protect.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
         for _ in range(0, 10):
             if random.random() < 1 - windows_param:
                 break
@@ -466,7 +451,7 @@ class TransManager:
 
             trans_body = self.trans_train_pool[self.trans_train_id]
             self.trans_train_id += 1
-            trans_body.gen_block(train_type, align, single, self.trans_victim, None)
+            trans_body.gen_block(config, train_type, align, single, self.trans_victim, None)
             self._generate_body_block(trans_body)
 
             swap_block_list.insert(0, trans_body.mem_region)
@@ -512,7 +497,7 @@ class TransManager:
     def generate(self):
         self.trans_victim.gen_block(EncodeType.FUZZ_DEFAULT, None)
         self._generate_body_block(self.trans_victim)
-        self.swap_block_list = [self.trans_victim.mem_region, self.trans_exit.mem_region]
+        self.swap_block_list = [self.trans_protect.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
 
     def load_template(self, iter_num, repo_path, template_folder, strategy, config):
         template_path =os.path.join(repo_path, template_folder, iter_num)
