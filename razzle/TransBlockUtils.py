@@ -1,6 +1,7 @@
 import os
 import random
 import sys
+import copy
 from enum import *
 from BuildManager import *
 from SectionUtils import *
@@ -478,6 +479,11 @@ class AMOBlock(MemBlock):
         la_rd = inst_list[0]['RD']
         def instr_c_reg(rs1):
             return rs1 == la_rd
+        normal_reg = copy.copy(normal_reg)
+        taint_reg = copy.copy(taint_reg)
+        normal_reg.difference({la_rd})
+        taint_reg.difference({la_rd})
+        
         for _ in range(4):
             instr = rand_instr(instr_extension=extension, instr_category=[
                 'AMO_LOAD', 'AMO_STORE', 'AMO'], imm_range=range(-0x800, 0x7f8, 8))
@@ -515,6 +521,11 @@ class LSUBlock(MemBlock):
         la_rd = inst_list[0]['RD']
         def instr_c_reg(rs1):
             return rs1 == la_rd
+        normal_reg = copy.copy(normal_reg)
+        taint_reg = copy.copy(taint_reg)
+        normal_reg.difference({la_rd})
+        taint_reg.difference({la_rd})
+        
         for _ in range(4):
             instr = rand_instr(instr_extension=extension, instr_category=[
                 'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7f8, 8))
