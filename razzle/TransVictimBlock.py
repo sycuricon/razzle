@@ -345,7 +345,15 @@ class EncodeBlock(TransBlock):
 
         self.inst_block_list.append(self.encode_block_list[0])
         for i in self.encode_list:
-            self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
+            if self.encode_block_list[i].block_type in [BaseBlockType.CSR, BaseBlockType.SYSTEM]:
+                block_list = self.encode_block_list[i].get_block_list()
+                inst_len = 0
+                for block in block_list:
+                    inst_len += block.get_inst_len()
+                block = NullBlock(self.encode_block_list[i].name, self.extension, False, inst_len)
+                self.inst_block_list.append(block)
+            else:
+                self.inst_block_list.extend(self.encode_block_list[i].get_block_list())
 
         self._gen_block_end()
 

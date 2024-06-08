@@ -262,6 +262,12 @@ class RandomBlock(BaseBlock):
             if len(self.inst_list) >= 6:
                 break
 
+class NullBlock(BaseBlock):
+    def __init__(self, name, extension, mutate, len):
+        super().__init__(name, extension, mutate, len)
+        self.block_type = BaseBlockType.NULL
+        self.inst_list = [Instruction('c.nop')] * (len//2)
+
 class IntBlock(BaseBlock):
     def __init__(self, name, extension, mutate, len):
         super().__init__(name, extension, mutate, len)
