@@ -579,7 +579,7 @@ class TransVictimManager(TransBaseManager):
         self.temp_load_init_block = self.load_init_block
 
         inst_len = self.load_init_block._get_inst_len() + 64
-        nop_inst_len = (inst_len + 16*4 + 64 - 1) // 64 * 64 - inst_len
+        nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr(None)
@@ -610,7 +610,7 @@ class TransVictimManager(TransBaseManager):
             self.return_front = return_front
     
     def store_template(self, folder):
-        self._dump_trans_block(folder, [self.load_init_block, self.secret_migrate_block, self.delay_block,\
+        self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
             self.trigger_block, self.access_secret_block, self.encode_block], self.return_front)
         
         trigger_type_file = os.path.join(folder, 'trigger_block.type')
@@ -630,6 +630,11 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.gen_instr(None)
 
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
+
+        inst_len = self.load_init_block._get_inst_len() + 64
+        nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
+        self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
+        self.nop_block.gen_instr(None)
 
     def mutate_encode(self, config):
         random.seed(config['leak_seed'])

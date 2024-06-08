@@ -105,8 +105,7 @@ class TransAdjustManager(TransBaseManager):
         self.nop_block.gen_instr(None)
         
     def mutate_access(self, config, trans_victim):
-        self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
-        self.secret_migrate_block.gen_instr(None)
+        self.gen_block(config, trans_victim, None)
 
     def mutate_encode(self, config, trans_victim):
         self.encode_block = copy.deepcopy(trans_victim.encode_block)
