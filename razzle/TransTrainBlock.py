@@ -248,12 +248,14 @@ class NopRetBlock(TransBlock):
         self._load_inst_str(inst_list)
 
 class TransTrainManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
-        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    def __init__(self, config, extension, output_path, data_section, trans_frame):
+        super().__init__(config, extension, output_path)
         self.data_section = data_section
         self.trans_frame = trans_frame
 
-    def gen_block(self, train_type, align, single, trans_victim, template_path):
+    def gen_block(self, config, train_type, align, single, trans_victim, template_path):
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+
         self.single = single
         self.align = align
         self.trans_victim = trans_victim

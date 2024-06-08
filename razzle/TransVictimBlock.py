@@ -128,9 +128,8 @@ class TriggerBlock(TransBlock):
             self.trigger_inst = self.inst_block_list[0].inst_list[-1]
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, output_path, virtual, li, mask):
+    def __init__(self, extension, output_path, li, mask):
         super().__init__('access_secret_block', extension, output_path)
-        self.virtual = virtual
         self.li_offset = li
         self.mask = mask
     
@@ -147,7 +146,7 @@ class AccessSecretBlock(TransBlock):
         self.gen_code()
     
     def gen_code(self):
-        trapoline_address = 0x5000 if self.virtual else 0x80005000
+        trapoline_address = 0x5000
 
         if self.li_offset:
             
@@ -180,7 +179,7 @@ class AccessSecretBlock(TransBlock):
     def gen_default(self):
         self.mask = (1 << self.mask) - 1
         self.rand_mask = (1 << 64) - 1 - self.mask
-        self.address = 0x4001 if self.virtual else 0x80004001
+        self.address = 0x4001
         self.address = (self.address & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
         self.gen_code()
 
@@ -526,12 +525,14 @@ class LoadInitTriggerBlock(LoadInitBlock):
         self.update_init_seq()
         
 class TransVictimManager(TransBaseManager):
-    def __init__(self, config, extension, victim_privilege, virtual, output_path, data_section, trans_frame):
-        super().__init__(config, extension, victim_privilege, virtual, output_path)
+    def __init__(self, config, extension, output_path, data_section, trans_frame):
+        super().__init__(config, extension, output_path)
         self.data_section = data_section
         self.trans_frame = trans_frame
     
     def gen_block(self, config, strategy, template_path):
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
+
         assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
             EncodeType.FUZZ_PIPELINE, EncodeType.FUZZ_DEFAULT]
         self.strategy = strategy
@@ -560,7 +561,7 @@ class TransVictimManager(TransBaseManager):
 
         tmp_random_state = random.getstate()
         random.seed(config['access_seed'])
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(access_secret_template)
         random.setstate(tmp_random_state)
 
@@ -621,8 +622,9 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.leak_reduce(encode_list)
 
     def mutate_access(self, config):
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
         random.seed(config['access_seed'])
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, self.virtual, config['access_secret_li'], config['access_secret_mask'])
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, config['access_secret_li'], config['access_secret_mask'])
         self.access_secret_block.gen_instr(None)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
@@ -637,6 +639,7 @@ class TransVictimManager(TransBaseManager):
         self.nop_block.gen_instr(None)
 
     def mutate_encode(self, config):
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
         random.seed(config['leak_seed'])
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type

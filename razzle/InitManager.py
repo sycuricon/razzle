@@ -4,10 +4,8 @@ from razzle.snapshot.riscv_state import *
 
 
 class InitManager(SectionManager):
-    def __init__(self, config, virtual, privilege, output_path):
+    def __init__(self, config, output_path):
         super().__init__(config)
-        self.virtual = virtual
-        self.privilege = privilege
         self.output_path = output_path
         self.init_input = config["init_input"]
 
@@ -20,7 +18,7 @@ class InitManager(SectionManager):
         # tp
         self.reg_init_config["xreg"][3] = "stack_top"
         # mtvec/stvec
-        self.reg_init_config["csr"]["mtvec"]["BASE"] = "secret_protect_block_entry"
+        self.reg_init_config["csr"]["mtvec"]["BASE"] = "mtrap_block_entry"
         self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
         self.reg_init_config["csr"]["stvec"]["BASE"] = "strap_block_entry  + 0xfffffffffff00000"
         self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
@@ -28,29 +26,11 @@ class InitManager(SectionManager):
         self.reg_init_config["csr"]["mepc"]["EPC"] = "init_block_entry"
         self.reg_init_config["csr"]["sepc"]["EPC"] = "init_block_entry"
         # satp
-        if self.virtual:
-            self.reg_init_config["csr"]["satp"]["PPN"] = "0x80001000"
-            self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
-            self.reg_init_config["csr"]["satp"]["MODE"] = "0x8"
-        else:
-            self.reg_init_config["csr"]["satp"]["PPN"] = "0x0000000000000000"
-            self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
-            self.reg_init_config["csr"]["satp"]["MODE"] = "0x0"
+        self.reg_init_config["csr"]["satp"]["PPN"] = "0x80001000"
+        self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
+        self.reg_init_config["csr"]["satp"]["MODE"] = "0x8"
         # mstatus
-        match (self.privilege):
-            case "M":
-                self.reg_init_config["csr"]["mstatus"]["MPP"] = "0b11"
-            case "S":
-                self.reg_init_config["csr"]["mstatus"]["MPP"] = "0b01"
-            case "U":
-                self.reg_init_config["csr"]["mstatus"]["MPP"] = "0b00"
-            case _:
-                raise "privilege must be M, S or U"
-        # mscratch
-        self.reg_init_config["csr"]["mscratch"]["SCRATCH"] = "mtrap_stack_bottom"
-        self.reg_init_config["csr"]["sscratch"][
-            "SCRATCH"
-        ] = "strap_stack_bottom + 0xfffffffffff00000"
+        self.reg_init_config["csr"]["mstatus"]["MPP"] = "0b00"
         # pmp
         self.reg_init_config["pmp"]["pmp2"]["R"] = "0b1"
         self.reg_init_config["pmp"]["pmp2"]["W"] = "0b1"
@@ -67,10 +47,7 @@ class InitManager(SectionManager):
         self.reg_init_config["pmp"]["pmp1"]["L"] = "0b1"
         self.reg_init_config["pmp"]["pmp1"]["A"] = "NAPOT"
         self.reg_init_config["pmp"]["pmp1"]["ADDR"] = "0x8003c000"
-        if self.virtual:
-            self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x1000"
-        else:
-            self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x2000"
+        self.reg_init_config["pmp"]["pmp1"]["RANGE"] = "0x1000"
 
         # self.reg_init_config["pmp"]["pmp0"]["R"]="0b0"
         # self.reg_init_config["pmp"]["pmp0"]["W"]="0b0"

@@ -1,3 +1,4 @@
+#include "encoding.h"    
     fence
     INFO_VCTM_END
 #ifdef __TRAP_DEBUG__
@@ -16,10 +17,29 @@ dump_mtrap_info:
     csrw 0x800, t0
 #endif
 set_mtrap_return_entry:
-    ld t0, mtrap_swap_mem_op
-    csrw 0x800, t0
-    fence.i
     la t0, _text_swap_start
     csrw mepc, t0
+
+    ld t0, mtrap_swap_mem_op
+    csrrw t0, 0x800, t0
+    fence.i
+
+    li t1, MSTATUS_MPP
+    csrc mstatus, t1
+    andi t1, t0, 0x3
+    slli t1, t1, 11
+    csrs mstatus, t1
+
+    li t1, 0xF000000000000000
+    csrc satp, t1
+    andi t1, t0, 0x4
+    slli t1, t1, 61
+    csrs satp, t1
+
+    li t1, 0xFFFFFFFFFFF00000
+    csrc mepc, t1
+    and t1, t0, t1
+    csrs mepc, t1
+
     INFO_VCTM_START
     mret
