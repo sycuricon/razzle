@@ -512,7 +512,7 @@ class FuzzManager:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
                 dut_vicitm_end = exec_time
         
         is_access = False
@@ -745,14 +745,14 @@ class FuzzManager:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_ENQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
                 dut_vicitm_end = exec_time
 
             if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
                 vnt_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
                 vnt_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_ENQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
+            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
                 vnt_vicitm_end = exec_time
 
             if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
@@ -814,7 +814,7 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'VCTM_END_ENQ':
+            if exec_info == 'VCTM_END_DEQ':
                 base_decode_end = int(exec_time)
         
         taint_folder = self.stage_simulate('robprofile', 'vnt')
@@ -823,7 +823,7 @@ class FuzzManager:
         for line in open(f'{taint_folder}.log', 'rt'):
             exec_time, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
-            if exec_info == 'VCTM_END_ENQ':
+            if exec_info == 'VCTM_END_DEQ':
                 variant_decode_end = int(exec_time)
 
         if base_decode_end != variant_decode_end:
