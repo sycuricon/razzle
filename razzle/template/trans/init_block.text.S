@@ -1,5 +1,3 @@
-    ecall
-start_bim_init:
     INFO_BIM_START
     li t0, 180
 init_bim_loop:
