@@ -451,7 +451,7 @@ class MemBlock(BaseBlock):
     def _gen_load_address(self, normal_reg, taint_reg):
         instr_la = Instruction()
         instr_la.set_label_constraint(['random_data_block_page_base', 'channel_page_base_0',\
-            'channel_page_base_1', 'channel_page_base_2', 'channel_page_base_3'])
+            'channel_page_base_1', 'channel_page_base_2'])
         instr_la.set_name_constraint(['LA'])
         instr_la.solve()
 
