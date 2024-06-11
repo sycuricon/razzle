@@ -95,7 +95,7 @@ class Coverage:
 
         if is_leak:
             self.coverage_list.append(cov_inc)
-            if len(self.coverage_list) > 10:
+            if len(self.coverage_list) > 8:
                 self.coverage_list.pop(0)
             self.coverage_sum += cov_inc
             self.coverage_iter += 1
@@ -576,14 +576,14 @@ class FuzzManager:
                 dut_vicitm_end = exec_time
         
         is_access = False
-        base_list = base_list[dut_window_begin:dut_vicitm_end]
-        for i in range(len(base_list)-1):
-            if base_list[i+1] > base_list[i]:
+        base_window_list = base_list[dut_window_begin:dut_vicitm_end]
+        for i in range(len(base_window_list)-1):
+            if base_window_list[i+1] > base_window_list[i]:
                 is_access = True
                 break
-        max_taint = max(base_list)
+        max_taint = max(base_window_list)
 
-        coverage = self.compute_coverage(base_list)
+        coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
 
         return is_access, taint_folder, max_taint, coverage
 
@@ -829,7 +829,7 @@ class FuzzManager:
         if not is_trigger:
             return FuzzResult.FAIL, None, None, taint_folder, [(0,0)]
 
-        coverage = self.compute_coverage(base_list[dut_window_begin:dut_vicitm_end])
+        coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
 
         base_spread_list = base_list[dut_sync_time:dut_vicitm_end]
         variant_spread_list = variant_list[dut_sync_time:dut_vicitm_end]
@@ -965,7 +965,7 @@ class FuzzManager:
 
         MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 5
-        LEAK_ACCUMULATE_ITER = 15
+        LEAK_ACCUMULATE_ITER = 10
 
         while True:
             iter_num = 0

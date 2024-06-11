@@ -7,8 +7,8 @@
     leak_dist_threshold: 200
     train_align: True
     train_single: True
-    trigger_rate: 0.1
-    access_rate: 0.3
+    trigger_rate: 0.5
+    access_rate: 1.0
     init: {
         bound: [
             0x80000000
