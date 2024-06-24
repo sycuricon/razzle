@@ -52,7 +52,7 @@ class SecretMigrateBlock(TransBlock):
                     f'ld {used_reg[1]}, 0({used_reg[0]})',
                     f'csrrw {used_reg[0]}, 0x800, {used_reg[1]}',
                     f'la {used_reg[1]}, secret',
-                    f'ld {used_reg[0]}, 0({used_reg[1]})',
+                    f'sd {used_reg[0]}, 0({used_reg[1]})',
                     f'mv {used_reg[0]}, zero',
                 ]
             )
