@@ -9,21 +9,9 @@ def genonly_entry(args):
     fuzz = FuzzManager(args.input, args.output)
     fuzz.generate()
 
-def load_entry(args):
-    fuzz = FuzzManager(args.input, args.output)
-    fuzz.load_example(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, args.iter_num)
-
 def fuzz_entry(args):
     fuzz = FuzzManager(args.input, args.output)
-    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
-
-def trigger_test_entry(args):
-    fuzz = FuzzManager(args.input, args.output)
-    fuzz.trigger_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
-
-def front_end_test_entry(args):
-    fuzz = FuzzManager(args.input, args.output)
-    fuzz.front_end_test(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path)
+    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, int(args.thread_num))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -51,59 +39,8 @@ if __name__ == "__main__":
     parser_fuzz.add_argument(
         "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
     )
-
-    parser_load = subparsers.add_parser('load')
-    parser_load.set_defaults(func=load_entry)
-    parser_load.add_argument(
-        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
-    )
-    parser_load.add_argument(
-        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
-    )
-    parser_load.add_argument(
-        "--taint_log", dest="taint_log", help="the path of the taint log file"
-    )
-    parser_load.add_argument(
-        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
-    )
-    parser_load.add_argument(
-        "--iter_num", dest="iter_num", help="the index of the leak template repo"
-    )
-
-    parser_trigger_test = subparsers.add_parser('trigger_test')
-    parser_trigger_test.set_defaults(func=trigger_test_entry)
-    parser_trigger_test.add_argument(
-        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
-    )
-    parser_trigger_test.add_argument(
-        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
-    )
-    parser_trigger_test.add_argument(
-        "--taint_log", dest="taint_log", help="the path of the taint log file"
-    )
-    parser_trigger_test.add_argument(
-        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
-    )
-    parser_trigger_test.add_argument(
-        "--iter_num", dest="iter_num", help="the index of the leak template repo"
-    )
-
-    parser_front_end_test = subparsers.add_parser('front_end_test')
-    parser_front_end_test.set_defaults(func=front_end_test_entry)
-    parser_front_end_test.add_argument(
-        "--rtl_sim", dest="rtl_sim", help="the path of the rtl simulation workspace"
-    )
-    parser_front_end_test.add_argument(
-        "--rtl_sim_mode", dest="rtl_sim_mode", help="the mode of the rtl simulation, must be vlt or vcs"
-    )
-    parser_front_end_test.add_argument(
-        "--taint_log", dest="taint_log", help="the path of the taint log file"
-    )
-    parser_front_end_test.add_argument(
-        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
-    )
-    parser_front_end_test.add_argument(
-        "--iter_num", dest="iter_num", help="the index of the leak template repo"
+    parser_fuzz.add_argument(
+        "--thread_num", dest="thread_num", help="the thread of the leak"
     )
     
     args = parser.parse_args()

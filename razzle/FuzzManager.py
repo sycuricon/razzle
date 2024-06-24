@@ -5,6 +5,7 @@ from enum import *
 import hjson
 import random
 import time
+import threading
 
 global_random_state = random.getstate()
 
@@ -514,27 +515,26 @@ class FuzzManager:
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf('duo')
     
-    def stage_simulate(self, mode, target="duo"):
+    def stage_simulate(self, mode, label="swap_mem.cfg", target="duo"):
         self.mem_cfg.dump_conf(target)
 
         assert mode in ['normal', 'robprofile', 'variant']
         baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"rtl_sim.sh"
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{label}_rtl_sim.sh"
         )
         export_cmd = ShellCommand("export", [])
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
         baker.add_cmd(export_cmd.gen_cmd([f'SIM_MODE={mode}']))
         baker.add_cmd(export_cmd.gen_cmd([f'STARSHIP_TESTCASE={self.output_path}/{self.sub_repo}/swap_mem.cfg']))
+        baker.add_cmd(export_cmd.gen_cmd([f'SIMULATION_LABEL={label}']))
         baker.add_cmd(gen_asm.gen_cmd())
-        baker.run()
 
-        return f'{self.taint_log}_{mode}/wave/swap_mem.cfg.taint'
+        return f'{self.taint_log}_{mode}/wave/{label}', baker
     
-    def trigger_analysis(self):
-        taint_folder = self.stage_simulate('robprofile', 'dut')
+    def trigger_analysis(self, taint_folder):
         texe_enq_num = 0
         texe_deq_num = 0
-        for line in open(f'{taint_folder}.log', 'rt'):
+        for line in open(f'{taint_folder}.taint.log', 'rt'):
             _, exec_info, _, _ = list(map(str.strip ,line.strip().split(',')))
             if exec_info == "TEXE_START_ENQ":
                 texe_enq_num += 1
@@ -546,11 +546,10 @@ class FuzzManager:
         else:
             is_trigger = False
 
-        return is_trigger, taint_folder
+        return is_trigger
 
-    def access_analysis(self):
-        taint_folder = self.stage_simulate('variant', 'duo')
-        with open(f'{taint_folder}.csv', "r") as file:
+    def access_analysis(self, taint_folder):
+        with open(f'{taint_folder}.taint.csv', "r") as file:
             taint_log = csv.reader(file)
             _ = next(taint_log)
             time_list = []
@@ -564,7 +563,7 @@ class FuzzManager:
         dut_sync_time = 0
         dut_window_begin = 0
         dut_vicitm_end = 0
-        for line in open(f'{taint_folder}.log', 'rt'):
+        for line in open(f'{taint_folder}.taint.log', 'rt'):
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
@@ -585,7 +584,7 @@ class FuzzManager:
 
         coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
 
-        return is_access, taint_folder, max_taint, coverage
+        return is_access, max_taint, coverage
 
     def _trigger_reduce(self, is_trigger):
         if is_trigger:
@@ -595,7 +594,9 @@ class FuzzManager:
                     tmp_swap_block_list = copy.copy(swap_block_list)
                     tmp_swap_block_list.pop(i)
                     self.mem_cfg.add_swap_list(tmp_swap_block_list)
-                    is_trigger, _ = self.trigger_analysis()
+                    taint_folder, barker = self.stage_simulate('robprofile', 'trigger', 'dut')
+                    barker.run()
+                    is_trigger = self.trigger_analysis(taint_folder)
                     if is_trigger:
                         swap_block_list = tmp_swap_block_list
                         break
@@ -634,13 +635,13 @@ class FuzzManager:
                 reduce_baker.run()
 
     
-    def get_repo(self, stage_name):
+    def get_repo(self, stage_name, thread_num=0):
         iter_num_file = os.path.join(self.repo_path, f"{stage_name}_iter_num")
         if not os.path.exists(iter_num_file):
-            iter_num = 0
+            iter_num = 0 + thread_num
         else:
             with open(iter_num_file, "rt") as file:
-                iter_num = 1 + int(file.readline().strip())
+                iter_num = 1 + thread_num + int(file.readline().strip())
 
         sub_repo = f'{stage_name}_{iter_num}'
         self.update_sub_repo(sub_repo)
@@ -648,7 +649,7 @@ class FuzzManager:
         if not os.path.exists(repo):
             os.makedirs(repo)
 
-        return iter_num, repo
+        return iter_num, sub_repo
     
     def fuzz_trigger(self, config):
         trigger_iter_num, trigger_repo = self.get_repo('trigger')
@@ -668,7 +669,9 @@ class FuzzManager:
         for _ in range(max_train_gen):
             self.trans.gen_train_swap_list(config, self.train_align, self.train_single)
             self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-            is_trigger, taint_folder = self.trigger_analysis()
+            taint_folder, barker = self.stage_simulate('robprofile', 'trigger', 'dut')
+            barker.run()
+            is_trigger = self.trigger_analysis(taint_folder)
             self._trigger_reduce(is_trigger)
             if is_trigger:
                 trigger_result = FuzzResult.SUCCESS
@@ -690,7 +693,9 @@ class FuzzManager:
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
         self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        is_access, taint_folder, max_taint, coverage = self.access_analysis()
+        taint_folder, barker = self.stage_simulate('variant', 'access', 'duo')
+        barker.run()
+        is_access, max_taint, coverage = self.access_analysis(taint_folder)
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
 
         self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder = taint_folder)
@@ -733,10 +738,10 @@ class FuzzManager:
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
         )
         gen_asm = ShellCommand("cp", [])
-        if os.path.exists(f'{taint_folder}.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.log', f'{self.output_path}/{self.sub_repo}']))
-        if os.path.exists(f'{taint_folder}.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.csv', f'{self.output_path}/{self.sub_repo}']))
+        if os.path.exists(f'{taint_folder}.taint.log'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.taint.log', f'{self.output_path}/{self.sub_repo}']))
+        if os.path.exists(f'{taint_folder}.taint.csv'):
+            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.taint.csv', f'{self.output_path}/{self.sub_repo}']))
         
         rm_asm = ShellCommand("rm", [])
         cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.elf']))
@@ -774,10 +779,8 @@ class FuzzManager:
             coverage.append(cover_state)
         return coverage
     
-    def leak_analysis(self, strategy):
-        taint_folder = self.stage_simulate('variant', 'duo')
-
-        with open(f'{taint_folder}.csv', "r") as file:
+    def leak_analysis(self, taint_folder, strategy):
+        with open(f'{taint_folder}.taint.csv', "r") as file:
             taint_log = csv.reader(file)
             _ = next(taint_log)
             time_list = []
@@ -798,7 +801,7 @@ class FuzzManager:
         dut_texe_enq_num = 0
         dut_texe_deq_num = 0
         is_trigger = False
-        for line in open(f'{taint_folder}.log', 'rt'):
+        for line in open(f'{taint_folder}.taint.log', 'rt'):
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
@@ -827,7 +830,7 @@ class FuzzManager:
         is_divergent = dut_vicitm_end != vnt_vicitm_end
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, None, taint_folder, [(0,0)]
+            return FuzzResult.FAIL, None, taint_folder, [(0,0)]
 
         coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
 
@@ -848,25 +851,51 @@ class FuzzManager:
             if max_taint > self.LEAK_REMAIN_THRESHOLD:
                 leak_result = FuzzResult.MAYBE
         
-        return leak_result, cosim_result, max_taint, taint_folder, coverage
+        return leak_result, cosim_result, max_taint, coverage
 
-    def fuzz_leak(self, config):
-        leak_iter_num, leak_repo = self.get_repo('leak')
+    def fuzz_leak(self, config_list):
+        leak_iter_num_list = []
+        leak_repo_list = []
+        taint_folder_list = []
+        barker_list = []
+        thread_list = []
+        for i, config in enumerate(config_list):
+            leak_iter_num, leak_repo = self.get_repo('leak', i)
+            self.trans.trans_victim.mutate_encode(config)
+            self.trans._generate_body_block(self.trans.trans_victim)
+            self.trans.trans_adjust.mutate_encode(config, self.trans.trans_victim)
+            self.trans._generate_body_block(self.trans.trans_adjust)
+            self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
+            self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
+            self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+            taint_folder, barker = self.stage_simulate('variant', f'leak_thread_{i}', 'duo')
 
-        self.trans.trans_victim.mutate_encode(config)
-        self.trans._generate_body_block(self.trans.trans_victim)
-        self.trans.trans_adjust.mutate_encode(config, self.trans.trans_victim)
-        self.trans._generate_body_block(self.trans.trans_adjust)
-        self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
-        self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
-        self.mem_cfg.add_swap_list(self.trans.swap_block_list)
-        leak_result, cosim_result, max_taint, taint_folder, coverage = self.leak_analysis(config['encode_fuzz_type'])
+            leak_iter_num_list.append(leak_iter_num)
+            leak_repo_list.append(leak_repo)
+            taint_folder_list.append(taint_folder)
+            barker_list.append(barker)
 
-        self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder = taint_folder)
-        if leak_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
-            self.store_template(leak_iter_num, self.repo_path, 'leak', taint_folder)
+            def barker_func(barker):
+                barker.run()
+            thread = threading.Thread(target=barker_func, args=[barker])
+            thread.start()
+            thread_list.append(thread)
+
+        for thread in thread_list:
+            thread.join()
         
-        return leak_repo, leak_result, coverage, leak_iter_num
+        leak_result_list = []
+        coverage_list = []
+        for leak_iter_num, leak_repo, taint_folder, config in zip(leak_iter_num_list, leak_repo_list, taint_folder_list, config_list):
+            self.update_sub_repo(leak_repo)
+            leak_result, cosim_result, max_taint, coverage = self.leak_analysis(taint_folder, config['encode_fuzz_type'])
+            self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder)
+            if leak_result in [FuzzResult.SUCCESS, FuzzResult.MAYBE]:
+                self.store_template(leak_iter_num, self.repo_path, 'leak', taint_folder)
+            leak_result_list.append(leak_result)
+            coverage_list.append(coverage)
+        
+        return leak_repo_list, leak_result_list, coverage_list, leak_iter_num_list
 
     def decode_analysis(self):
         taint_folder = self.stage_simulate('robprofile', 'dut')
@@ -930,8 +959,9 @@ class FuzzManager:
         self.mem_cfg.update_sub_repo(sub_repo)
         self.trans.update_sub_repo(sub_repo)
     
-    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, repo_path):
+    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, thread_num):
         self.fuzz_log = FuzzLog(repo_path)
+        self.thread_num = thread_num
 
         if repo_path is None:
             self.repo_path = self.output_path
@@ -957,7 +987,7 @@ class FuzzManager:
 
         trigger_seed = TriggerSeed(self.coverage)
         access_seed = AccessSeed(self.coverage)
-        leak_seed = LeakSeed(self.coverage)
+        leak_seed_list = [LeakSeed(self.coverage) for _ in range(self.thread_num)]
         config = {}
         trigger_repo = None
         access_repo = None
@@ -965,7 +995,7 @@ class FuzzManager:
 
         MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 5
-        LEAK_ACCUMULATE_ITER = 10
+        LEAK_ACCUMULATE_ITER = (10 + self.thread_num - 1) // self.thread_num
 
         while True:
             iter_num = 0
@@ -1001,7 +1031,6 @@ class FuzzManager:
                         cov_inc = self.coverage.update_coverage(coverage, is_leak=False)
                         self.fuzz_log.log_cover(access_iter_num, cov_inc)
                         if access_result == FuzzResult.SUCCESS:
-                            leak_seed = LeakSeed(self.coverage)
                             state = FuzzFSM.ACCUMULATE
                             break
                         else:
@@ -1012,19 +1041,39 @@ class FuzzManager:
                         state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.ACCUMULATE:
                     self.coverage.accumulate()
-                    config = leak_seed.mutate(config, True)
+
+                    config_list = []
+                    for leak_seed in leak_seed_list:
+                        config = leak_seed.mutate(config, True)
+                        config_list.append(config)
+
                     for iter_num in range(LEAK_ACCUMULATE_ITER):
-                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config)
-                        cov_inc = leak_seed.update_coverage(coverage)
-                        self.fuzz_log.log_cover(leak_iter_num, cov_inc)
-                        config = leak_seed.mutate(config)
+                        leak_repo_list, leak_result_list, coverage_list, leak_iter_num_list =\
+                            self.fuzz_leak(config_list)
+                        
+                        for leak_seed, coverage, leak_iter_num in \
+                            zip(leak_seed_list, coverage_list, leak_iter_num_list):
+                            cov_inc = leak_seed.update_coverage(coverage)
+                            self.fuzz_log.log_cover(leak_iter_num, cov_inc)
+
+                        new_config_list = []
+                        for leak_seed, config in zip(leak_seed_list, config_list):
+                            config = leak_seed.mutate(config, True)
+                            new_config_list.append(config)
+                        config_list = new_config_list
+
                     state = FuzzFSM.MUTATE_LEAK
                 case FuzzFSM.MUTATE_LEAK:
                     while True:
-                        leak_repo, leak_result, coverage, leak_iter_num = self.fuzz_leak(config)
-                        cov_inc = leak_seed.update_coverage(coverage)
-                        self.fuzz_log.log_cover(leak_iter_num, cov_inc)
+                        leak_repo_list, leak_result_list, coverage_list, leak_iter_num_list =\
+                            self.fuzz_leak(config_list)
+                        
+                        for leak_seed, coverage, leak_iter_num in \
+                            zip(leak_seed_list, coverage_list, leak_iter_num_list):
+                            cov_inc = leak_seed.update_coverage(coverage)
+                            self.fuzz_log.log_cover(leak_iter_num, cov_inc)
                         cover_contr = self.coverage.evalute_coverage()
+
                         iter_num += 1
                         if cover_contr < self.TRIGGER_RARE:
                             config = trigger_seed.mutate({}, True)
@@ -1036,7 +1085,11 @@ class FuzzManager:
                             state = FuzzFSM.MUTATE_ACCESS
                             break
                         else:
-                            config = leak_seed.mutate(config, False)
+                            new_config_list = []
+                            for leak_seed, config in zip(leak_seed_list, config_list):
+                                config = leak_seed.mutate(config, True)
+                                new_config_list.append(config)
+                            config_list = new_config_list
                 case FuzzFSM.STOP:
                     break
             self.fuzz_log.log_state(last_state, state, iter_num)
