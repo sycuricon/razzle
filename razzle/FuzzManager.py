@@ -701,7 +701,13 @@ class FuzzManager:
     def component_analysis(self, comp_file):
         hjson_file = open(comp_file)
         comp_taint = hjson.load(hjson_file)
-        return comp_taint
+        comp_taint_merge = {}
+        for comp, taint in comp_taint.items():
+            comp_path = comp.split('/')
+            comp_path = comp_path[0] if len(comp_path) == 1\
+                else '/'.join(comp_path[0:2])
+            comp_taint_merge[comp_path] = comp_taint_merge.get(comp_path, 0) + taint
+        return comp_taint_merge
     
     def fuzz_access(self, config):
         access_iter_num, access_repo = self.get_repo('access')
