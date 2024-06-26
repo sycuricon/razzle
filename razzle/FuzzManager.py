@@ -856,7 +856,7 @@ class FuzzManager:
         is_divergent = dut_vicitm_end != vnt_vicitm_end
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, taint_folder, [(0,0)]
+            return FuzzResult.FAIL, None, None, [(0,0)]
 
         coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
 
