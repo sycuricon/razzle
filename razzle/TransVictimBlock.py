@@ -128,10 +128,14 @@ class TriggerBlock(TransBlock):
             self.trigger_inst = self.inst_block_list[0].inst_list[-1]
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, output_path, li, mask):
+    def __init__(self, extension, output_path, li, mask, victim_priv, victim_addr, attack_priv, attack_addr):
         super().__init__('access_secret_block', extension, output_path)
         self.li_offset = li
         self.mask = mask
+        self.victim_priv = victim_priv
+        self.victim_addr = victim_addr
+        self.attack_priv = attack_priv
+        self.attack_addr = attack_addr
     
     def store_template(self, folder):
         type_name = os.path.join(folder, f'{self.name}.type')
@@ -147,12 +151,19 @@ class AccessSecretBlock(TransBlock):
     
     def gen_code(self):
         trapoline_address = 0x5000
+        offset = hex(self.address - trapoline_address)
+        if self.attack_addr == 'p':
+            base_trapoline_address = 0x80005000
+        elif self.victim_addr == 'p':
+            base_trapoline_address =  0x5000 if self.attack_priv == 'U' else 0xfffffffffff05000 
+        else:
+            base_trapoline_address =  0x5000 if self.victim_priv == 'U' else 0xfffffffffff05000 
 
         if self.li_offset:
             
             inst_list = [
-                f'li s0, {hex(self.address - trapoline_address)}',
-                f'la t1, trapoline',
+                f'li s0, {offset}',
+                f'li t1, {base_trapoline_address}',
                 f'add t1, t1, s0',
                 'lb s0, 0(t1)',            ]
 
@@ -161,14 +172,14 @@ class AccessSecretBlock(TransBlock):
             inst_list = [
                 f'la s0, {self.name}_target_offset',
                 f'ld s0, 0(s0)',
-                f'la t1, trapoline',
+                f'li t1, {base_trapoline_address}',
                 f'add t1, t1, s0',
                 'lb s0, 0(t1)',
             ]
             
         data_list = [
             f'{self.name}_target_offset:',
-            f'.dword {self.address - trapoline_address}',
+            f'.dword {offset}',
         ]
 
         self._load_inst_str(inst_list, mutate=True)
@@ -569,7 +580,10 @@ class TransVictimManager(TransBaseManager):
 
         tmp_random_state = random.getstate()
         random.seed(config['access_seed'])
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, config['access_secret_li'], config['access_secret_mask'])
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, \
+            config['access_secret_li'], config['access_secret_mask'],\
+            config['victim_priv'], config['victim_addr'],\
+            config['attack_priv'], config['attack_addr'])
         self.access_secret_block.gen_instr(access_secret_template)
         random.setstate(tmp_random_state)
 
@@ -632,7 +646,9 @@ class TransVictimManager(TransBaseManager):
     def mutate_access(self, config):
         self.mode = ''.join([config['victim_priv'], config['victim_addr']])
         random.seed(config['access_seed'])
-        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, config['access_secret_li'], config['access_secret_mask'])
+        self.access_secret_block = AccessSecretBlock(self.extension, self.output_path,\
+            config['access_secret_li'], config['access_secret_mask'],\
+            config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'])
         self.access_secret_block.gen_instr(None)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)

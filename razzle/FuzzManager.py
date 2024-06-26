@@ -184,6 +184,10 @@ class TriggerSeed(Seed):
         DELAY_MEM = auto()
         TRIGGER = auto()
         PRIV_MODE = auto()
+        PMP_R = auto()
+        PMP_L = auto()
+        PTE_R = auto()
+        PTE_V = auto()
     
     field_len = {
         TriggerFieldEnum.TRIGGER_SEED: 22,
@@ -191,7 +195,11 @@ class TriggerSeed(Seed):
         TriggerFieldEnum.DELAY_FLOAT_RATE: 2,
         TriggerFieldEnum.DELAY_MEM: 1,
         TriggerFieldEnum.TRIGGER: 5,
-        TriggerFieldEnum.PRIV_MODE: 4
+        TriggerFieldEnum.PRIV_MODE: 4,
+        TriggerFieldEnum.PMP_R: 1,
+        TriggerFieldEnum.PMP_L: 1,
+        TriggerFieldEnum.PTE_R: 1,
+        TriggerFieldEnum.PTE_V: 1
     }
 
     field_type = []
@@ -224,10 +232,24 @@ class TriggerSeed(Seed):
         config = copy.deepcopy(config)
 
         priv_mode = self.get_field(self.TriggerFieldEnum.PRIV_MODE)
-        config['attack_priv'], config['attack_addr'] = \
-            ['Mp', 'Sv', 'Up', 'Uv'][priv_mode >> 2]
-        config['victim_priv'], config['victim_addr'] = \
-            ['Mp', 'Sv', 'Up', 'Uv'][priv_mode & 0b11]
+        config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'] = \
+            ['MpMp', 'MpSv', 'MpUv', 'MpUp', 'SvSv', 'SvUv', 'SvMp', 'UvSv',\
+             'UpMp', 'UvMp', 'SvSv', 'SvUv', 'SvMp', 'UvSv', 'UpMp', 'UvMp',][priv_mode]
+        
+        if config['victim_addr'] == 'p' and config['attack_addr'] == 'p':
+            config['pte_r'] = True
+            config['pte_v'] = True
+            config['pmp_r'] = False
+            config['pmp_l'] = True if config['attack_priv'] == 'M'\
+                else self.get_field(self.TriggerFieldEnum.PMP_L) == 1
+        else:
+            config['pte_r'] = self.get_field(self.TriggerFieldEnum.PTE_R) == 1
+            config['pte_v'] = self.get_field(self.TriggerFieldEnum.PTE_V) == 1
+            config['pmp_r'] = self.get_field(self.TriggerFieldEnum.PMP_R) == 1
+            config['pmp_l'] = False
+            if config['pte_r'] and config['pte_v'] and config['pmp_r'] and\
+                config['victim_priv'] == config['attack_priv']:
+                config['pte_r'] = False
 
         config['trigger_seed'] = self.get_field(self.TriggerFieldEnum.TRIGGER_SEED)
 
@@ -514,6 +536,8 @@ class FuzzManager:
         
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf('duo')
+
+        print(config)
     
     def stage_simulate(self, mode, label="swap_mem.cfg", target="duo"):
         self.mem_cfg.dump_conf(target)

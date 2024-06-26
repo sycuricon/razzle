@@ -142,6 +142,7 @@ class PageTableManager(SectionManager):
             ".pagetable", self.pg_level, self.page_tables
         )
         self.section["pagetable"].add_global_label(["vaddr_0x4000_paddr_0x80004000"])
+        self.section["pagetable"].add_global_label(["vaddr_0xfffffffffff04000_paddr_0x80004000"])
 
     def _distribute_address(self):
         self.section["pagetable"].get_bound(
