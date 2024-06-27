@@ -556,7 +556,6 @@ class FuzzManager:
         return f'{self.taint_log}_{mode}/wave/{label}', baker
     
     def component_simulate(self, label):
-        self.mem_cfg.dump_conf('duo')
         baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{label}_comp_sim.sh"
         )
@@ -748,13 +747,14 @@ class FuzzManager:
         is_access, max_taint, coverage = self.access_analysis(taint_folder)
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
 
-        self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder = taint_folder)
         comp_taint = None
+        comp_file = None
         if access_result == FuzzResult.SUCCESS:
             self.store_template(access_iter_num, self.repo_path, 'access', taint_folder)
             comp_file, barker = self.component_simulate('access')
             barker.run()
             comp_taint = self.component_analysis(comp_file)
+        self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder, comp_file)
         
         return access_result, coverage, access_iter_num, comp_taint
     
