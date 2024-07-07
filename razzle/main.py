@@ -6,11 +6,11 @@ if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def genonly_entry(args):
-    fuzz = FuzzManager(args.input, args.output)
+    fuzz = FuzzManager(args.input, args.output, args.prefix)
     fuzz.generate()
 
 def fuzz_entry(args):
-    fuzz = FuzzManager(args.input, args.output)
+    fuzz = FuzzManager(args.input, args.output, args.prefix)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, int(args.thread_num))
 
 if __name__ == "__main__":
@@ -21,6 +21,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-O", "--output", dest="output", required=True, help="output of the fuzz code"
     )
+    parser.add_argument("--prefix", dest="prefix", required=True, help="the prefix of the generate_file")
 
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
     parser_genonly.set_defaults(func=genonly_entry)
