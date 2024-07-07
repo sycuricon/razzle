@@ -11,10 +11,6 @@ class FuzzManager:
         hjson_file = open(hjson_filename)
         config = hjson.load(hjson_file)
         self.trans = TransManager(config, self.output_path, self.mem_cfg)
-        self.LEAK_REMAIN_THRESHOLD = config['leak_remain_threshold']
-        self.LEAK_EXPLODE_THRESHOLD = config['leak_explode_threshold']
-        self.LEAK_COSIM_THRESHOLD = config['leak_cosim_threshold']
-        self.LEAK_DIST_THRESHOLD = config['leak_dist_threshold']
         self.TRIGGER_RARE = config['trigger_rate']
         self.ACCESS_RATE = config['access_rate']
         self.train_single = eval(config['train_single'])
