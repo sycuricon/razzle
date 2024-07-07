@@ -76,20 +76,6 @@ class FuzzManager:
 
         return f'{self.taint_log}_{mode}/wave/{label}', baker
     
-    def component_simulate(self, label):
-        baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{label}_comp_sim.sh"
-        )
-        export_cmd = ShellCommand("export", [])
-        make_cmd = ShellCommand("make", [])
-        baker.add_cmd(export_cmd.gen_cmd([f'SIM_MODE=variant']))
-        baker.add_cmd(export_cmd.gen_cmd([f'STARSHIP_TESTCASE={self.output_path}/{self.sub_repo}/swap_mem.cfg']))
-        baker.add_cmd(export_cmd.gen_cmd([f'SIMULATION_LABEL={label}']))
-        baker.add_cmd(make_cmd.gen_cmd([f'{self.rtl_sim_mode}-wave']))
-        baker.add_cmd(make_cmd.gen_cmd([f'plot_vcs_local_taint']))
-
-        return f'{self.taint_log}_variant/{label}.hjson', baker
-    
     def trigger_analysis(self, taint_folder):
         texe_enq_num = 0
         texe_deq_num = 0
@@ -106,44 +92,6 @@ class FuzzManager:
             is_trigger = False
 
         return is_trigger
-
-    def access_analysis(self, taint_folder):
-        with open(f'{taint_folder}.taint.csv', "r") as file:
-            taint_log = csv.reader(file)
-            _ = next(taint_log)
-            time_list = []
-            base_list = []
-            variant_list = []
-            for time, base, variant in taint_log:
-                time_list.append(int(time))
-                base_list.append(int(base))
-                variant_list.append(int(variant))
-
-        dut_sync_time = 0
-        dut_window_begin = 0
-        dut_vicitm_end = 0
-        for line in open(f'{taint_folder}.taint.log', 'rt'):
-            exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
-            exec_time = int(exec_time)
-            is_dut = True if int(is_dut) == 1 else False
-            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
-                dut_window_begin = exec_time + 1 
-            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
-                dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
-                dut_vicitm_end = exec_time
-        
-        is_access = False
-        base_window_list = base_list[dut_window_begin:dut_vicitm_end]
-        for i in range(len(base_window_list)-1):
-            if base_window_list[i+1] > base_window_list[i]:
-                is_access = True
-                break
-        max_taint = max(base_window_list)
-
-        coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
-
-        return is_access, max_taint, coverage
 
     def _trigger_reduce(self, is_trigger):
         if is_trigger:
@@ -238,20 +186,48 @@ class FuzzManager:
 
         self.record_fuzz(trigger_iter_num, trigger_result, None, None, config, 'trigger', taint_folder = taint_folder)
         if trigger_result == FuzzResult.SUCCESS:
-            self.store_template(trigger_iter_num, self.repo_path, 'trigger', taint_folder)
+            self.store_template(trigger_iter_num, self.repo_path, 'trigger')
 
         return trigger_result
-    
-    def component_analysis(self, comp_file):
-        hjson_file = open(comp_file)
-        comp_taint = hjson.load(hjson_file)
-        comp_taint_merge = {}
-        for comp, taint in comp_taint.items():
-            comp_path = comp.split('/')
-            comp_path = comp_path[0] if len(comp_path) == 1\
-                else '/'.join(comp_path[0:2])
-            comp_taint_merge[comp_path] = comp_taint_merge.get(comp_path, 0) + taint
-        return comp_taint_merge
+
+    def access_analysis(self, taint_folder):
+        with open(f'{taint_folder}.taint.csv', "r") as file:
+            taint_log = csv.reader(file)
+            _ = next(taint_log)
+            time_list = []
+            base_list = []
+            variant_list = []
+            for time, base, variant in taint_log:
+                time_list.append(int(time))
+                base_list.append(int(base))
+                variant_list.append(int(variant))
+
+        dut_sync_time = 0
+        dut_window_begin = 0
+        dut_vicitm_end = 0
+        for line in open(f'{taint_folder}.taint.log', 'rt'):
+            exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
+            exec_time = int(exec_time)
+            is_dut = True if int(is_dut) == 1 else False
+            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
+                dut_window_begin = exec_time + 1 
+            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
+                dut_sync_time = exec_time + 1
+            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
+                dut_vicitm_end = exec_time
+        
+        is_access = False
+        base_window_list = base_list[dut_window_begin:dut_vicitm_end]
+        for i in range(len(base_window_list)-1):
+            if base_window_list[i+1] > base_window_list[i]:
+                is_access = True
+                break
+        max_taint = max(base_window_list)
+
+        coverage = self.compute_coverage(taint_folder)
+        comp_taint = self.compute_comp(taint_folder)
+
+        return is_access, max_taint, coverage, comp_taint
     
     def fuzz_access(self, config):
         access_iter_num, access_repo = self.get_repo('access')
@@ -265,21 +241,16 @@ class FuzzManager:
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         taint_folder, barker = self.stage_simulate('variant', f'{self.prefix_domain}_access', 'duo')
         barker.run()
-        is_access, max_taint, coverage = self.access_analysis(taint_folder)
+        is_access, max_taint, coverage, comp_taint = self.access_analysis(taint_folder)
         access_result = FuzzResult.SUCCESS if is_access else FuzzResult.FAIL
 
-        comp_taint = None
-        comp_file = None
+        self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder)
         if access_result == FuzzResult.SUCCESS:
-            self.store_template(access_iter_num, self.repo_path, 'access', taint_folder)
-            comp_file, barker = self.component_simulate(f'{self.prefix_domain}_access')
-            barker.run()
-            comp_taint = self.component_analysis(comp_file)
-        self.record_fuzz(access_iter_num, access_result, None, max_taint, config, 'access', taint_folder, comp_file)
+            self.store_template(access_iter_num, self.repo_path, 'access')
         
         return access_result, coverage, access_iter_num, comp_taint
     
-    def store_template(self, iter_num, repo_path, stage_name, taint_folder):
+    def store_template(self, iter_num, repo_path, stage_name):
         folder = f'{stage_name}_template'
         template_repo_path = os.path.join(repo_path, folder)
         if not os.path.exists(template_repo_path):
@@ -289,7 +260,7 @@ class FuzzManager:
         target_repo_path = os.path.join(self.output_path, self.sub_repo)
         os.system(f'ln -s {target_repo_path} {template_repo_path}')
 
-    def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_name, taint_folder, comp_file=None):
+    def record_fuzz(self, iter_num, result, cosim_result, max_taint, config, stage_name, taint_folder):
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             file.write(f'iter_num:\t{iter_num}\n')
             file.write(f'result:\t{result}\n')
@@ -313,12 +284,11 @@ class FuzzManager:
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
         )
         gen_asm = ShellCommand("cp", [])
-        if os.path.exists(f'{taint_folder}.taint.log'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.taint.log', f'{self.output_path}/{self.sub_repo}']))
-        if os.path.exists(f'{taint_folder}.taint.csv'):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{taint_folder}.taint.csv', f'{self.output_path}/{self.sub_repo}']))
-        if comp_file is not None and os.path.exists(comp_file):
-            cp_baker.add_cmd(gen_asm.gen_cmd([f'{comp_file}', f'{self.output_path}/{self.sub_repo}']))
+        suffix_taint = ['.taint.log', '.taint.csv', '.taint.live', '.taint.cov']
+        for suffix in suffix_taint:
+            file_name = f'{taint_folder}{suffix}'
+            if os.path.exists(file_name):
+                cp_baker.add_cmd(gen_asm.gen_cmd([file_name, f'{self.output_path}/{self.sub_repo}']))
         
         rm_asm = ShellCommand("rm", [])
         cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*.elf']))
@@ -345,18 +315,33 @@ class FuzzManager:
 
         return cosim_result, ave_dist, max_taint
 
-    def compute_coverage(self, base_list):
-        coverage = []
-        start_point = 0
-        for i, taint in enumerate(base_list[:-1]):
-            delta_taint = base_list[i + 1] - taint
-            if delta_taint != 0:
-                start_point = i
-            cover_state = (start_point, taint)
-            coverage.append(cover_state)
+    def compute_coverage(self, taint_folder):
+        coverage = set()
+        for line in open(f'{taint_folder}.taint.cov', "r"):
+            line = line.strip()
+            line = list(line.split())
+            comp = line[0][:-1]
+            hash_value = line[1:]
+            for value in hash_value:
+                value = int(value, base=16)
+                coverage.add((comp, value))
         return coverage
     
-    def leak_analysis(self, taint_folder, strategy):
+    def compute_comp(self, taint_folder):
+        taint_comp = TaintComp()
+        for line in open(f'{taint_folder}.taint.live', "r"):
+            line = line.strip()
+            if ':' in line:
+                line = list(line.split())
+                comp = line[0][:-1]
+                hash_value = int(line[1])
+                taint_comp[comp] = hash_value
+            else:
+                comp = line[:-1]
+                taint_comp[comp] = 1
+        return taint_comp
+
+    def leak_analysis(self, access_comp_taint, taint_folder, strategy):
         with open(f'{taint_folder}.taint.csv', "r") as file:
             taint_log = csv.reader(file)
             _ = next(taint_log)
@@ -407,33 +392,27 @@ class FuzzManager:
         is_divergent = dut_vicitm_end != vnt_vicitm_end
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, None, [(0,0)]
+            return FuzzResult.FAIL, None, None, [('',0)]
 
-        coverage = self.compute_coverage(base_list[dut_window_begin:dut_sync_time])
+        coverage = self.compute_coverage(taint_folder)
+        leak_comp_taint = self.compute_comp(taint_folder)
 
         base_spread_list = base_list[dut_sync_time:dut_vicitm_end]
         variant_spread_list = variant_list[dut_sync_time:dut_vicitm_end]
-
         cosim_result, ave_dist, max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
         leak_result = FuzzResult.FAIL
-        if strategy in [EncodeType.FUZZ_PIPELINE]:
-            if is_divergent:
-                leak_result = FuzzResult.SUCCESS
-            elif cosim_result > self.LEAK_COSIM_THRESHOLD or\
-            ave_dist > self.LEAK_DIST_THRESHOLD or\
-            max_taint > self.LEAK_EXPLODE_THRESHOLD:
-                leak_result = FuzzResult.MAYBE
-        elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
-            if max_taint > self.LEAK_REMAIN_THRESHOLD:
-                leak_result = FuzzResult.MAYBE
+        if strategy in [EncodeType.FUZZ_PIPELINE] and is_divergent:
+            leak_result = FuzzResult.SUCCESS
+        elif self.taint_leak_more(access_comp_taint, leak_comp_taint):
+            leak_result = FuzzResult.SUCCESS
         
         return leak_result, cosim_result, max_taint, coverage
     
     def taint_leak_more(self, access_comp_taint, leak_comp_taint):
         result = False
-        for leak_comp, leak_value in leak_comp_taint.items():
-            access_value = access_comp_taint.get(leak_comp, 0)
+        for leak_comp, leak_value in leak_comp_taint.comp_map.items():
+            access_value = access_comp_taint.comp_map.get(leak_comp, 0)
             if leak_value > access_value:
                 result = True
                 break
@@ -471,53 +450,16 @@ class FuzzManager:
         for thread in thread_list:
             thread.join()
         
-        leak_result_list = []
-        cosim_result_list = []
-        max_taint_list = []
         coverage_list = []
-
-        comp_analysis_list = []
-        comp_file_list = []
-        comp_thread_list = []
-        comp_file_record_list = []
 
         for i, leak_iter_num, leak_repo, taint_folder, config in\
             zip(range(len(leak_iter_num_list)), leak_iter_num_list, leak_repo_list, taint_folder_list, config_list):
             self.update_sub_repo(leak_repo)
-            leak_result, cosim_result, max_taint, coverage = self.leak_analysis(taint_folder, config['encode_fuzz_type'])
-            leak_result_list.append(leak_result)
-            cosim_result_list.append(cosim_result)
-            max_taint_list.append(max_taint)
+            leak_result, cosim_result, max_taint, coverage = self.leak_analysis(access_comp_taint, taint_folder, config['encode_fuzz_type'])
             coverage_list.append(coverage)
-
-            if leak_result == FuzzResult.MAYBE:
-                comp_file, comp_barker = self.component_simulate(f'{self.prefix_domain}_leak_thread_{i}')
-                thread = threading.Thread(target=barker_func, args=[comp_barker])
-                thread.start()
-                comp_thread_list.append(thread)
-                comp_analysis_list.append(i)
-                comp_file_list.append(comp_file)
-                comp_file_record_list.append(comp_file)
-            else:
-                comp_file_record_list.append(None)
-            coverage_list.append(coverage)
-        
-        for thread in comp_thread_list:
-            thread.join()
-
-        for i, comp_file in zip(comp_analysis_list, comp_file_list):
-            leak_comp_taint = self.component_analysis(comp_file)
-            if self.taint_leak_more(access_comp_taint, leak_comp_taint):
-                leak_result_list[i] = FuzzResult.SUCCESS
-            else:
-                leak_result_list[i] = FuzzResult.FAIL
-        
-        for leak_iter_num, leak_result, leak_repo, cosim_result, max_taint, config, taint_folder, comp_file in\
-            zip(leak_iter_num_list, leak_result_list, leak_repo_list, cosim_result_list, max_taint_list, config_list, taint_folder_list, comp_file_record_list):
-            self.update_sub_repo(leak_repo)
-            self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder, comp_file)
+            self.record_fuzz(leak_iter_num, leak_result, cosim_result, max_taint, config, 'leak', taint_folder)
             if leak_result == FuzzResult.SUCCESS:
-                self.store_template(leak_iter_num, self.repo_path, 'leak', taint_folder)
+                self.store_template(leak_iter_num, self.repo_path, 'leak')
 
         return coverage_list, leak_iter_num_list
     
@@ -556,9 +498,6 @@ class FuzzManager:
         access_seed = AccessSeed(self.coverage)
         leak_seed_list = [LeakSeed(self.coverage) for _ in range(self.thread_num)]
         config = {}
-        trigger_repo = None
-        access_repo = None
-        leak_repo = None
 
         MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 5

@@ -33,6 +33,15 @@ class FuzzLog:
     def log_diverage(self):
         self.log_record(f'coverage_diverage')
 
+class TaintComp:
+    def __init__(self):
+        self.taint_sum = 0
+        self.comp_map = {}
+
+    def __setitem__(self, key, value):
+        self.comp_map[key] = self.comp_map.get(key, 0) + value
+        self.taint_sum += value
+
 class Coverage:
     def __init__(self):
         self.state_list = []
