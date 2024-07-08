@@ -96,17 +96,19 @@ class Coverage:
     
     def update_coverage(self, cover_list, is_leak=True):
         cov_inc = 0
-        for cover_state in cover_list:
-            if cover_state not in self.coverage_set:
-                self.coverage_set.add(cover_state)
-                cov_inc += 1
 
-        if is_leak:
-            self.coverage_list.append(cov_inc)
-            if len(self.coverage_list) > 8:
-                self.coverage_list.pop(0)
-            self.coverage_sum += cov_inc
-            self.coverage_iter += 1
+        if cover_list is not None:
+            for cover_state in cover_list:
+                if cover_state not in self.coverage_set:
+                    self.coverage_set.add(cover_state)
+                    cov_inc += 1
+
+            if is_leak:
+                self.coverage_list.append(cov_inc)
+                if len(self.coverage_list) > 8:
+                    self.coverage_list.pop(0)
+                self.coverage_sum += cov_inc
+                self.coverage_iter += 1
 
         return cov_inc
 

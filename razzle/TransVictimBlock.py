@@ -677,6 +677,10 @@ class TransVictimManager(TransBaseManager):
 
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
         self.nop_block.gen_instr(None)
+    
+    def clear_encode(self):
+        self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
+        self.encode_block.gen_instr(None)
 
     def record_fuzz(self, file):
         file.write(f'victim: {self.swap_idx}\n')

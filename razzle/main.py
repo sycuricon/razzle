@@ -1,16 +1,16 @@
 import os
 import argparse
-from FuzzManager import *
+from FuzzMachine import *
 
 if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def genonly_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix)
     fuzz.generate()
 
 def fuzz_entry(args):
-    fuzz = FuzzManager(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, int(args.thread_num))
 
 if __name__ == "__main__":
