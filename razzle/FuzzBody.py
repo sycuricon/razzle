@@ -342,7 +342,11 @@ class FuzzBody:
         is_divergent = dut_vicitm_end != vnt_vicitm_end
 
         if not is_trigger:
-            return FuzzResult.FAIL, None, None, [('',0)]
+            self.leak_coverage = [('',0)]
+            self.leak_comp_taint = TaintComp()
+            self.leak_cosim_result = None
+            self.leak_iter_num = None
+            return FuzzResult.FAIL
 
         self.leak_coverage = self.compute_coverage(taint_folder)
         self.leak_comp_taint = self.compute_comp(taint_folder)
