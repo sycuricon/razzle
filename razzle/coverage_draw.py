@@ -43,19 +43,19 @@ def coverage_draw(curve_fuzz, mode):
     if mode == 'time':
         plt.plot(cov_time, cov_inc)
 
-        for line in access_mutate:
-            plt.axvline(line, color='green')
-        for line in trigger_mutate:
-            plt.axvline(line, color='blue')
+        # for line in access_mutate:
+        #     plt.axvline(line, color='green')
+        # for line in trigger_mutate:
+        #     plt.axvline(line, color='blue')
 
         plt.savefig(os.path.join(curve_folder, 'coverage.time.png'))
     else:
         plt.plot(cov_iter, cov_inc)
 
-        for line in access_mutate_iter:
-            plt.axvline(line, color='green')
-        for line in trigger_mutate_iter:
-            plt.axvline(line, color='blue')
+        # for line in access_mutate_iter:
+        #     plt.axvline(line, color='green')
+        # for line in trigger_mutate_iter:
+        #     plt.axvline(line, color='blue')
 
         plt.savefig(os.path.join(curve_folder, 'coverage.iter.png'))
 
