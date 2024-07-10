@@ -345,7 +345,7 @@ class FuzzBody:
             self.leak_coverage = [('',0)]
             self.leak_comp_taint = TaintComp()
             self.leak_cosim_result = None
-            self.leak_iter_num = None
+            self.leak_max_taint = None
             return FuzzResult.FAIL
 
         self.leak_coverage = self.compute_coverage(taint_folder)
