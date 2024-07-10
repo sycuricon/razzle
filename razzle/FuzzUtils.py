@@ -436,7 +436,7 @@ class LeakSeed(Seed):
     
     field_len = {
         LeakFieldEnum.LEAK_SEED: 26,
-        LeakFieldEnum.ENCODE_FUZZ_TYPE: 2,
+        LeakFieldEnum.ENCODE_FUZZ_TYPE: 3,
         LeakFieldEnum.ENCODE_BLOCK_LEN: 2,
         LeakFieldEnum.ENCODE_BLOCK_NUM: 2
     }
@@ -477,12 +477,12 @@ class LeakSeed(Seed):
 
         encode_fuzz_type = self.get_field(self.LeakFieldEnum.ENCODE_FUZZ_TYPE)
         match(encode_fuzz_type):
-            case 0|1:
+            case 0|1|2:
                 config['encode_fuzz_type'] = EncodeType.FUZZ_FRONTEND
-            case 2|3:
+            case 3|4|5:
                 config['encode_fuzz_type'] = EncodeType.FUZZ_BACKEND
-            # case 2|3:
-                # config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
+            case 6|7:
+                config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
             case _:
                 raise Exception("the encode fuzz type is invalid")
 
