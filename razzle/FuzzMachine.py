@@ -4,15 +4,21 @@ from FuzzUtils import *
 class FuzzMachine:
     def __init__(self, hjson_filename, output_path, prefix):
         self.hjson_filename = hjson_filename
-        self.output_path = output_path
+        self.build_path = output_path
         self.prefix_domain = prefix
+        self.output_path = os.path.join(self.build_path, f'{self.prefix_domain}.fuzz_code')
+        self.repo_path = os.path.join(self.build_path, f'{self.prefix_domain}.template_repo')
+        if not os.path.exists(self.output_path):
+            os.makedirs(self.output_path)
+        if not os.path.exists(self.repo_path):
+            os.makedirs(self.repo_path)
 
         hjson_file = open(hjson_filename)
         fuzz_config = hjson.load(hjson_file)
         self.TRIGGER_RARE = fuzz_config['trigger_rate']
         self.ACCESS_RATE = fuzz_config['access_rate']
         
-        self.origin_fuzz_body = FuzzBody(fuzz_config, output_path, prefix)
+        self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, prefix)
         self.origin_fuzz_body.update_sub_repo('frame')
         self.origin_fuzz_body.trans.build_frame()
     
@@ -166,16 +172,9 @@ class FuzzMachine:
             cov_inc += self.coverage.update_coverage(fuzz_body.post_coverage, is_leak=False)
             self.fuzz_log.log_cover(fuzz_body.leak_iter_num, cov_inc)
 
-    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, repo_path, thread_num):
-        self.fuzz_log = FuzzLog(repo_path)
+    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, thread_num):
+        self.fuzz_log = FuzzLog(self.repo_path)
         self.thread_num = thread_num
-
-        if repo_path is None:
-            self.repo_path = self.output_path
-        else:
-            self.repo_path = repo_path
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
 
         self.rtl_sim = rtl_sim
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
@@ -202,7 +201,7 @@ class FuzzMachine:
 
         MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 5
-        LEAK_ACCUMULATE_ITER = (10 + self.thread_num - 1) // self.thread_num
+        LEAK_ACCUMULATE_ITER = (16 + self.thread_num - 1) // self.thread_num
 
         while True:
             iter_num = 0

@@ -11,7 +11,7 @@ def genonly_entry(args):
 
 def fuzz_entry(args):
     fuzz = FuzzMachine(args.input, args.output, args.prefix)
-    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.repo_path, int(args.thread_num))
+    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, int(args.thread_num))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -36,9 +36,6 @@ if __name__ == "__main__":
     )
     parser_fuzz.add_argument(
         "--taint_log", dest="taint_log", help="the path of the taint log file"
-    )
-    parser_fuzz.add_argument(
-        "--repo_path", dest="repo_path", help="the path of the trigger and leak reposity"
     )
     parser_fuzz.add_argument(
         "--thread_num", dest="thread_num", help="the thread of the leak"
