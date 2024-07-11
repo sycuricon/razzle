@@ -14,13 +14,16 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class SecretProtectBlock(TransBlock):
-    def __init__(self, extension, output_path, pmp_r, pmp_l, pte_r, pte_v, victim_priv):
+    def __init__(self, extension, output_path, pmp_r, pmp_l, pte_r, pte_v, victim_priv, victim_addr, attack_priv, attack_addr):
         super().__init__('secret_protect_block', extension, output_path)
         self.pmp_r = pmp_r
         self.pmp_l = pmp_l
         self.pte_r = pte_r
         self.pte_v = pte_v
         self.victim_priv = victim_priv
+        self.victim_addr = victim_addr
+        self.attack_priv = attack_priv
+        self.attack_addr = attack_addr
 
     def gen_default(self):
         block = BaseBlock(self.entry, self.extension, False)
@@ -38,7 +41,7 @@ class SecretProtectBlock(TransBlock):
             self._load_inst_str(inst_list)
         if self.pte_r == False or self.pte_v == False:
             vaddr_label = 'vaddr_0xfffffffffff04000_paddr_0x80004000'\
-                if self.victim_priv == 'S' else\
+                if self.victim_priv == 'S' and self.victim_addr == 'v' or self.attack_priv == 'S' and self.victim_addr == 'p' else\
                 'vaddr_0x4000_paddr_0x80004000'
             mask = (int(self.pte_r == False) << 1) | (int(self.pte_v == False) << 0)
             inst_list = [
@@ -60,7 +63,8 @@ class TransProtectManager(TransBaseManager):
     def gen_block(self, config, template):
         self.mode = 'Mp'
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, \
-            config['pmp_l'], config['pmp_r'], config['pte_r'], config['pte_v'], config['victim_priv'])
+            config['pmp_l'], config['pmp_r'], config['pte_r'], config['pte_v'], config['victim_priv'],  \
+            config['victim_addr'], config['attack_priv'], config['attack_addr'])
         self.secret_protect_block.gen_instr(None)
         
         self.return_block = ReturnBlock(self.extension, self.output_path)

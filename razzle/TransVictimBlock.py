@@ -165,7 +165,8 @@ class AccessSecretBlock(TransBlock):
                 f'li s0, {offset}',
                 f'li t1, {base_trapoline_address}',
                 f'add t1, t1, s0',
-                'lb s0, 0(t1)',            ]
+                'lb s0, 0(t1)',            
+            ]
 
         else:
 

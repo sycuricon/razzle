@@ -1,5 +1,4 @@
 from TransManager import *
-import threading
 from FuzzUtils import *
 
 class FuzzBody:
@@ -203,7 +202,7 @@ class FuzzBody:
         return cosim_result, ave_dist, max_taint
 
     def compute_coverage(self, taint_folder):
-        coverage = set()
+        coverage = []
         for line in open(f'{taint_folder}.taint.cov', "r"):
             line = line.strip()
             line = list(line.split())
@@ -211,7 +210,7 @@ class FuzzBody:
             hash_value = line[1:]
             for value in hash_value:
                 value = int(value, base=16)
-                coverage.add((comp, value))
+                coverage.append((comp, value))
         return coverage
     
     def compute_comp(self, taint_folder):

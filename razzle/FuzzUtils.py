@@ -98,10 +98,10 @@ class Coverage:
         cov_inc = 0
 
         if cover_list is not None:
+            origin_num = len(self.coverage_set)
             for cover_state in cover_list:
-                if cover_state not in self.coverage_set:
-                    self.coverage_set.add(cover_state)
-                    cov_inc += 1
+                self.coverage_set.add(cover_state)
+            cov_inc = len(self.coverage_set) - origin_num
 
             if is_leak:
                 self.coverage_list.append(cov_inc)
@@ -125,7 +125,7 @@ class Coverage:
         iter_inc = len(self.coverage_list)
         local_rate = cov_inc/iter_inc
         global_rate = (self.coverage_sum - cov_inc)/(self.coverage_iter - iter_inc)
-        return local_rate/(global_rate + 1)
+        return local_rate/(global_rate + 0.1)
 
 class Seed:
     def __init__(self, length):
@@ -239,13 +239,15 @@ class TriggerSeed(Seed):
     
     def parse(self, config):
         config = copy.deepcopy(config)
-
+        
         priv_mode = self.get_field(self.TriggerFieldEnum.PRIV_MODE)
         config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'] = \
-            ['MpMp', 'MpSv', 'MpUv', 'MpUp', 'SvSv', 'SvUv', 'SvMp', 'UvSv',\
-             'UpMp', 'UvMp', 'SvSv', 'SvUv', 'SvMp', 'UvSv', 'UpMp', 'UvMp',][priv_mode]
+            [   'UpUp', 'UpSp', 'UpMp', 'SpUp', 'SpMp',\
+                'MpUp', 'MpSp', 'MpMp', 'UvUv', 'UvSv', 'UvMp',\
+                'SvUv', 'SvSv', 'SvMp', 'MpUv', 'MpSv',\
+            ][priv_mode]
         
-        if config['victim_addr'] == 'p' and config['attack_addr'] == 'p':
+        if config['attack_addr'] == 'p':
             config['pte_r'] = True
             config['pte_v'] = True
             config['pmp_r'] = False

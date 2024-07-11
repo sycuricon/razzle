@@ -31,6 +31,7 @@ class InitManager(SectionManager):
         self.reg_init_config["csr"]["satp"]["MODE"] = "0x8"
         # mstatus
         self.reg_init_config["csr"]["mstatus"]["MPP"] = "0b00"
+        
         # pmp
         self.reg_init_config["pmp"]["pmp2"]["R"] = "0b1"
         self.reg_init_config["pmp"]["pmp2"]["W"] = "0b1"
