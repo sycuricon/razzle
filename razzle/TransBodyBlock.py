@@ -15,7 +15,7 @@ class ArbitraryBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('arbitrary_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         block_list = []
         block_cnt = random.randint(4, 8)
         for i in range(block_cnt):
@@ -48,7 +48,7 @@ class ReturnBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('return_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_inst_str(
             [
                 'fence',
@@ -206,7 +206,7 @@ class DelayBlock(TransBlock):
     def move_sync(self):
         self.inst_block_list[-1].inst_list[-1] = RawInstruction('INFO_DELAY_START')
 
-    def gen_default(self):
+    def gen_instr(self):
         self._gen_block_begin()
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
@@ -220,11 +220,6 @@ class DelayBlock(TransBlock):
         self._load_inst_str(inst_offset)
 
         self._gen_block_end()
-    
-    def load_template(self, template):
-        super().load_template(template)
-        final_inst = self.inst_block_list[-2].inst_list[-1]
-        self.result_reg = final_inst['RD']
 
 class NopBlock(TransBlock):
     def __init__(self, extension, output_path, c_nop_len):
@@ -232,7 +227,7 @@ class NopBlock(TransBlock):
         assert c_nop_len >= 0
         self.c_nop_len = c_nop_len
 
-    def gen_default(self):
+    def gen_instr(self):
         inst_list = [
             'c.nop' for _ in range(self.c_nop_len//2 - 2)
         ]
@@ -343,17 +338,6 @@ class LoadInitBlock(TransBlock):
         self.inst_block_list[0].name = self.entry
         self.inst_block_list[0].inst_list[0] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
         self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
-
-    def load_template(self, template):
-        super().load_template(template)
-        self.update_depth(self.depth)
-        self.float_init_list = []
-        self.GPR_init_list = []
-        for inst in self.inst_block_list[0].inst_list[1:]:
-            if inst.has('RD'):
-                self.GPR_init_list.append(inst['RD'])
-            else:
-                self.float_init_list.append(inst['FRD'])
     
-    def gen_default(self):
+    def gen_instr(self):
         self._gen_init_code()

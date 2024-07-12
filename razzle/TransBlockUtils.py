@@ -691,27 +691,8 @@ class TransBlock:
             inst_len += block.get_inst_len()
         return inst_len
 
-    def store_template(self, folder):
-        text_name = os.path.join(folder, f'{self.name}.text')
-        data_name = os.path.join(folder, f'{self.name}.data')
-        text_list, data_list = self.gen_asm()
-        with open(text_name, "wt") as file:
-            file.writelines(text_list)
-        with open(data_name, "wt") as file:
-            file.writelines(data_list)
-    
-    def load_template(self, template):
-        self._load_inst_file(f'{template}.text', mutate=True)
-        self._load_data_file(f'{template}.data')
-
-    def gen_default(self):
-        raise "the gen_default has not been implementation!!!"
-
-    def gen_instr(self, template):
-        if template is None:
-            self.gen_default()
-        else:
-            self.load_template(template)
+    def gen_instr(self):
+        raise "the gen_instr has not been implementation!!!"
     
     def gen_inst_asm(self):
         inst_asm_list = []

@@ -46,11 +46,11 @@ class FuzzBody:
     def generate(self, config):
         self.config = config
         random.seed(self.config['trigger_seed'])
-        self.trans.trans_victim.gen_block(self.config, EncodeType.FUZZ_DEFAULT, None)
+        self.trans.trans_victim.gen_block(self.config, EncodeType.FUZZ_DEFAULT)
         self.trans._generate_body_block(self.trans.trans_victim)
-        self.trans.trans_protect.gen_block(self.config, None)
+        self.trans.trans_protect.gen_block(self.config)
         self.trans._generate_body_block(self.trans.trans_protect)
-        self.trans.trans_adjust.gen_block(self.config, self.trans.trans_victim, None)
+        self.trans.trans_adjust.gen_block(self.config, self.trans.trans_victim)
         self.trans._generate_body_block(self.trans.trans_adjust)
         self.trans.gen_train_swap_list(self.config, True, True)
 
@@ -160,11 +160,11 @@ class FuzzBody:
         self.config = config
 
         random.seed(config['trigger_seed'])
-        self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT, None)
+        self.trans.trans_victim.gen_block(config, EncodeType.FUZZ_DEFAULT)
         self.trans._generate_body_block(self.trans.trans_victim)
-        self.trans.trans_protect.gen_block(config, None)
+        self.trans.trans_protect.gen_block(config)
         self.trans._generate_body_block(self.trans.trans_protect)
-        self.trans.trans_adjust.gen_block(config, self.trans.trans_victim, None)
+        self.trans.trans_adjust.gen_block(config, self.trans.trans_victim)
         self.trans._generate_body_block(self.trans.trans_adjust)
 
         TRAIN_GEN_MAX_ITER = 4

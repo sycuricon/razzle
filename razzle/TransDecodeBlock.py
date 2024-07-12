@@ -9,7 +9,7 @@ class ReplaceBlock(TransBlock):
         self.return_addr = return_addr
         self.access_addr = access_addr
 
-    def gen_default(self):
+    def gen_instr(self):
         if self.return_addr == None:
             inst_list = ['c.nop'] * ((self.access_addr - self.begin_addr) // 2)
             self._load_inst_str(inst_list)
@@ -44,15 +44,8 @@ class TransDecodeManager(TransBaseManager):
         self.data_section = data_section
         self.trans_frame = trans_frame
 
-    def gen_block(self, config, trans_victim, template_path):
+    def gen_block(self, config, trans_victim):
         self.mode = ''.join([config['attack_priv'], config['attack_addr']])
-
-        self.trans_victim = trans_victim
-        if template_path is not None:
-            template_list = os.listdir(template_path)
-            encode_template = None if 'encode_block.text' not in template_list else os.path.join(template_path, 'encode_block')
-        else:
-            encode_template = None
 
         self.load_init_block = copy.deepcopy(trans_victim.load_init_block)
         self.load_init_block.update_depth(self.swap_idx)
@@ -60,7 +53,7 @@ class TransDecodeManager(TransBaseManager):
         nop_begin = self.trans_victim.symbol_table['secret_migrate_block_entry']
         nop_end = self.trans_victim.symbol_table['delay_block_entry']
         self.nop_block = NopBlock(self.extension, self.output_path, nop_end - nop_begin)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
         
         self.delay_block = copy.deepcopy(self.trans_victim.delay_block)
         self.delay_block.move_sync()
@@ -70,18 +63,14 @@ class TransDecodeManager(TransBaseManager):
         nop_access = self.trans_victim.symbol_table['access_secret_block_entry']
         nop_return = self.trans_victim.symbol_table['return_block_entry'] if self.trans_victim.return_front else None
         self.replace_block = ReplaceBlock(self.extension, self.output_path, nop_begin, nop_access, nop_end, nop_return)
-        self.replace_block.gen_instr(None)
+        self.replace_block.gen_instr()
 
-        if encode_template is not None:
-            self.encode_block = EncodeBlock(self.extension, self.output_path, 'S0', EncodeType.FUZZ_DEFAULT)
-            self.encode_block.gen_instr(encode_template)
-        else:
-            self.encode_block = copy.deepcopy(trans_victim.encode_block)
-            if self.encode_block.loop:
-                self.encode_block.break_loop()
+        self.encode_block = copy.deepcopy(trans_victim.encode_block)
+        if self.encode_block.loop:
+            self.encode_block.break_loop()
         
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr(None)
+        self.return_block.gen_instr()
     
     def record_fuzz(self, file):
         pass

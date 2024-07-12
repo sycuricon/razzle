@@ -451,91 +451,20 @@ class TransManager:
 
             trans_body = self.trans_train_pool[self.trans_train_id]
             self.trans_train_id += 1
-            trans_body.gen_block(config, train_type, align, single, self.trans_victim, None)
+            trans_body.gen_block(config, train_type, align, single, self.trans_victim)
             self._generate_body_block(trans_body)
 
             swap_block_list.insert(0, trans_body.mem_region)
         self.swap_block_list = swap_block_list
-    
-    def store_template(self, iter_num, repo_path, template_folder):
-        self.swap_list = []
-        for swap_block in self.swap_block_list:
-            self.swap_list.append(swap_block['swap_id'])
-
-        trigger_repo_path = os.path.join(repo_path, template_folder)
-        if not os.path.exists(trigger_repo_path):
-            os.makedirs(trigger_repo_path)
-
-        file_list = []
-
-        new_template = os.path.join(trigger_repo_path, str(iter_num))
-        if not os.path.exists(new_template):
-            os.makedirs(new_template)
-        for i,swap_id in enumerate(self.swap_list[:-1]):
-            swap_type =  type(self.swap_map[swap_id])
-            if swap_type == TransTrainManager:
-                train_fold = os.path.join(new_template, f'train_{i}')
-            elif swap_type == TransVictimManager:
-                train_fold = os.path.join(new_template, f'victim')
-            else:
-                train_fold = os.path.join(new_template, f'decode')
-            file_list.append(train_fold)
-            if not os.path.exists(train_fold):
-                os.makedirs(train_fold)
-            trans_body = self.swap_map[swap_id]
-            trans_body.store_template(train_fold)
-
-        block_order = os.path.join(new_template, f'block_order')
-        with open(block_order, "wt") as file:
-            for file_name in file_list:
-                file.write(f'{file_name}\n')
 
     def build_frame(self):
         self._generate_frame()
         self._generate_frame_block()
 
     def generate(self):
-        self.trans_victim.gen_block(EncodeType.FUZZ_DEFAULT, None)
+        self.trans_victim.gen_block(EncodeType.FUZZ_DEFAULT)
         self._generate_body_block(self.trans_victim)
         self.swap_block_list = [self.trans_protect.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
-
-    def load_template(self, iter_num, repo_path, template_folder, strategy, config):
-        template_path =os.path.join(repo_path, template_folder, iter_num)
-        if not os.path.exists(template_path):
-            raise Exception(f"the template {template_path} does not exist")
-        
-        block_order_file = os.path.join(template_path, "block_order")
-        folder_list = []
-        for line in open(block_order_file, "rt"):
-            line = line.strip()
-            if len(line) != 0:
-                folder_list.append(line)
-        folder_list.reverse()
-
-        self.swap_victim_list = [self.trans_exit.mem_region]
-        self.data_train_section.clear()
-
-        for folder in folder_list:
-            file = os.path.basename(folder)
-            if file.startswith('victim'):
-                self.trans_victim.gen_block(config, strategy, folder)
-                self._generate_body_block(self.trans_victim)
-                self.swap_victim_list.insert(0, self.trans_victim.mem_region)
-                break
-
-        self.trans_train_id = 0
-        for folder in folder_list:
-            file = os.path.basename(folder)
-            if file.startswith('decode'):
-                self.trans_decode.gen_block(self.trans_victim, folder)
-                self._generate_body_block(self.trans_decode)
-                self.swap_victim_list.insert(-1, self.trans_decode.mem_region)
-            elif file.startswith('train'):
-                trans_train = self.trans_train_pool[self.trans_train_id]
-                self.trans_train_id += 1
-                trans_train.gen_block(config, self.trans_victim, True, True, folder)
-                self._generate_body_block(trans_train)
-                self.swap_block_list.insert(0, trans_train.mem_region)
     
     def record_fuzz(self, file):
         for swap_mem_region in self.swap_block_list[:-1]:

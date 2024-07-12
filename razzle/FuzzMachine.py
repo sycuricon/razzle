@@ -1,5 +1,6 @@
 from FuzzBody import *
 from FuzzUtils import *
+import threading
 
 class FuzzMachine:
     def __init__(self, hjson_filename, output_path, prefix):
@@ -105,7 +106,6 @@ class FuzzMachine:
                 file_name = f'{post_taint_folder}{suffix}'
                 if os.path.exists(file_name):
                     cp_baker.add_cmd(gen_asm.gen_cmd([file_name, f'{self.output_path}/{fuzz_body.sub_repo}']))
-
         
         rm_asm = ShellCommand("rm", [])
         cp_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{fuzz_body.sub_repo}/*.elf']))

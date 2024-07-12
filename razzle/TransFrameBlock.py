@@ -14,35 +14,35 @@ class StackBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('stack_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/stack_block.data.S"))
 
 class ChannelBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('channel_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/channel_block.data.S"))
 
 class SecretBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('secret_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/secret_block.data.S"))
 
 class InitBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('init_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/init_block.text.S"))
 
 class MTrapBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('mtrap_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/mtrap_block.data.S"))
 
@@ -50,35 +50,35 @@ class STrapBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('strap_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/strap_block.text.S"))
 
 class DummyDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('dummy_data_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/dummy_data_block.data.S"))
 
 class AccessFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('access_fault_data_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/access_fault_data_block.data.S"))
 
 class PageFaultDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('page_fault_data_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/page_fault_data_block.data.S"))
 
 class RandomDataBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('random_data_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         def random_data_line(byte_num = 0x800):
             assert byte_num%64==0, "byte_num must be aligned to 64"
             for i in range(0, byte_num, 64):
@@ -127,16 +127,16 @@ class TransFrameManager(TransBaseManager):
         self.stack_block = StackBlock(self.extension, self.output_path)
         self.dummy_data_block = DummyDataBlock(self.extension, self.output_path)
 
-        self.secret_block.gen_instr(None)
-        self.channel_block.gen_instr(None)
-        self.init_block.gen_instr(None)
-        self.mtrap_block.gen_instr(None)
-        self.strap_block.gen_instr(None)
-        self.random_data_block.gen_instr(None)
-        self.access_fault_block.gen_instr(None)
-        self.page_fault_block.gen_instr(None)
-        self.stack_block.gen_instr(None)
-        self.dummy_data_block.gen_instr(None)
+        self.secret_block.gen_instr()
+        self.channel_block.gen_instr()
+        self.init_block.gen_instr()
+        self.mtrap_block.gen_instr()
+        self.strap_block.gen_instr()
+        self.random_data_block.gen_instr()
+        self.access_fault_block.gen_instr()
+        self.page_fault_block.gen_instr()
+        self.stack_block.gen_instr()
+        self.dummy_data_block.gen_instr()
     
     def get_data_section(self):
         data_frame_section = self.section['.data_frame']
@@ -355,7 +355,7 @@ class ExitBlock(TransBlock):
     def __init__(self, extension, output_path):
         super().__init__('exit_block', extension, output_path)
 
-    def gen_default(self):
+    def gen_instr(self):
         self._load_inst_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.text.S"))
         self._load_data_file(os.path.join(os.environ["RAZZLE_ROOT"], "template/trans/exit_block.data.S"))
 
@@ -368,7 +368,7 @@ class TransExitManager(TransBaseManager):
     def gen_block(self):
         self.mode = 'Mp'
         self.exit_block = ExitBlock(self.extension, self.output_path)
-        self.exit_block.gen_instr(None)
+        self.exit_block.gen_instr()
     
     def record_fuzz(self,file):
         pass

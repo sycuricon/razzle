@@ -25,18 +25,8 @@ class SecretMigrateBlock(TransBlock):
         super().__init__('secret_migrate_block', extension, output_path)
         self.protected_gpr_list = protect_gpr_list
         self.secret_migrate_type = secret_migrate_type
-
-    def store_template(self, folder):
-        type_name = os.path.join(folder, f'{self.name}.type')
-        with open(type_name, "wt") as file:
-            file.write(f'{self.secret_migrate_type}')
     
-    def load_template(self, template):
-        with open(f'{template}.type', "rt") as file:
-            self.secret_migrate_type = eval(file.readline().strip())
-        self.gen_code()
-    
-    def gen_code(self):
+    def gen_instr(self):
         if len(self.protected_gpr_list) >= 30:
             self.secret_migrate_type = SecretMigrateType.MEMORY
 
@@ -88,9 +78,6 @@ class SecretMigrateBlock(TransBlock):
         inst_list = ['c.nop'] * ((need_len - now_len)//2)
         inst_list.insert(0, f'{self.name}_fill_nop:')
         self._load_inst_str(inst_list)
-
-    def gen_default(self):
-        self.gen_code()
     
     def _get_inst_len(self):
         return (20 + 8) * 2
@@ -101,28 +88,28 @@ class TransAdjustManager(TransBaseManager):
         self.data_section = data_section
         self.trans_frame = trans_frame
     
-    def gen_block(self, config, trans_victim, template_path):
+    def gen_block(self, config, trans_victim):
         self.mode = ''.join([config['attack_priv'], config['attack_addr']])
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
-        self.secret_migrate_block.gen_instr(None)
+        self.secret_migrate_block.gen_instr()
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, None, EncodeType.FUZZ_DEFAULT)
-        self.encode_block.gen_instr(None)
+        self.encode_block.gen_instr()
 
         self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [])
-        self.load_init_block.gen_instr(None)
+        self.load_init_block.gen_instr()
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr(None)
+        self.return_block.gen_instr()
 
         nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
         need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
         self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
         
     def mutate_access(self, config, trans_victim):
-        self.gen_block(config, trans_victim, None)
+        self.gen_block(config, trans_victim)
 
     def mutate_encode(self, config, trans_victim):
         self.mode = ''.join([config['attack_priv'], config['attack_addr']])
@@ -132,15 +119,15 @@ class TransAdjustManager(TransBaseManager):
             self.encode_block.break_loop()
         
         self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.encode_block])
-        self.load_init_block.gen_instr(None)
+        self.load_init_block.gen_instr()
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])
-        self.secret_migrate_block.gen_instr(None)
+        self.secret_migrate_block.gen_instr()
 
         nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
         need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
         self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
 
     def record_fuzz(self, file):
         file.write(f'adjust: {self.swap_idx}\n')

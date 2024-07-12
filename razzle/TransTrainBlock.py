@@ -36,7 +36,7 @@ class TrainBlock(TransBlock):
         self.train_label = train_label
         self.train_type = train_type
     
-    def gen_default(self):
+    def gen_instr(self):
         block = BaseBlock(self.entry, self.extension, True)
         inst = Instruction()
         inst.set_extension_constraint(self.extension)
@@ -103,18 +103,6 @@ class TrainBlock(TransBlock):
         inst_list = ['nop_append:']
         inst_list.extend(['c.nop'] * (c_nop_len // 2))
         self._load_inst_str(inst_list)
-    
-    def store_template(self, folder):
-        super().store_template(folder)
-        type_name = os.path.join(folder, f'{self.name}.type')
-        with open(type_name, "wt") as file:
-            file.write(f'{self.train_type}')
-    
-    def load_template(self, template):
-        super().load_template(template)
-        with open(f'{template}.type', "rt") as file:
-            self.train_type = eval(file.readline().strip())
-            self.train_inst = self.inst_block_list[0].inst_list[-1]
     
 class LoadInitTrainBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, train_block):
@@ -196,7 +184,7 @@ class LoadInitTrainBlock(LoadInitBlock):
 
         return train_param
     
-    def gen_default(self):
+    def gen_instr(self):
         train_param = self._compute_train_param()
         need_inited = list(train_param.keys())
         if 'ZERO' in need_inited:
@@ -238,7 +226,7 @@ class NopRetBlock(TransBlock):
         super().__init__('nop_ret_block', extension, output_path)
         self.c_nop_len = c_nop_len
 
-    def gen_default(self):
+    def gen_instr(self):
         inst_list = [
             'c.nop'
         ] * ((self.c_nop_len - 4)//2)
@@ -253,7 +241,7 @@ class TransTrainManager(TransBaseManager):
         self.data_section = data_section
         self.trans_frame = trans_frame
 
-    def gen_block(self, config, train_type, align, single, trans_victim, template_path):
+    def gen_block(self, config, train_type, align, single, trans_victim):
         self.mode = ''.join([config['attack_priv'], config['attack_addr']])
 
         self.single = single
@@ -261,19 +249,11 @@ class TransTrainManager(TransBaseManager):
         self.trans_victim = trans_victim
 
         if self.single:
-            
-            if template_path is not None:
-                template_list = os.listdir(template_path)
-                load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
-                train_template = None if 'train_block.text' not in template_list else os.path.join(template_path, 'train_block')
-            else:
-                load_init_template = None
-                train_template = None
 
             self.train_type = train_type
 
             self.return_block = ReturnBlock(self.extension, self.output_path)
-            self.return_block.gen_instr(None)
+            self.return_block.gen_instr()
 
             self.return_front = self.trans_victim.return_front
 
@@ -289,14 +269,14 @@ class TransTrainManager(TransBaseManager):
 
             nop_ret_len = (nop_ret_end - nop_ret_begin)
             self.nop_ret_block = NopRetBlock(self.extension, self.output_path, nop_ret_len)
-            self.nop_ret_block.gen_instr(None)
+            self.nop_ret_block.gen_instr()
 
             self.train_block = TrainBlock(self.extension, self.output_path, self.return_block.entry, self.nop_ret_block.entry, self.train_type)
-            self.train_block.gen_instr(train_template)
+            self.train_block.gen_instr()
             self.train_type = self.train_block.train_type
 
             self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block)
-            self.load_init_block.gen_instr(load_init_template)
+            self.load_init_block.gen_instr()
 
             train_block_len = self.train_block._get_inst_len()
             load_init_block_len = self.load_init_block._get_inst_len()
@@ -308,7 +288,7 @@ class TransTrainManager(TransBaseManager):
                 c_nop_len = c_nop_len - train_nop_len
                 self.train_block.append_train_nop_len(train_nop_len)
             self.nop_block = NopBlock(self.extension, self.output_path, c_nop_len)
-            self.nop_block.gen_instr(None)
+            self.nop_block.gen_instr()
         
         else:
 
@@ -319,15 +299,15 @@ class TransTrainManager(TransBaseManager):
             ret_nop_len = full_nop_len - nop_len
 
             self.nop_block = NopBlock(self.extension, self.output_path, nop_len)
-            self.nop_block.gen_instr(None)
+            self.nop_block.gen_instr()
             self.nop_ret_block = NopRetBlock(self.extension, self.output_path, ret_nop_len)
-            self.nop_ret_block.gen_instr(None)
+            self.nop_ret_block.gen_instr()
 
             self.arbitrary_block = ArbitraryBlock(self.extension, self.output_path)
-            self.arbitrary_block.gen_instr(None)
+            self.arbitrary_block.gen_instr()
 
             self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.arbitrary_block])
-            self.load_init_block.gen_instr(None)
+            self.load_init_block.gen_instr()
 
     
     def record_fuzz(self, file):
@@ -338,9 +318,6 @@ class TransTrainManager(TransBaseManager):
             file.write(f'\treturn_front: {self.return_front}\n')
             file.write(f'\ttrain_type: {self.train_block.train_type}\t')
             file.write(f'\ttrain_inst: {self.train_block.train_inst.to_asm()}\n')
-    
-    def store_template(self, folder):
-        self._dump_trans_block(folder, [self.load_init_block, self.train_block], self.return_front)
 
     def _generate_sections(self):
 

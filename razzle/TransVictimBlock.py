@@ -21,7 +21,7 @@ class TriggerBlock(TransBlock):
         self.train_label = train_label
         self.trigger_type = trigger_type
     
-    def gen_default(self):
+    def gen_instr(self):
         block = BaseBlock(self.entry, self.extension, True)
         inst = Instruction()
         inst.set_extension_constraint(self.extension)
@@ -114,18 +114,6 @@ class TriggerBlock(TransBlock):
         self.trigger_inst = inst
         block.inst_list.append(inst)
         self._add_inst_block(block)
-    
-    def store_template(self, folder):
-        super().store_template(folder)
-        type_name = os.path.join(folder, f'{self.name}.type')
-        with open(type_name, "wt") as file:
-            file.write(f'{self.trigger_type}')
-    
-    def load_template(self, template):
-        super().load_template(template)
-        with open(f'{template}.type', "rt") as file:
-            self.trigger_type = eval(file.readline().strip())
-            self.trigger_inst = self.inst_block_list[0].inst_list[-1]
 
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, output_path, li, mask, victim_priv, victim_addr, attack_priv, attack_addr):
@@ -137,19 +125,12 @@ class AccessSecretBlock(TransBlock):
         self.attack_priv = attack_priv
         self.attack_addr = attack_addr
     
-    def store_template(self, folder):
-        type_name = os.path.join(folder, f'{self.name}.type')
-        with open(type_name, "wt") as file:
-            file.write(f'{self.li_offset}\n')
-            file.write(f'{hex(self.address)}\n')
-    
-    def load_template(self, template):
-        with open(f'{template}.type', "rt") as file:
-            self.li_offset = eval(file.readline().strip())
-            self.address = eval(file.readline().strip())
-        self.gen_code()
-    
-    def gen_code(self):
+    def gen_instr(self):
+        self.mask = (1 << self.mask) - 1
+        self.rand_mask = (1 << 64) - 1 - self.mask
+        self.address = 0x4001
+        self.address = (self.address & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
+
         trapoline_address = 0x5000
         offset = hex(self.address - trapoline_address)
         if self.attack_addr == 'p':
@@ -187,13 +168,6 @@ class AccessSecretBlock(TransBlock):
         self._load_data_str(data_list)
 
         self.secret_reg = 'S0'
-    
-    def gen_default(self):
-        self.mask = (1 << self.mask) - 1
-        self.rand_mask = (1 << 64) - 1 - self.mask
-        self.address = 0x4001
-        self.address = (self.address & self.mask) | (random.randint(0, (2<<64)-1) & self.rand_mask)
-        self.gen_code()
 
 class EncodeType(Enum):
     FUZZ_FRONTEND = auto()
@@ -326,7 +300,7 @@ class EncodeBlock(TransBlock):
             self.encode_block_list.append(block)
             self.loop = True
 
-    def gen_default(self):
+    def gen_instr(self):
         self._gen_block_begin()
 
         match (self.strategy):
@@ -390,13 +364,6 @@ class EncodeBlock(TransBlock):
                     self.encode_block_list_type.append(eval(line.strip()))
         except:
             pass
-    
-    def store_template(self, folder):
-        super().store_template(folder)
-        with open(os.path.join(folder, f'{self.name}.type'), "wt") as file:
-            file.write(f'{self.strategy}\n')
-            for i in self.encode_list:
-                file.write(f'{self.encode_block_list[i].block_type}\n')
 
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block):
@@ -476,7 +443,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
         dump_result = inst_simlutor(self.baker, [self, self.delay_block, self.random_block])
         return dump_result[self.delay_block.result_reg]
 
-    def gen_default(self):
+    def gen_instr(self):
         self._gen_init_code()
         self.dep_reg_result = self._simulate_dep_reg_result()
         self.trigger_param = self._compute_trigger_param()
@@ -539,10 +506,6 @@ class LoadInitTriggerBlock(LoadInitBlock):
 
             self.GPR_init_list.extend(GPR_init_list)
             self.float_init_list.extend(float_init_list)
-
-    def load_template(self, template):
-        super().load_template(template)
-        self.update_init_seq()
         
 class TransVictimManager(TransBaseManager):
     def __init__(self, config, extension, output_path, data_section, trans_frame):
@@ -550,34 +513,18 @@ class TransVictimManager(TransBaseManager):
         self.data_section = data_section
         self.trans_frame = trans_frame
     
-    def gen_block(self, config, strategy, template_path):
+    def gen_block(self, config, strategy):
         self.mode = ''.join([config['victim_priv'], config['victim_addr']])
 
         assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
             EncodeType.FUZZ_PIPELINE, EncodeType.FUZZ_DEFAULT]
         self.strategy = strategy
 
-        if template_path is not None:
-            template_list = os.listdir(template_path)
-            with open(os.path.join(template_path, 'return_front'), 'rt') as file:
-                return_front = eval(file.readline().strip())
-            delay_template = None if 'delay_block.text' not in template_list else os.path.join(template_path, 'delay_block')
-            access_secret_template = None if 'access_secret_block.type' not in template_list else os.path.join(template_path, 'access_secret_block')
-            encode_template = None if 'encode_block.text' not in template_list else os.path.join(template_path, 'encode_block')
-            trigger_template = None if 'trigger_block.text' not in template_list else os.path.join(template_path, 'trigger_block')
-            load_init_template = None if 'load_init_block.text' not in template_list else os.path.join(template_path, 'load_init_block')
-        else:
-            delay_template = None
-            access_secret_template = None
-            encode_template = None
-            trigger_template = None
-            load_init_template = None
-
         self.delay_block = DelayBlock(self.extension, self.output_path, config['delay_len'], config['delay_float_rate'], config['delay_mem'])
-        self.delay_block.gen_instr(delay_template)
+        self.delay_block.gen_instr()
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr(None)
+        self.return_block.gen_instr()
 
         tmp_random_state = random.getstate()
         random.seed(config['access_seed'])
@@ -585,61 +532,50 @@ class TransVictimManager(TransBaseManager):
             config['access_secret_li'], config['access_secret_mask'],\
             config['victim_priv'], config['victim_addr'],\
             config['attack_priv'], config['attack_addr'])
-        self.access_secret_block.gen_instr(access_secret_template)
+        self.access_secret_block.gen_instr()
         random.setstate(tmp_random_state)
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, self.strategy)
 
         self.trigger_block = TriggerBlock(self.extension, self.output_path, self.delay_block.result_reg,\
             self.return_block.entry, self.access_secret_block.entry, config['trigger_type'])
-        self.trigger_block.gen_instr(trigger_template)
+        self.trigger_block.gen_instr()
 
         self.encode_block.trigger_type = self.trigger_block.trigger_type
-        self.encode_block.gen_instr(encode_template)
+        self.encode_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.trans_frame.random_data_block)
-        self.load_init_block.gen_instr(load_init_template)
+        self.load_init_block.gen_instr()
         self.temp_load_init_block = self.load_init_block
 
         inst_len = self.load_init_block._get_inst_len() + 64
         nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
 
         self.trigger_type = self.trigger_block.trigger_type
 
-        if template_path is None:
-            do_follow = True
-            if self.trigger_block.trigger_type == TriggerType.BRANCH and\
-                self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
-                do_follow = False
-            elif self.trigger_block.trigger_type in [TriggerType.INT, TriggerType.FLOAT,\
-                TriggerType.AMO, TriggerType.LOAD, TriggerType.STORE]:
-                do_follow = False
-            else:
-                if self.trigger_block.trigger_type == TriggerType.JALR:
-                    tend_follow = False
-                else:
-                    tend_follow = True
-
-                if tend_follow:
-                    do_follow = random.choice([True, True, True, True, False])
-                else:
-                    do_follow = random.choice([True, False, False, False, False])
-
-            self.return_front = not do_follow
+        do_follow = True
+        if self.trigger_block.trigger_type == TriggerType.BRANCH and\
+            self.trigger_block.trigger_inst['LABEL'] == self.access_secret_block.entry:
+            do_follow = False
+        elif self.trigger_block.trigger_type in [TriggerType.INT, TriggerType.FLOAT,\
+            TriggerType.AMO, TriggerType.LOAD, TriggerType.STORE]:
+            do_follow = False
         else:
-            self.return_front = return_front
-    
-    def store_template(self, folder):
-        self._dump_trans_block(folder, [self.load_init_block, self.delay_block,\
-            self.trigger_block, self.access_secret_block, self.encode_block], self.return_front)
-        
-        trigger_type_file = os.path.join(folder, 'trigger_block.type')
-        with open(trigger_type_file, "wt") as file:
-            file.write(f'{self.trigger_block.trigger_type}')
+            if self.trigger_block.trigger_type == TriggerType.JALR:
+                tend_follow = False
+            else:
+                tend_follow = True
+
+            if tend_follow:
+                do_follow = random.choice([True, True, True, True, False])
+            else:
+                do_follow = random.choice([True, False, False, False, False])
+
+        self.return_front = not do_follow
     
     def leak_reduce(self, encode_list):
         self.encode_block.leak_reduce(encode_list)
@@ -650,25 +586,25 @@ class TransVictimManager(TransBaseManager):
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path,\
             config['access_secret_li'], config['access_secret_mask'],\
             config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'])
-        self.access_secret_block.gen_instr(None)
+        self.access_secret_block.gen_instr()
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
         self.encode_block.trigger_type = self.trigger_block.trigger_type
-        self.encode_block.gen_instr(None)
+        self.encode_block.gen_instr()
 
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
 
         inst_len = self.load_init_block._get_inst_len() + 64
         nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
 
     def mutate_encode(self, config):
         self.mode = ''.join([config['victim_priv'], config['victim_addr']])
         random.seed(config['leak_seed'])
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type
-        self.encode_block.gen_instr(None)
+        self.encode_block.gen_instr()
 
         old_inst_len = self.load_init_block._get_inst_len()
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
@@ -677,11 +613,11 @@ class TransVictimManager(TransBaseManager):
         new_inst_len = self.load_init_block._get_inst_len()
 
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)
-        self.nop_block.gen_instr(None)
+        self.nop_block.gen_instr()
     
     def clear_encode(self):
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
-        self.encode_block.gen_instr(None)
+        self.encode_block.gen_instr()
 
     def record_fuzz(self, file):
         file.write(f'victim: {self.swap_idx}\n')

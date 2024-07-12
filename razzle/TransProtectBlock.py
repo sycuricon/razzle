@@ -25,7 +25,7 @@ class SecretProtectBlock(TransBlock):
         self.attack_priv = attack_priv
         self.attack_addr = attack_addr
 
-    def gen_default(self):
+    def gen_instr(self):
         block = BaseBlock(self.entry, self.extension, False)
         self._add_inst_block(block)
         if self.pmp_r == False or self.pmp_l == True:
@@ -60,15 +60,15 @@ class TransProtectManager(TransBaseManager):
         self.data_section = data_section
         self.trans_frame = trans_frame
     
-    def gen_block(self, config, template):
+    def gen_block(self, config):
         self.mode = 'Mp'
         self.secret_protect_block = SecretProtectBlock(self.extension, self.output_path, \
             config['pmp_l'], config['pmp_r'], config['pte_r'], config['pte_v'], config['victim_priv'],  \
             config['victim_addr'], config['attack_priv'], config['attack_addr'])
-        self.secret_protect_block.gen_instr(None)
+        self.secret_protect_block.gen_instr()
         
         self.return_block = ReturnBlock(self.extension, self.output_path)
-        self.return_block.gen_instr(None)
+        self.return_block.gen_instr()
         
     def record_fuzz(self, file):
         file.write(f'protect: {self.swap_idx}\n')
