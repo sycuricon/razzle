@@ -9,6 +9,10 @@ def genonly_entry(args):
     fuzz = FuzzMachine(args.input, args.output, args.prefix)
     fuzz.generate()
 
+def compile_entry(args):
+    fuzz = FuzzMachine(args.input, args.output, args.prefix)
+    fuzz.offline_compile(args.mem_cfg)
+
 def fuzz_entry(args):
     fuzz = FuzzMachine(args.input, args.output, args.prefix)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, int(args.thread_num))
@@ -25,6 +29,12 @@ if __name__ == "__main__":
 
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
     parser_genonly.set_defaults(func=genonly_entry)
+
+    parser_compile = subparsers.add_parser('compile')
+    parser_compile.set_defaults(func=compile_entry)
+    parser_compile.add_argument(
+        "--mem_cfg", dest="mem_cfg", help="the path of the mem_cfg to be compiled"
+    )
 
     parser_fuzz = subparsers.add_parser('fuzz')
     parser_fuzz.set_defaults(func=fuzz_entry)

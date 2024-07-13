@@ -271,10 +271,10 @@ class TransManager:
                 phase = 'decode'
             elif trans_body_type == TransTrainManager:
                 data_name = 'data_train'
-                phase = 'victim'
+                phase = 'train'
             elif trans_body_type == TransAdjustManager:
                 data_name = 'data_adjust'
-                phase = 'victim'
+                phase = 'adjust'
             elif trans_body_type == TransProtectManager:
                 data_name = 'data_protect'
                 phase = 'protect'
@@ -352,15 +352,36 @@ class TransManager:
 
         self.trans_frame.move_data_section()
 
-    def _generate_body_block(self, trans_block):
-        swap_idx = trans_block.swap_idx
-
-        self.file_list = self.frame_file_list + trans_block.file_generate(self.output_path, f'payload_{trans_block.swap_idx}.S')
-        baker, data_name, phase = self._generate_compile_shell(swap_idx, trans_block)
-        baker.run()
+    def _generate_body_block(self, trans_block, mem_region=None):
+        if mem_region is None:
+            swap_idx = trans_block.swap_idx
+            self.file_list = self.frame_file_list + trans_block.file_generate(self.output_path, f'payload_{trans_block.swap_idx}.S')
+            baker, data_name, phase = self._generate_compile_shell(swap_idx, trans_block)
+            baker.run()
+        else:
+            swap_idx = mem_region['swap_id']
+            swap_phase = mem_region['phase']
+            match swap_phase:
+                case 'attack':
+                    data_name = 'data_victim'
+                case 'adjust':
+                    data_name = 'data_adjust'
+                case 'decode':
+                    data_name = 'data_decode'
+                case 'protect':
+                    data_name = 'data_protect'
+                case 'train':
+                    data_name = 'data_train'
+                case 'exit':
+                    return
+                case _:
+                    raise Exception(f"invalid phase name:{swap_phase}")
+            compile_shell = os.path.join(self.output_path, f'compile_{swap_idx}.sh')
+            os.system(f'{compile_shell}')
 
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
-        trans_block.add_symbol_table(symbol_table)
+        if trans_block is not None:
+            trans_block.add_symbol_table(symbol_table)
 
         file_origin = os.path.join(self.output_path, f'Testbench_{swap_idx}.bin')
         with open(file_origin, "rb") as file:
@@ -376,12 +397,6 @@ class TransManager:
         text_swap_byte_array = origin_byte_array[text_begin:text_end]
         with open(file_text_swap, "wb") as file:
             file.write(text_swap_byte_array)
-        
-        mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, \
-                    'init_file':file_text_swap, 'swap_id':swap_idx, \
-                    'phase':phase, 'mode':trans_block.mode}
-        trans_block.register_memory_region(mem_region)
 
         data_begin_label = f'_{data_name}_start'
         data_end_label = f'_{data_name}_end'
@@ -394,10 +409,17 @@ class TransManager:
         with open(file_data, "wb") as file:
             file.write(data_byte_array)
         
-        duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, \
-            'init_file':file_data}
-        self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
+        if mem_region is None:
+            swap_mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
+                        'max_len':up_align(text_end, Page.size) - text_begin, \
+                        'init_file':file_text_swap, 'swap_id':swap_idx, \
+                        'phase':phase, 'mode':trans_block.mode}
+            trans_block.register_memory_region(swap_mem_region)
+            
+            duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
+                'max_len':up_align(data_end, Page.size) - data_begin, \
+                'init_file':file_data}
+            self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
     
     def _compute_coverage(self, base_list, variant_list):
         if max(base_list) != 0:

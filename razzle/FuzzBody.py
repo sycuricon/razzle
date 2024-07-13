@@ -67,6 +67,16 @@ class FuzzBody:
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
         self.mem_cfg.dump_conf('duo')
     
+    def offline_compile(self, mem_cfg):
+        mem_region_list = mem_cfg['memory_regions']
+        for mem_region in mem_region_list[-1::-1]:
+            init_file = mem_region['init_file']
+            sub_repo = init_file.split('/')[-2]
+            if mem_region['type'] != 'swap':
+                continue
+            self.update_sub_repo(sub_repo)
+            self.trans._generate_body_block(None, mem_region)
+    
     def update_sub_repo(self, sub_repo):
         self.sub_repo = sub_repo
         self.mem_cfg.update_sub_repo(sub_repo)

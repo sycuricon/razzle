@@ -23,6 +23,11 @@ class FuzzMachine:
         self.origin_fuzz_body.update_sub_repo('frame')
         self.origin_fuzz_body.trans.build_frame()
     
+    def offline_compile(self, mem_cfg_file_name):
+        mem_cfg_file = open(mem_cfg_file_name)
+        mem_cfg = libconf.load(mem_cfg_file)
+        self.origin_fuzz_body.offline_compile(mem_cfg)
+    
     def generate(self):
         self.coverage = Coverage()
         self.trigger_seed = TriggerSeed(self.coverage)
