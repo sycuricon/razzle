@@ -245,6 +245,7 @@ class TransManager:
         trans_body_type = type(trans_block)
         gen_asm = ShellCommand("riscv64-unknown-elf-objdump", ["-d"])
         data_name = None
+        phase = 'exit'
         if trans_body_type == TransExitManager:
             baker.add_cmd(
                 gen_asm.gen_cmd(
@@ -264,14 +265,19 @@ class TransManager:
         else:
             if trans_body_type == TransVictimManager:
                 data_name = 'data_victim'
+                phase = 'attack'
             elif trans_body_type == TransDecodeManager:
                 data_name = 'data_decode'
+                phase = 'decode'
             elif trans_body_type == TransTrainManager:
                 data_name = 'data_train'
+                phase = 'victim'
             elif trans_body_type == TransAdjustManager:
                 data_name = 'data_adjust'
+                phase = 'victim'
             elif trans_body_type == TransProtectManager:
                 data_name = 'data_protect'
+                phase = 'protect'
             else:
                 raise Exception('the type of trans_body is invalid')
             baker.add_cmd(
@@ -288,12 +294,12 @@ class TransManager:
 
         baker.run()
 
-        return baker, data_name
+        return baker, data_name, phase
 
     def _generate_frame_block(self):
         swap_idx = self.trans_exit.swap_idx
 
-        baker, _ = self._generate_compile_shell(swap_idx, self.trans_exit)
+        baker, _, phase = self._generate_compile_shell(swap_idx, self.trans_exit)
         baker.run()
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
 
@@ -325,9 +331,9 @@ class TransManager:
         variant_text_base = 'variant_common.bin'
         variant_text = os.path.join(self.output_path, variant_text_base)
         dut_mem_region = {'type':'dut', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':origin_text, 'swap_id':self.trans_exit.swap_idx, 'mode':'Uv'}
+                    'max_len':up_align(common_end, Page.size), 'init_file':origin_text}
         vnt_mem_region = {'type':'vnt', 'start_addr':common_begin + address_offset,\
-                    'max_len':up_align(common_end, Page.size), 'init_file':variant_text, 'swap_id':self.trans_exit.swap_idx, 'mode':'Uv'}
+                    'max_len':up_align(common_end, Page.size), 'init_file':variant_text}
         self.mem_cfg.add_mem_region('frame', [dut_mem_region, vnt_mem_region])
 
         file_text_swap_base = f'text_swap_{swap_idx}.bin'
@@ -339,7 +345,9 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx, 'mode':self.trans_exit.mode}
+                    'max_len':up_align(text_end, Page.size) - text_begin, \
+                    'init_file':file_text_swap, 'swap_id':swap_idx, \
+                    'phase':phase, 'mode':self.trans_exit.mode}
         self.trans_exit.register_memory_region(mem_region)
 
         self.trans_frame.move_data_section()
@@ -348,7 +356,7 @@ class TransManager:
         swap_idx = trans_block.swap_idx
 
         self.file_list = self.frame_file_list + trans_block.file_generate(self.output_path, f'payload_{trans_block.swap_idx}.S')
-        baker, data_name = self._generate_compile_shell(swap_idx, trans_block)
+        baker, data_name, phase = self._generate_compile_shell(swap_idx, trans_block)
         baker.run()
 
         symbol_table = get_symbol_file(os.path.join(self.output_path, f'Testbench_{swap_idx}.symbol'))
@@ -370,7 +378,9 @@ class TransManager:
             file.write(text_swap_byte_array)
         
         mem_region = {'type':'swap', 'start_addr':text_begin + address_offset,\
-                    'max_len':up_align(text_end, Page.size) - text_begin, 'init_file':file_text_swap, 'swap_id':swap_idx, 'mode':trans_block.mode}
+                    'max_len':up_align(text_end, Page.size) - text_begin, \
+                    'init_file':file_text_swap, 'swap_id':swap_idx, \
+                    'phase':phase, 'mode':trans_block.mode}
         trans_block.register_memory_region(mem_region)
 
         data_begin_label = f'_{data_name}_start'
@@ -385,7 +395,8 @@ class TransManager:
             file.write(data_byte_array)
         
         duo_mem_region = {'type':'duo', 'start_addr':data_begin + address_offset,\
-            'max_len':up_align(data_end, Page.size) - data_begin, 'init_file':file_data, 'swap_id':swap_idx, 'mode':trans_block.mode}
+            'max_len':up_align(data_end, Page.size) - data_begin, \
+            'init_file':file_data}
         self.mem_cfg.add_mem_region(data_name, [duo_mem_region])
     
     def _compute_coverage(self, base_list, variant_list):
