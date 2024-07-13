@@ -276,6 +276,12 @@ class LoadInitBlock(TransBlock):
         self.entry = f'{self.name}_{self.depth}_entry'
         self.init_block_list = init_block_list
     
+    def _gen_begin(self):
+        inst_list = [
+            'INFO_TRAIN_START'
+        ]
+        self._load_inst_str(inst_list)
+    
     def _need_init_compute(self):
         for block in self.init_block_list:
             block._compute_need_inited()
@@ -288,28 +294,35 @@ class LoadInitBlock(TransBlock):
 
         return need_inited
 
-    def _gen_init_code(self):
+    def _compute_param(self):
         need_inited = self._need_init_compute()
-        need_inited.difference_update({'A0', 'ZERO'})
+        train_param = {}
+        for reg in need_inited:
+            train_param[reg] = random.randint(0, 2**64)
+        return train_param
+
+    def _gen_init_code(self):
+        train_param = self._compute_param()
+        need_inited = list(train_param.keys())
+        if 'ZERO' in need_inited:
+            need_inited.remove('ZERO')
+        if 'A0' in need_inited:
+            need_inited.remove('A0')
+            need_inited.append('A0')
+        if 'SP' in need_inited:
+            need_inited.remove('SP')
+            need_inited.append('SP')
 
         self.float_init_list = []
         self.GPR_init_list = []
-
-        has_sp = False
-        if 'SP' in need_inited:
-            has_sp = True
-            need_inited.difference_update({'SP'})
-
         for reg in need_inited:
             if reg.startswith('F'):
                 self.float_init_list.append(reg)
             else:
                 self.GPR_init_list.append(reg)
-        self.GPR_init_list.append('A0')
-        if has_sp:
-            self.GPR_init_list.append('SP')
         
         inst_list = [
+            f'{self.name}_{self.depth}_load_param:',
             f"la sp, {self.name}_{self.depth}_data_table",
         ]
         data_list = [
@@ -329,15 +342,8 @@ class LoadInitBlock(TransBlock):
         self._load_inst_str(inst_list, True)
         self._load_data_str(data_list)
 
-    def _compute_trigger_param(self):
-        raise Exception("the _compute_trigger_param is not implemented!!!")
-    
-    def update_depth(self, depth):
-        self.depth = depth
-        self.name =self.entry = f'{self.name}_{self.depth}_entry'
-        self.inst_block_list[0].name = self.entry
-        self.inst_block_list[0].inst_list[0] = Instruction(f"la sp, {self.name}_{self.depth}_data_table")
-        self.data_list[0] = RawInstruction(f"{self.name}_{self.depth}_data_table:")
+        self.reg_init_block = self.inst_block_list[-1]
     
     def gen_instr(self):
+        self._gen_begin()
         self._gen_init_code()

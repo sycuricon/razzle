@@ -442,8 +442,15 @@ class LoadInitTriggerBlock(LoadInitBlock):
     def _simulate_dep_reg_result(self):
         dump_result = inst_simlutor(self.baker, [self, self.delay_block, self.random_block])
         return dump_result[self.delay_block.result_reg]
+    
+    def _gen_begin(self):
+        inst_list = [
+            'INFO_VCTM_START'
+        ]
+        self._load_inst_str(inst_list)
 
     def gen_instr(self):
+        self._gen_begin()
         self._gen_init_code()
         self.dep_reg_result = self._simulate_dep_reg_result()
         self.trigger_param = self._compute_trigger_param()
@@ -487,21 +494,21 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
 
             i = 1
-            list_len = len(self.inst_block_list[0].inst_list)
+            list_len = len(self.reg_init_block.inst_list)
             while i < list_len:
-                if self.inst_block_list[0].inst_list[i].has('RD'):
+                if self.reg_init_block.inst_list[i].has('RD'):
                     break
                 else:
                     i += 1
-            self.inst_block_list[0].inst_list[i:i] = inst_list
+            self.reg_init_block.inst_list[i:i] = inst_list
             self.data_list[i:i] = data_list
 
             if has_sp:
-                self.inst_block_list[0].inst_list.append(Instruction(f"c.ldsp sp, 0(sp)"))
+                self.reg_init_block.inst_list.append(Instruction(f"c.ldsp sp, 0(sp)"))
                 self.data_list.append(RawInstruction(f".dword {hex(random.randint(0, 2**64))}"))
             self.GPR_init_list.append('SP')
 
-            for i, inst in enumerate(self.inst_block_list[0].inst_list[1:]):
+            for i, inst in enumerate(self.reg_init_block.inst_list[1:]):
                 inst['IMM'] = i*8
 
             self.GPR_init_list.extend(GPR_init_list)

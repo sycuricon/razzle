@@ -111,7 +111,7 @@ class LoadInitTrainBlock(LoadInitBlock):
         self.ret_label = train_block.ret_label
         self.train_label = train_block.train_label
     
-    def _compute_train_param(self):
+    def _compute_param(self):
         train_inst = self.train_block.train_inst
         train_type = self.train_block.train_type
 
@@ -183,43 +183,6 @@ class LoadInitTrainBlock(LoadInitBlock):
                 raise Exception(f"the train type {train_type} and inst {train_inst['NAME']} is invalid")
 
         return train_param
-    
-    def gen_instr(self):
-        train_param = self._compute_train_param()
-        need_inited = list(train_param.keys())
-        if 'ZERO' in need_inited:
-            need_inited.remove('ZERO')
-        if 'SP' in need_inited:
-            need_inited.remove('SP')
-            need_inited.append('SP')
-        
-        self.GPR_init_list = []
-        self.float_init_list = []
-        for reg in need_inited:
-            if reg.startswith('F'):
-                self.float_init_list.append(reg)
-            else:
-                self.GPR_init_list.append(reg)
-
-        inst_list = [
-            f"la sp, {self.name}_{self.depth}_data_table",
-        ]
-        data_list = [
-            f"{self.name}_{self.depth}_data_table:"
-        ]
-
-        table_index = 0
-        for reg in self.float_init_list:
-            inst_list.append(f"c.fldsp {reg.lower()}, {table_index*8}(sp)")
-            data_list.append(f".dword {train_param[reg]}")
-            table_index += 1
-        for reg in self.GPR_init_list:
-            inst_list.append(f"c.ldsp {reg.lower()}, {table_index*8}(sp)")
-            data_list.append(f".dword {train_param[reg]}")
-            table_index += 1
-
-        self._load_inst_str(inst_list)
-        self._load_data_str(data_list)
 
 class NopRetBlock(TransBlock):
     def __init__(self, extension, output_path, c_nop_len):
