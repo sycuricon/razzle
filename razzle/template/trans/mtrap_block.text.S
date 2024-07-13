@@ -1,6 +1,4 @@
 #include "encoding.h"    
-    fence
-    INFO_VCTM_END
 #ifdef __TRAP_DEBUG__
 dump_mtrap_info:
     ld t0, mtrap_ptr_mode
@@ -34,9 +32,37 @@ set_mtrap_return_entry:
     slli t1, t1, 61
     csrs satp, t1
 
-    li t1, 0xFFFFFFFFFFFFFFF8
+    andi t1, t0, 0x8
+    slli t1, t1, 9
+    csrr t2, mtvec
+    add t2, t1, t2
+    csrw mtvec, t2
+    csrr t2, stvec
+    add t2, t1, t2
+    csrw stvec, t2
+
+    li t1, 0xFFFFFFFFFFFFF000
     and t1, t0, t1
     csrw mepc, t1
-
-    INFO_VCTM_START
     mret
+
+.align 12
+
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    INFO_VCTM_END
+    j mtrap_block_entry

@@ -239,13 +239,13 @@ class TransFrameManager(TransBaseManager):
         )
 
         offset += length
-        length = Page.size
+        length = Page.size * 2
         self.section[".mtrap"].get_bound(
             self.memory_bound[0][0] + offset, self.memory_bound[0][0] + offset, length, must_m=True
         )
 
         offset += length
-        length = Page.size
+        length = Page.size * 2
         self.section[".strap"].get_bound(
             self.virtual_memory_bound[0][0] + offset,
             self.memory_bound[0][0] + offset,
