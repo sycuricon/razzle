@@ -1,3 +1,4 @@
+    INFO_TRAIN_END
     ecall
 
 .align 12

@@ -169,6 +169,15 @@ class AccessSecretBlock(TransBlock):
 
         self.secret_reg = 'S0'
 
+class ReturnVictimBlock(ReturnBlock):
+    def __init__(self, extension, output_path):
+        super().__init__('return_block', extension, output_path)
+
+    def gen_instr(self):
+        inst_list = ['nop'] * 16
+        inst_list.extend(['INFO_VCTM_END', 'ebreak'])
+        self._load_inst_str(inst_list)
+
 class EncodeType(Enum):
     FUZZ_FRONTEND = auto()
     FUZZ_BACKEND = auto()
@@ -192,7 +201,6 @@ class EncodeBlock(TransBlock):
     def _gen_block_begin(self):
 
         inst_list = [
-            "INFO_VCTM_END",
             "INFO_TEXE_START"
         ]
 
@@ -530,7 +538,7 @@ class TransVictimManager(TransBaseManager):
         self.delay_block = DelayBlock(self.extension, self.output_path, config['delay_len'], config['delay_float_rate'], config['delay_mem'])
         self.delay_block.gen_instr()
 
-        self.return_block = ReturnBlock(self.extension, self.output_path)
+        self.return_block = ReturnVictimBlock(self.extension, self.output_path)
         self.return_block.gen_instr()
 
         tmp_random_state = random.getstate()

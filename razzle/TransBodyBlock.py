@@ -51,8 +51,6 @@ class ReturnBlock(TransBlock):
     def gen_instr(self):
         self._load_inst_str(
             [
-                'fence',
-                'INFO_VCTM_END',
                 'ebreak'
             ]
         )

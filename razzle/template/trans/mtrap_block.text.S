@@ -1,19 +1,5 @@
-#include "encoding.h"    
-#ifdef __TRAP_DEBUG__
-dump_mtrap_info:
-    ld t0, mtrap_ptr_mode
-    csrw 0x800, t0
-    csrr t0, mepc
-    csrw 0x800, t0
-    csrr t0, mcause
-    csrw 0x800, t0
-    csrr t0, mtval
-    csrw 0x800, t0
-    ld t0, mtrap_char_mode
-    csrw 0x800, t0
-    li t0, '\n'
-    csrw 0x800, t0
-#endif
+#include "encoding.h"
+    INFO_TRAIN_END    
 set_mtrap_return_entry:
     ld t0, mtrap_swap_mem_op
     csrrw t0, 0x800, t0
