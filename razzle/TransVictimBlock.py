@@ -171,7 +171,7 @@ class AccessSecretBlock(TransBlock):
 
 class ReturnVictimBlock(ReturnBlock):
     def __init__(self, extension, output_path):
-        super().__init__('return_block', extension, output_path)
+        super().__init__(extension, output_path)
 
     def gen_instr(self):
         inst_list = ['nop'] * 16
