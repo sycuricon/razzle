@@ -125,6 +125,14 @@ class AccessSecretBlock(TransBlock):
         self.attack_priv = attack_priv
         self.attack_addr = attack_addr
     
+    def _gen_block_end(self):
+        inst_list = [
+            f"{self.name}_end:",
+            "INFO_TEXE_START"
+        ]
+
+        self._load_inst_str(inst_list)
+    
     def gen_instr(self):
         self.mask = (1 << self.mask) - 1
         self.rand_mask = (1 << 64) - 1 - self.mask
@@ -169,6 +177,8 @@ class AccessSecretBlock(TransBlock):
 
         self.secret_reg = 'S0'
 
+        self._gen_block_end()
+
 class ReturnVictimBlock(ReturnBlock):
     def __init__(self, extension, output_path):
         super().__init__(extension, output_path)
@@ -199,11 +209,7 @@ class EncodeBlock(TransBlock):
         self.encode_block_end = 0
     
     def _gen_block_begin(self):
-
-        inst_list = [
-            "INFO_TEXE_START"
-        ]
-
+        inst_list = []
         self._load_inst_str(inst_list)
     
     def _gen_block_end(self):

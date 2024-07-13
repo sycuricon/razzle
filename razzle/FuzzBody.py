@@ -250,7 +250,7 @@ class FuzzBody:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info in ['VCTM_END_DEQ', 'TEXE_END_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
                 dut_window_end = exec_time
         
         is_access = False
@@ -320,7 +320,7 @@ class FuzzBody:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info in ['VCTM_END_DEQ', 'TEXE_END_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
                 dut_window_end = exec_time
 
             if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
