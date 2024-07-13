@@ -241,7 +241,7 @@ class FuzzBody:
 
         dut_sync_time = 0
         dut_window_begin = 0
-        dut_vicitm_end = 0
+        dut_window_end = 0
         for line in open(f'{taint_folder}.taint.log', 'rt'):
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
@@ -250,11 +250,11 @@ class FuzzBody:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
-                dut_vicitm_end = exec_time
+            if exec_info in ['VCTM_END_DEQ', 'TEXE_END_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+                dut_window_end = exec_time
         
         is_access = False
-        base_window_list = base_list[dut_window_begin:dut_vicitm_end]
+        base_window_list = base_list[dut_window_begin:dut_window_end]
         for i in range(len(base_window_list)-1):
             if base_window_list[i+1] > base_window_list[i]:
                 is_access = True
@@ -304,10 +304,10 @@ class FuzzBody:
         
         dut_sync_time = 0
         dut_window_begin = 0
-        dut_vicitm_end = 0
+        dut_window_end = 0
         vnt_sync_time = 0
         vnt_window_begin = 0
-        vnt_vicitm_end = 0
+        vnt_window_end = 0
         dut_texe_begin = 0
         dut_texe_enq_num = 0
         dut_texe_deq_num = 0
@@ -320,15 +320,15 @@ class FuzzBody:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and dut_sync_time != 0 and dut_vicitm_end == 0 and is_dut:
-                dut_vicitm_end = exec_time
+            if exec_info in ['VCTM_END_DEQ', 'TEXE_END_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+                dut_window_end = exec_time
 
             if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
                 vnt_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
                 vnt_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_vicitm_end == 0 and not is_dut:
-                vnt_vicitm_end = exec_time
+            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_window_end == 0 and not is_dut:
+                vnt_window_end = exec_time
 
             if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
                 dut_texe_begin = exec_time
@@ -338,7 +338,7 @@ class FuzzBody:
                 dut_texe_deq_num += 1
         
         is_trigger = dut_texe_enq_num > dut_texe_deq_num
-        is_divergent = dut_vicitm_end != vnt_vicitm_end
+        is_divergent = dut_window_end != vnt_window_end
 
         if not is_trigger:
             self.leak_coverage = [('',0)]
@@ -350,8 +350,8 @@ class FuzzBody:
         self.leak_coverage = self.compute_coverage(taint_folder)
         self.leak_comp_taint = self.compute_comp(taint_folder)
 
-        base_spread_list = base_list[dut_sync_time:dut_vicitm_end]
-        variant_spread_list = variant_list[dut_sync_time:dut_vicitm_end]
+        base_spread_list = base_list[dut_sync_time:dut_window_end]
+        variant_spread_list = variant_list[dut_sync_time:dut_window_end]
         self.leak_cosim_result, ave_dist, self.leak_max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
 
         leak_result = FuzzResult.FAIL

@@ -480,7 +480,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
 
         has_sp = False
         if 'SP' in need_inited:
-            need_inited.difference_update('SP')
+            need_inited.difference_update({'SP'})
             has_sp = True
 
         if len_need_inited != 0:
