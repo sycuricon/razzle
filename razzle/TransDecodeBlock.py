@@ -72,7 +72,7 @@ class TransDecodeManager(TransBaseManager):
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr()
     
-    def record_fuzz(self, file):
+    def record_fuzz(self):
         pass
         
     def store_template(self, folder):

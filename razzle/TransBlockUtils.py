@@ -730,6 +730,9 @@ class TransBlock:
     def clear(self):
         self.inst_block_list = []
         self.data_list = []
+    
+    def record_fuzz(self):
+        raise Exception("the record_fuzz is not implemented!!!")
 
 class TransBaseManager(SectionManager):
     def __init__(self, config, extension, output_path):
@@ -770,7 +773,16 @@ class TransBaseManager(SectionManager):
     def register_memory_region(self, mem_region):
         self.mem_region = mem_region
     
-    def record_fuzz(self,file):
+    def _base_record_fuzz(self, block_list):
+        record = {}
+        record['swap_id'] = self.swap_idx
+        record['block_info'] = {}
+        for block in block_list:
+            key, value = block.record_fuzz()
+            record['block_info'][key] = value
+        return record
+
+    def record_fuzz(self):
         raise Exception("the record_fuzz is not implemented!!!")
     
     def _write_headers(self, f):

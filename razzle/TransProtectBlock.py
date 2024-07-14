@@ -53,6 +53,14 @@ class SecretProtectBlock(TransBlock):
                 'sfence.vma',
             ]
             self._load_inst_str(inst_list)
+    
+    def record_fuzz(self):
+        record = {}
+        record['pmp_r'] = self.pmp_r
+        record['pmp_l'] = self.pmp_l
+        record['pte_r'] = self.pte_r
+        record['pte_v'] = self.pte_v
+        return self.name, record
         
 class TransProtectManager(TransBaseManager):
     def __init__(self, config, extension, output_path, data_section, trans_frame):
@@ -70,8 +78,10 @@ class TransProtectManager(TransBaseManager):
         self.return_block = ReturnBlock(self.extension, self.output_path)
         self.return_block.gen_instr()
         
-    def record_fuzz(self, file):
-        file.write(f'protect: {self.swap_idx}\n')
+    def record_fuzz(self):
+        block_list = [self.secret_protect_block]
+        record = self._base_record_fuzz(block_list)
+        return 'protect', record
 
     def _generate_sections(self):
         

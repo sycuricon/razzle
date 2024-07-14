@@ -412,6 +412,21 @@ class FuzzBody:
         self.leak_result = self.post_analysis(self.post_taint_folder)
         self.update_sub_repo(old_sub_repo)
     
+    def record_fuzz(self):
+        record = {}
+        record['trans'] = self.trans.record_fuzz()
+        thread_record = record['threat'] = {}
+        thread_record['victim_priv'] = self.config['victim_priv']
+        thread_record['victim_addr'] = self.config['victim_addr']
+        thread_record['attack_priv'] = self.config['attack_priv']
+        thread_record['attack_addr'] = self.config['attack_addr']
+        seed_record = record['seed'] = {}
+        seed_record['trigger'] = self.config['trigger_seed']
+        seed_record['access'] = self.config['access_seed']
+        seed_record['leak'] = self.config.get('leak_seed', 0)
+
+        return record
+    
     
     
 

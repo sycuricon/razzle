@@ -218,6 +218,14 @@ class DelayBlock(TransBlock):
         self._load_inst_str(inst_offset)
 
         self._gen_block_end()
+    
+    def record_fuzz(self):
+        record = {}
+        record['float_rate'] = self.float_rate
+        record['delay_len'] = self.delay_len
+        record['delay_mem'] = self.delay_mem
+
+        return self.name, record
 
 class NopBlock(TransBlock):
     def __init__(self, extension, output_path, c_nop_len):

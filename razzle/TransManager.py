@@ -499,8 +499,13 @@ class TransManager:
         self._generate_body_block(self.trans_victim)
         self.swap_block_list = [self.trans_protect.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
     
-    def record_fuzz(self, file):
+    def record_fuzz(self):
+        record = {'train':[]}
         for swap_mem_region in self.swap_block_list[:-1]:
             trans_body = self.swap_map[swap_mem_region['swap_id']]
-            trans_body.record_fuzz(file)
-    
+            name, trans_record = trans_body.record_fuzz()
+            if name == 'train':
+                record['train'].append(trans_record)
+            else:
+                record[name] = trans_record
+        return record

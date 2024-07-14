@@ -104,6 +104,12 @@ class TrainBlock(TransBlock):
         inst_list.extend(['c.nop'] * (c_nop_len // 2))
         self._load_inst_str(inst_list)
     
+    def record_fuzz(self):
+        record = {}
+        record['type'] = f'{self.train_type}'
+        record['inst'] = self.train_inst.to_asm()
+        return self.name, record
+    
 class LoadInitTrainBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, train_block):
         super().__init__(depth, extension, output_path, None)
@@ -273,14 +279,13 @@ class TransTrainManager(TransBaseManager):
             self.load_init_block.gen_instr()
 
     
-    def record_fuzz(self, file):
-        file.write(f'train: {self.swap_idx}\n')
-        file.write(f'\talign: {self.align}\t')
-        file.write(f'\tsingle: {self.single}\n')
-        if self.single:
-            file.write(f'\treturn_front: {self.return_front}\n')
-            file.write(f'\ttrain_type: {self.train_block.train_type}\t')
-            file.write(f'\ttrain_inst: {self.train_block.train_inst.to_asm()}\n')
+    def record_fuzz(self):
+        block_list = [self.train_block]
+        record = self._base_record_fuzz(block_list)
+        record['align'] = self.align
+        record['single'] = self.single
+        record['return_front'] = self.return_front
+        return 'train', record
 
     def _generate_sections(self):
 

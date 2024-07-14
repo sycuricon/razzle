@@ -114,6 +114,12 @@ class TriggerBlock(TransBlock):
         self.trigger_inst = inst
         block.inst_list.append(inst)
         self._add_inst_block(block)
+    
+    def record_fuzz(self):
+        record = {}
+        record['type'] = f"{self.trigger_type}"
+        record['inst'] = self.trigger_inst.to_asm()
+        return self.name, record
 
 class AccessSecretBlock(TransBlock):
     def __init__(self, extension, output_path, li, mask, victim_priv, victim_addr, attack_priv, attack_addr):
@@ -178,6 +184,13 @@ class AccessSecretBlock(TransBlock):
         self.secret_reg = 'S0'
 
         self._gen_block_end()
+    
+    def record_fuzz(self):
+        record = {}
+        record['li_offset'] = self.li_offset
+        record['mask'] = self.mask
+        record['address'] = self.address
+        return self.name, record
 
 class ReturnVictimBlock(ReturnBlock):
     def __init__(self, extension, output_path):
@@ -195,7 +208,7 @@ class EncodeType(Enum):
     FUZZ_DEFAULT = auto()
 
 class EncodeBlock(TransBlock):
-    def __init__(self, extension, output_path, secret_reg, strategy, block_len=None, block_num=None):
+    def __init__(self, extension, output_path, secret_reg, strategy, block_len=0, block_num=0):
         super().__init__('encode_block', extension, output_path)
         self.secret_reg = secret_reg
         assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
@@ -319,6 +332,8 @@ class EncodeBlock(TransBlock):
 
         match (self.strategy):
             case EncodeType.FUZZ_DEFAULT:
+                self.loop = False
+                self.encode_block_list = []
                 pass
             case EncodeType.FUZZ_BACKEND|EncodeType.FUZZ_FRONTEND|EncodeType.FUZZ_PIPELINE:
                 self._gen_random()
@@ -378,6 +393,17 @@ class EncodeBlock(TransBlock):
                     self.encode_block_list_type.append(eval(line.strip()))
         except:
             pass
+    
+    def record_fuzz(self):
+        record = {}
+        record['strategy'] = f'{self.strategy}'
+        record['block_len'] = self.block_len
+        record['block_num'] = self.block_num
+        record['loop'] = self.loop
+        record['encode_type'] = []
+        for block in self.encode_block_list[self.encode_block_begin:self.encode_block_end]:
+            record['encode_type'].append(f'{block.block_type}')
+        return self.name, record
 
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block):
@@ -640,16 +666,11 @@ class TransVictimManager(TransBaseManager):
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
         self.encode_block.gen_instr()
 
-    def record_fuzz(self, file):
-        file.write(f'victim: {self.swap_idx}\n')
-        file.write(f'\treturn_front: {self.return_front}\n')
-        file.write(f'\ttrigger_type: {self.trigger_block.trigger_type}\t')
-        file.write(f'\ttrigger_inst: {self.trigger_block.trigger_inst.to_asm()}\n')
-        file.write(f'\taccess_secret_address: {hex(self.access_secret_block.address)}\n')
-        file.write(f'\tencode_type: ')
-        for i in self.encode_block.encode_list:
-            file.write(f'{self.encode_block.encode_block_list[i].block_type} ')
-        file.write('\n')
+    def record_fuzz(self):
+        block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block]
+        record = self._base_record_fuzz(block_list)
+        record['return_front'] = self.return_front
+        return 'victim', record
 
     def _generate_sections(self):
 

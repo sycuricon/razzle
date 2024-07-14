@@ -82,20 +82,15 @@ class FuzzMachine:
         config = fuzz_body.config
 
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
-            file.write(f'iter_num:\t{iter_num}\n')
-            file.write(f'result:\t{result}\n')
+            record = fuzz_body.record_fuzz()
+            record['iter_num'] = iter_num
+            record['result'] = f'{result}'
             if cosim_result is not None:
-                file.write(f'cosim:\t{cosim_result}\n')
+                record['cosim_result'] = cosim_result
             if max_taint is not None:
-                file.write(f'max_taint:\t{max_taint}\n')
-            for i,(key, value) in enumerate(config.items()):
-                file.write(f'\t{key}: {value}')
-                if i%2 == 0:
-                    file.write('\n')
-                else:
-                    file.write('\t')
-            # fuzz_body.trans.record_fuzz(file)
-            file.write('\n')
+                record['max_taint'] = max_taint
+            print(record)
+            file.write(hjson.dumps(record))
         
         with open(os.path.join(self.repo_path, f"{stage_name}_iter_num"), "wt") as file:
             file.write(f'{iter_num}\n')

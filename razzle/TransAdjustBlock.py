@@ -81,6 +81,12 @@ class SecretMigrateBlock(TransBlock):
     
     def _get_inst_len(self):
         return (20 + 8) * 2
+    
+    def record_fuzz(self):
+        record = {}
+        record['type'] = f'{self.secret_migrate_type}'
+
+        return self.name, record
         
 class TransAdjustManager(TransBaseManager):
     def __init__(self, config, extension, output_path, data_section, trans_frame):
@@ -129,9 +135,10 @@ class TransAdjustManager(TransBaseManager):
         self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
         self.nop_block.gen_instr()
 
-    def record_fuzz(self, file):
-        file.write(f'adjust: {self.swap_idx}\n')
-        file.write(f'\tsecret_migrate_type: {self.secret_migrate_block.secret_migrate_type}\t')
+    def record_fuzz(self):
+        block_list = [self.secret_migrate_block, self.encode_block]
+        record = self._base_record_fuzz(block_list)
+        return 'adjust', record
 
     def _generate_sections(self):
         
