@@ -109,6 +109,8 @@ class FuzzMachine:
     def _leak_record_analysis(self, leak_record):
         leak_success = []
         for record in leak_record:
+            if eval(record['config']['trans']['victim']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE:
+                continue
             record = record['comp']
             comp_simple = set()
             comp = record.comp_map

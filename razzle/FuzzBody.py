@@ -147,7 +147,7 @@ class FuzzBody:
                 self.mem_cfg.add_mem_region('data_train', [swap_region])
             
             reduce_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"reduce_trigger.sh"
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
             )
             rm_asm = ShellCommand("rm", [])
             for idx in reduce_list:
@@ -156,7 +156,7 @@ class FuzzBody:
         else:
             if len(self.trans.swap_block_list) > 4:
                 reduce_baker = BuildManager(
-                    {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"reduce_trigger.sh"
+                    {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
                 )
                 rm_asm = ShellCommand("rm", [])
                 for swap_mem in self.trans.swap_block_list:
