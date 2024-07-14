@@ -20,8 +20,126 @@ class FuzzMachine:
         self.ACCESS_RATE = fuzz_config['access_rate']
         
         self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, prefix)
-        self.origin_fuzz_body.update_sub_repo('frame')
-        self.origin_fuzz_body.trans.build_frame()
+    
+    def _load_stage_record(self, stage_name, thread_num):
+        stage_file_name = os.path.join(self.repo_path, f'{stage_name}_iter_record')
+        stage_file = open(stage_file_name, "rt")
+        record_hjson = f'[{stage_file.read()}]'
+        record_list = hjson.loads(record_hjson)
+
+        record_tuple_list = []
+        for record in record_list:
+            record_tuple = {'config':record}
+            iter_num = record['iter_num']
+            if thread_num == None:
+                taint_name = f'{self.prefix_domain}_{stage_name}'
+            else:
+                taint_name = f'{self.prefix_domain}_{stage_name}_thread_{iter_num%thread_num}'
+            testcase_path = os.path.join(self.output_path, f'{stage_name}_{iter_num}', taint_name)
+            if os.path.exists(f'{testcase_path}.taint.cov'):
+                coverage = self.origin_fuzz_body.compute_coverage(testcase_path)
+                record_tuple['coverage'] = coverage
+            if os.path.exists(f'{testcase_path}.taint.live'):
+                comp = self.origin_fuzz_body.compute_comp(testcase_path)
+                record_tuple['comp'] = comp
+            record_tuple_list.append(record_tuple)
+        return record_tuple_list
+    
+    def _trigger_record_analysis(self, trigger_record):
+        trigger_dict = {}
+        for record in trigger_record:
+            record = record['config']
+            trigger_type = record['trans']['victim']['block_info']['trigger_block']['type']
+            if len(record['trans']['train']) == 0:
+                train_type = TrainType.NONE
+            else:
+                train_type = record['trans']['train'][0]['block_info']['train_block']['type']
+            result = eval(record['result'])
+            if trigger_type not in trigger_dict:
+                trigger_dict[trigger_type] = {}
+            trigger_type_dict = trigger_dict[trigger_type]
+            if train_type not in trigger_type_dict:
+                trigger_type_dict[train_type] = {'summary':0, 'success':0}
+            trigger_type_dict[train_type]['summary'] += 1
+            if result == FuzzResult.SUCCESS:
+                trigger_type_dict[train_type]['success'] += 1
+        
+        analysis_file_name = os.path.join(self.repo_path, 'trigger_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            file.write('|trigger_type|train_type|summary|success|rate|\n')
+            file.write('|----|----|----|----|-----|\n')
+            for trigger_type, trigger_content in trigger_dict.items():
+                for train_type, train_content in trigger_content.items():
+                    summary = train_content['summary']
+                    success = train_content['success']
+                    rate = success/summary
+                    if success > 0:
+                        file.write(f'|{trigger_type}|{train_type}|{summary}|{success}|{rate}|\n')
+                
+
+    def _access_record_analysis(self, access_record):
+        access_success = []
+        for record in access_record:
+            record = record['config']
+            result = eval(record['result'])
+            if result == FuzzResult.FAIL:
+                continue
+            testcase = {}
+            testcase['train_type'] = record['trans']['adjust']['block_info']['secret_migrate_block']['type']
+            testcase['pmp_r'] = record['trans']['protect']['block_info']['secret_protect_block']['pmp_r']
+            testcase['pmp_l'] = record['trans']['protect']['block_info']['secret_protect_block']['pmp_l']
+            testcase['pte_r'] = record['trans']['protect']['block_info']['secret_protect_block']['pte_r']
+            testcase['pte_v'] = record['trans']['protect']['block_info']['secret_protect_block']['pte_v']
+            testcase['victim_priv'] = record['threat']['victim_priv']
+            testcase['victim_addr'] = record['threat']['victim_addr']
+            testcase['attack_priv'] = record['threat']['attack_priv']
+            testcase['attack_addr'] = record['threat']['attack_addr']
+            testcase['li_offset'] = record['trans']['victim']['block_info']['access_secret_block']['li_offset']
+            testcase['mask'] = hex(record['trans']['victim']['block_info']['access_secret_block']['mask'])
+            if testcase not in access_success:
+                access_success.append(testcase)
+
+        analysis_file_name = os.path.join(self.repo_path, 'access_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|mask|\n')
+            file.write('|----|----|----|----|----|----|----|----|\n')
+            for testcase in access_success:
+                file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['victim_priv']}{testcase['victim_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['mask']}|\n")
+
+    def _leak_record_analysis(self, leak_record):
+        leak_success = []
+        for record in leak_record:
+            record = record['comp']
+            comp_simple = set()
+            comp = record.comp_map
+            for name, value in comp.items():
+                name = list(name.split('.'))
+                name = '.'.join(name[5:-2])
+                comp_simple.add(name)
+            comp_simple = list(comp_simple)
+            comp_simple.sort()
+            if comp_simple not in leak_success:
+                leak_success.append(comp_simple)
+        
+        analysis_file_name = os.path.join(self.repo_path, 'leak_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            for comp in leak_success:
+                file.write(f'{comp}\n')
+
+
+    def _coverage_record_analysis(self, leak_record):
+        pass
+    
+    def fuzz_analysis(self, thread_num):
+        thread_num = int(thread_num)
+        trigger_record = self._load_stage_record('trigger', None)
+        access_record = self._load_stage_record('access', None)
+        leak_record = self._load_stage_record('leak', thread_num)
+
+        self._trigger_record_analysis(trigger_record)
+        self._access_record_analysis(access_record)
+        self._leak_record_analysis(leak_record)
+        self._coverage_record_analysis(leak_record)
     
     def offline_compile(self, mem_cfg_file_name):
         mem_cfg_file = open(mem_cfg_file_name)
@@ -33,6 +151,9 @@ class FuzzMachine:
         self.trigger_seed = TriggerSeed(self.coverage)
         self.access_seed = AccessSeed(self.coverage)
         self.leak_seed = LeakSeed(self.coverage)
+
+        self.origin_fuzz_body.update_sub_repo('frame')
+        self.origin_fuzz_body.trans.build_frame()
 
         self.origin_fuzz_body.update_sub_repo('gen')
         config = self.trigger_seed.mutate({}, True)
@@ -206,6 +327,9 @@ class FuzzMachine:
         MAX_TRIGGER_MUTATE_ITER = 10
         MAX_ACCESS_MUTATE_ITER = 5
         LEAK_ACCUMULATE_ITER = (16 + self.thread_num - 1) // self.thread_num
+
+        self.origin_fuzz_body.update_sub_repo('frame')
+        self.origin_fuzz_body.trans.build_frame()
 
         while True:
             iter_num = 0
