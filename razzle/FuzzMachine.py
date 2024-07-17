@@ -1,6 +1,7 @@
 from FuzzBody import *
 from FuzzUtils import *
 import threading
+import matplotlib.pyplot as plt
 
 class FuzzMachine:
     def __init__(self, hjson_filename, output_path, prefix):
@@ -108,9 +109,13 @@ class FuzzMachine:
 
     def _leak_record_analysis(self, leak_record):
         leak_success = []
+        leak_index = []
         for record in leak_record:
             if eval(record['config']['trans']['victim']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE:
                 continue
+            if eval(record['config']['result']) == FuzzResult.FAIL:
+                continue
+            idx = record['config']['iter_num']
             record = record['comp']
             comp_simple = set()
             comp = record.comp_map
@@ -122,16 +127,48 @@ class FuzzMachine:
             comp_simple.sort()
             if comp_simple not in leak_success:
                 leak_success.append(comp_simple)
+                leak_index.append(idx)
         
         analysis_file_name = os.path.join(self.repo_path, 'leak_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
-            for comp in leak_success:
-                file.write(f'{comp}\n')
+            for comp, idx in zip(leak_success, leak_index):
+                file.write(f'{comp} {idx}\n')
 
 
-    def _coverage_record_analysis(self, leak_record):
-        pass
+    def _part_coverage_record_analysis(self, leak_record, stage_name):
+        cov_contr = [0]
+
+        coverage = Coverage()
+        for record in leak_record:
+            coverage_contr = coverage.update_coverage(record['coverage'])
+            record['coverage_contr'] = coverage_contr
+            cov_contr.append(cov_contr[-1]+coverage_contr)
+        leak_record.sort(key=lambda x:x['coverage_contr'], reverse=True)
+
+        analysis_file_name = os.path.join(self.repo_path, f'{stage_name}_coverage_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            for record in leak_record:
+                strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
+                file.write(f"{record['config']['iter_num']} {record['coverage_contr']} {record['comp'].taint_sum} {strategy}\n")
     
+        plt.plot(cov_contr)
+    
+    def _coverage_record_analysis(self, leak_record):
+        data_leak_record = []
+        control_leak_record = []
+        for record in leak_record:
+            strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
+            if strategy == EncodeType.FUZZ_PIPELINE:
+                control_leak_record.append(record)
+            elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
+                data_leak_record.append(record)
+        
+        self._part_coverage_record_analysis(leak_record, 'full')
+        self._part_coverage_record_analysis(data_leak_record, 'data')
+        self._part_coverage_record_analysis(control_leak_record, 'ctrl')
+
+        plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
+
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
         trigger_record = self._load_stage_record('trigger', None)
@@ -146,6 +183,8 @@ class FuzzMachine:
     def offline_compile(self, mem_cfg_file_name):
         mem_cfg_file = open(mem_cfg_file_name)
         mem_cfg = libconf.load(mem_cfg_file)
+        self.origin_fuzz_body.update_sub_repo('frame')
+        self.origin_fuzz_body.trans.build_frame()
         self.origin_fuzz_body.offline_compile(mem_cfg)
     
     def generate(self):

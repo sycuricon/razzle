@@ -36,9 +36,9 @@ def coverage_draw(curve_fuzz, mode):
                     access_mutate.append(log_time)
                     access_mutate_iter.append(new_cov_iter)
     curve_folder = os.path.dirname(curve_fuzz)
-    width = max(len(cov_time) / 300, 4)
-    height = 3/4*width
-    plt.figure(figsize=[width, height])
+    # width = max(len(cov_time) / 300, 4)
+    # height = 3/4*width
+    plt.figure()
 
     if mode == 'time':
         plt.plot(cov_time, cov_inc)
