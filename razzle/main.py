@@ -6,19 +6,19 @@ if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
 
 def genonly_entry(args):
-    fuzz = FuzzMachine(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix, args.core)
     fuzz.generate()
 
 def compile_entry(args):
-    fuzz = FuzzMachine(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix, args.core)
     fuzz.offline_compile(args.mem_cfg)
 
 def analysis_entry(args):
-    fuzz = FuzzMachine(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix, args.core)
     fuzz.fuzz_analysis(args.thread_num)
 
 def fuzz_entry(args):
-    fuzz = FuzzMachine(args.input, args.output, args.prefix)
+    fuzz = FuzzMachine(args.input, args.output, args.prefix, args.core)
     fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, int(args.thread_num))
 
 if __name__ == "__main__":
@@ -30,6 +30,7 @@ if __name__ == "__main__":
         "-O", "--output", dest="output", required=True, help="output of the fuzz code"
     )
     parser.add_argument("--prefix", dest="prefix", required=True, help="the prefix of the generate_file")
+    parser.add_argument("--core", dest="core", help="the type of core")
 
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
     parser_genonly.set_defaults(func=genonly_entry)

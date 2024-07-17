@@ -338,11 +338,11 @@ class LoadInitBlock(TransBlock):
         table_index = 0
         for freg in self.float_init_list:
             inst_list.append(f"c.fldsp {freg.lower()}, {table_index*8}(sp)")
-            data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            data_list.append(f".dword {train_param[freg]}")
             table_index += 1
         for reg in self.GPR_init_list:
             inst_list.append(f"c.ldsp {reg.lower()}, {table_index*8}(sp)")
-            data_list.append(f".dword {hex(random.randint(0, 2**64))}")
+            data_list.append(f".dword {train_param[reg]}")
             table_index += 1
 
         self._load_inst_str(inst_list, True)

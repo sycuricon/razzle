@@ -4,10 +4,12 @@ import threading
 import matplotlib.pyplot as plt
 
 class FuzzMachine:
-    def __init__(self, hjson_filename, output_path, prefix):
+    def __init__(self, hjson_filename, output_path, prefix, core="BOOM"):
         self.hjson_filename = hjson_filename
         self.build_path = output_path
-        self.prefix_domain = prefix
+        assert core in ['BOOM', 'XiangShan']
+        self.core = core
+        self.prefix_domain = f'{self.core}_{prefix}'
         self.output_path = os.path.join(self.build_path, f'{self.prefix_domain}.fuzz_code')
         self.repo_path = os.path.join(self.build_path, f'{self.prefix_domain}.template_repo')
         if not os.path.exists(self.output_path):
@@ -20,7 +22,7 @@ class FuzzMachine:
         self.TRIGGER_RARE = fuzz_config['trigger_rate']
         self.ACCESS_RATE = fuzz_config['access_rate']
         
-        self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, prefix)
+        self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, self.prefix_domain, self.core)
     
     def _load_stage_record(self, stage_name, thread_num):
         stage_file_name = os.path.join(self.repo_path, f'{stage_name}_iter_record')

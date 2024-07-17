@@ -2,9 +2,10 @@ from TransManager import *
 from FuzzUtils import *
 
 class FuzzBody:
-    def __init__(self, fuzz_config, output_path, prefix):
+    def __init__(self, fuzz_config, output_path, prefix, core):
         self.output_path = output_path
         self.prefix_domain = prefix
+        self.core = core
         self.mem_cfg = MemCfg(0x80000000, 0x40000, self.output_path)
         self.trans = TransManager(fuzz_config, self.output_path, self.mem_cfg)
         self.train_single = eval(fuzz_config['train_single'])
@@ -95,6 +96,7 @@ class FuzzBody:
         export_cmd = ShellCommand("export", [])
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
         baker.add_cmd(export_cmd.gen_cmd([f'SIM_MODE={mode}']))
+        baker.add_cmd(export_cmd.gen_cmd([f'TARGET_CORE={self.core}']))
         baker.add_cmd(export_cmd.gen_cmd([f'STARSHIP_TESTCASE={self.output_path}/{self.sub_repo}/swap_mem.cfg']))
         baker.add_cmd(export_cmd.gen_cmd([f'SIMULATION_LABEL={label}']))
         baker.add_cmd(gen_asm.gen_cmd())
