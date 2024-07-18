@@ -30,7 +30,7 @@ if __name__ == "__main__":
         "-O", "--output", dest="output", required=True, help="output of the fuzz code"
     )
     parser.add_argument("--prefix", dest="prefix", required=True, help="the prefix of the generate_file")
-    parser.add_argument("--core", dest="core", help="the type of core")
+    parser.add_argument("--core", dest="core", required=True , help="the type of core")
 
     parser_genonly = subparsers.add_parser('generate', aliases=['gen'])
     parser_genonly.set_defaults(func=genonly_entry)

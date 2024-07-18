@@ -6,10 +6,11 @@ class FuzzBody:
         self.output_path = output_path
         self.prefix_domain = prefix
         self.core = core
-        self.mem_cfg = MemCfg(0x80000000, 0x40000, self.output_path)
-        self.trans = TransManager(fuzz_config, self.output_path, self.mem_cfg)
+        
         self.train_single = eval(fuzz_config['train_single'])
         self.train_align = eval(fuzz_config['train_align'])
+        self.mem_cfg = MemCfg(int(fuzz_config['mem_start'], base=16), int(fuzz_config['mem_size'], base=16), self.output_path)
+        self.trans = TransManager(fuzz_config, self.output_path, self.mem_cfg)
         
         self.config = None
         self.trigger_iter_num = None
