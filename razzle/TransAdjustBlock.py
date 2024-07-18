@@ -103,7 +103,7 @@ class TransAdjustManager(TransBaseManager):
         self.encode_block = EncodeBlock(self.extension, self.output_path, None, EncodeType.FUZZ_DEFAULT)
         self.encode_block.gen_instr()
 
-        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [])
+        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [], self.mode)
         self.load_init_block.gen_instr()
 
         self.return_block = ReturnBlock(self.extension, self.output_path)
@@ -124,7 +124,7 @@ class TransAdjustManager(TransBaseManager):
         if self.encode_block.loop:
             self.encode_block.break_loop()
         
-        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.encode_block])
+        self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.encode_block], self.mode)
         self.load_init_block.gen_instr()
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, self.load_init_block.GPR_init_list, config['secret_migrate_type'])

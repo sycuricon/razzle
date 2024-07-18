@@ -111,11 +111,12 @@ class TrainBlock(TransBlock):
         return self.name, record
     
 class LoadInitTrainBlock(LoadInitBlock):
-    def __init__(self, depth, extension, output_path, train_block):
-        super().__init__(depth, extension, output_path, None)
+    def __init__(self, depth, extension, output_path, train_block, mode):
+        super().__init__(depth, extension, output_path, None, mode)
         self.train_block = train_block
         self.ret_label = train_block.ret_label
         self.train_label = train_block.train_label
+        
     
     def _compute_param(self):
         train_inst = self.train_block.train_inst
@@ -156,16 +157,16 @@ class LoadInitTrainBlock(LoadInitBlock):
             case TrainType.JALR | TrainType.RETURN:
                 train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
                 if do_train:
-                    train_param[train_inst['RS1']] = f'{self.train_label} - {hex(train_inst_imm)}'
+                    train_param[train_inst['RS1']] = f'{self.train_label} + {self.prefix} - {hex(train_inst_imm)}'
                 else:
-                    train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
+                    train_param[train_inst['RS1']] = f'{self.ret_label} + {self.prefix} - {hex(train_inst_imm)}'
             case TrainType.CALL:
                 if train_inst['NAME'] in ['C.JALR', 'JALR']:
                     train_inst_imm = train_inst['IMM'] if train_inst.has('IMM') else 0
                     if do_train:
-                        train_param[train_inst['RS1']] = f'{self.train_label} - {hex(train_inst_imm)}'
+                        train_param[train_inst['RS1']] = f'{self.train_label} + {self.prefix} - {hex(train_inst_imm)}'
                     else:
-                        train_param[train_inst['RS1']] = f'{self.ret_label} - {hex(train_inst_imm)}'
+                        train_param[train_inst['RS1']] = f'{self.ret_label} + {self.prefix} - {hex(train_inst_imm)}'
                 elif train_inst['NAME'] in ['C.JAL', 'JAL']:
                     pass
             case TrainType.JMP|TrainType.SYSTEM:
@@ -179,6 +180,7 @@ class LoadInitTrainBlock(LoadInitBlock):
                 if train_inst.has('RS1'):
                     addr_reg = train_inst['RS1']
                 addr = random.choice(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+                addr = f'{addr} + {self.prefix}'
                 if train_type == train_type.AMO:
                     addr = f'{addr} + {random.randint(-0x800, 0x7ff)}'
                 train_param[addr_reg] = addr
@@ -244,7 +246,7 @@ class TransTrainManager(TransBaseManager):
             self.train_block.gen_instr()
             self.train_type = self.train_block.train_type
 
-            self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block)
+            self.load_init_block = LoadInitTrainBlock(self.swap_idx, self.extension, self.output_path, self.train_block, self.mode)
             self.load_init_block.gen_instr()
 
             train_block_len = self.train_block._get_inst_len()

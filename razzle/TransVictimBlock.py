@@ -406,8 +406,8 @@ class EncodeBlock(TransBlock):
         return self.name, record
 
 class LoadInitTriggerBlock(LoadInitBlock):
-    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block):
-        super().__init__(depth, extension, output_path, init_block_list)
+    def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block, mode):
+        super().__init__(depth, extension, output_path, init_block_list, mode)
         self.delay_block = delay_block
         self.trigger_block = trigger_block
         self.ret_label = trigger_block.ret_label
@@ -420,31 +420,31 @@ class LoadInitTriggerBlock(LoadInitBlock):
 
         match(trigger_type):
             case TriggerType.LOAD_MISALIGN | TriggerType.STORE_MISALIGN:
-                address_base = 'random_data_block_page_base'
+                address_base = f'random_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {self.dep_reg_result} + 1'
             case TriggerType.LOAD_ACCESS_FAULT | TriggerType.STORE_ACCESS_FAULT:
-                address_base = 'access_fault_data_block_page_base'
+                address_base = f'access_fault_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
             case TriggerType.LOAD_PAGE_FAULT | TriggerType.STORE_PAGE_FAULT:
-                address_base = 'page_fault_data_block_page_base'
+                address_base = f'page_fault_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
             case TriggerType.LOAD | TriggerType.STORE:
-                address_base = 'random_data_block_page_base'
+                address_base = f'random_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {self.dep_reg_result}'
             case TriggerType.AMO:
-                address_base = 'random_data_block_page_base'
+                address_base = f'random_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.AMO_MISALIGN:
-                address_base = 'random_data_block_page_base'
+                address_base = f'random_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))} + 1'
             case TriggerType.AMO_ACCESS_FAULT:
-                address_base = 'access_fault_data_block_page_base'
+                address_base = f'access_fault_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.AMO_PAGE_FAULT:
-                address_base = 'page_fault_data_block_page_base'
+                address_base = f'page_fault_data_block_page_base + {self.prefix}'
                 trigger_param = f'{address_base} - {hex(self.dep_reg_result)} + {hex(down_align(random.randint(-0x800, 0x7ff), 8))}'
             case TriggerType.V4:
-                trigger_param = f'access_secret_block_target_offset - {hex(self.dep_reg_result)} - {trigger_inst["IMM"]}'
+                trigger_param = f'access_secret_block_target_offset  + {self.prefix} - {hex(self.dep_reg_result)} - {trigger_inst["IMM"]}'
             case TriggerType.BRANCH:
                 branch_success = trigger_inst['LABEL'] == self.ret_label
                 match((branch_success, trigger_inst['NAME'])):
@@ -469,7 +469,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
                         raise Exception(f"the branch name {trigger_inst['NAME']} is invalid")
             case TriggerType.JALR | TriggerType.RETURN:
                 trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
-                trigger_param = f'{self.ret_label} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
+                trigger_param = f'{self.ret_label}  + {self.prefix} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
             case TriggerType.JMP:
                 trigger_param = f'{random.randint(0, 2**64-1)}'
             case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL | TriggerType.INT | TriggerType.FLOAT:
@@ -502,7 +502,8 @@ class LoadInitTriggerBlock(LoadInitBlock):
             else:
                 self.data_list[-1] = a0_data_asm
 
-    def update_init_seq(self):
+    def update_init_seq(self, init_block_list):
+        self.init_block_list = init_block_list
         need_inited = self._need_init_compute()
         has_inited = set(self.GPR_init_list) | set(self.float_init_list)
         need_inited.difference_update(has_inited)
@@ -592,7 +593,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.trans_frame.random_data_block)
+        self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.trans_frame.random_data_block, self.mode)
         self.load_init_block.gen_instr()
         self.temp_load_init_block = self.load_init_block
 
@@ -655,8 +656,8 @@ class TransVictimManager(TransBaseManager):
 
         old_inst_len = self.load_init_block._get_inst_len()
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
-        self.load_init_block.init_block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
-        self.load_init_block.update_init_seq()
+        init_block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
+        self.load_init_block.update_init_seq(init_block_list)
         new_inst_len = self.load_init_block._get_inst_len()
 
         self.nop_block = NopBlock(self.extension, self.output_path, self.nop_block.c_nop_len + old_inst_len - new_inst_len)

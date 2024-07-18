@@ -276,11 +276,25 @@ class TriggerType(Enum):
             TriggerType.INT, TriggerType.FLOAT, TriggerType.LOAD, TriggerType.STORE, TriggerType.AMO]
 
 class LoadInitBlock(TransBlock):
-    def __init__(self, depth, extension, output_path, init_block_list):
+    def __init__(self, depth, extension, output_path, init_block_list, mode):
         super().__init__(f'load_init_block', extension, output_path)
         self.depth = depth
         self.entry = f'{self.name}_{self.depth}_entry'
         self.init_block_list = init_block_list
+        priv, addr = mode
+        if addr == 'p':
+            self.prefix = 0x80000000
+        else:
+            match priv:
+                case 'U':
+                    self.prefix = 0x0
+                case 'S':
+                    self.prefix = 0xFFFFFFFFFFF00000
+                case 'M':
+                    self.prefix = 0x80000000
+                case _:
+                    raise Exception(f'invalid privilege {priv}')
+        self.prefix = hex(self.prefix)
     
     def _gen_begin(self):
         inst_list = [
