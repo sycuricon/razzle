@@ -98,16 +98,16 @@ class FuzzMachine:
             testcase['attack_priv'] = record['threat']['attack_priv']
             testcase['attack_addr'] = record['threat']['attack_addr']
             testcase['li_offset'] = record['trans']['victim']['block_info']['access_secret_block']['li_offset']
-            testcase['mask'] = hex(record['trans']['victim']['block_info']['access_secret_block']['mask'])
+            testcase['addr'] = hex(record['trans']['victim']['block_info']['access_secret_block']['address'])
             if testcase not in access_success:
                 access_success.append(testcase)
 
         analysis_file_name = os.path.join(self.repo_path, 'access_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
-            file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|mask|\n')
+            file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|addr|\n')
             file.write('|----|----|----|----|----|----|----|----|\n')
             for testcase in access_success:
-                file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['victim_priv']}{testcase['victim_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['mask']}|\n")
+                file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['victim_priv']}{testcase['victim_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['addr']}|\n")
 
     def _leak_record_analysis(self, leak_record):
         leak_success = []
@@ -117,43 +117,62 @@ class FuzzMachine:
                 continue
             if eval(record['config']['result']) == FuzzResult.FAIL:
                 continue
+            if 'comp' not in record:
+                continue
             idx = record['config']['iter_num']
             record = record['comp']
             comp_simple = set()
             comp = record.comp_map
             for name, value in comp.items():
+                if 'l2' in name:
+                    continue
                 name = list(name.split('.'))
-                name = '.'.join(name[5:-2])
+                match self.core:
+                    case 'BOOM':
+                        name = '.'.join(name[5:-2])
+                    case 'XiangShan':
+                        name = '.'.join(name[7:-2])
+                    case _:
+                        raise Exception("invalid core type")
                 comp_simple.add(name)
             comp_simple = list(comp_simple)
             comp_simple.sort()
-            if comp_simple not in leak_success:
+            try:
+                leak_idx = leak_success.index(comp_simple)
+                leak_index[leak_idx].append(idx)
+            except ValueError:
                 leak_success.append(comp_simple)
-                leak_index.append(idx)
+                leak_index.append([idx])
         
         analysis_file_name = os.path.join(self.repo_path, 'leak_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             for comp, idx in zip(leak_success, leak_index):
-                file.write(f'{comp} {idx}\n')
-
+                file.write(f'{idx}\n{comp}\n')
 
     def _part_coverage_record_analysis(self, leak_record, stage_name):
         cov_contr = [0]
 
         coverage = Coverage()
         for record in leak_record:
-            coverage_contr = coverage.update_coverage(record['coverage'])
-            record['coverage_contr'] = coverage_contr
-            cov_contr.append(cov_contr[-1]+coverage_contr)
+            if 'coverage' not in record:
+                record['coverage_contr'] = 0
+                record['comp'] = TaintComp()
+                cov_contr.append(cov_contr[-1])
+            else:
+                coverage_contr = coverage.update_coverage(record['coverage'])
+                record['coverage_contr'] = coverage_contr
+                cov_contr.append(cov_contr[-1] + coverage_contr)
         leak_record.sort(key=lambda x:x['coverage_contr'], reverse=True)
 
         analysis_file_name = os.path.join(self.repo_path, f'{stage_name}_coverage_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             for record in leak_record:
+                if 'config' not in record:
+                    continue
                 strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
                 file.write(f"{record['config']['iter_num']} {record['coverage_contr']} {record['comp'].taint_sum} {strategy}\n")
     
-        plt.plot(cov_contr)
+        plt.plot(cov_contr, label=stage_name)
     
     def _coverage_record_analysis(self, leak_record):
         data_leak_record = []
@@ -162,13 +181,16 @@ class FuzzMachine:
             strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
             if strategy == EncodeType.FUZZ_PIPELINE:
                 control_leak_record.append(record)
+                data_leak_record.append({})
             elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
+                control_leak_record.append({})
                 data_leak_record.append(record)
         
         self._part_coverage_record_analysis(leak_record, 'full')
         self._part_coverage_record_analysis(data_leak_record, 'data')
         self._part_coverage_record_analysis(control_leak_record, 'ctrl')
 
+        plt.legend()
         plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
 
     def fuzz_analysis(self, thread_num):
