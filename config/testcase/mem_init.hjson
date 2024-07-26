@@ -1,8 +1,8 @@
 {
     train_align: True
     train_single: True
-    trigger_rate: 0.5
-    access_rate: 1.0
+    trigger_rate: 0.75
+    access_rate: 1.5
     mem_start: 0x80000000
     mem_size: 0x80000000
     init: {
