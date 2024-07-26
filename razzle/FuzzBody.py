@@ -221,6 +221,12 @@ class FuzzBody:
             line = line.strip()
             line = list(line.split())
             comp = line[0][:-1]
+            if 'l2' in comp:
+                continue
+            if 'regfile' in comp:
+                continue
+            if 'rob' in comp:
+                continue
             hash_value = line[1:]
             for value in hash_value:
                 value = int(value, base=16)
@@ -234,10 +240,14 @@ class FuzzBody:
             if ':' in line:
                 line = list(line.split())
                 comp = line[0][:-1]
+                if 'l2' in comp:
+                    continue
                 hash_value = int(line[1])
                 taint_comp[comp] = hash_value
             else:
                 comp = line[:-1]
+                if 'l2' in comp:
+                    continue
                 taint_comp[comp] = 1
         return taint_comp
 

@@ -127,8 +127,6 @@ class FuzzMachine:
                 comp_simple = set()
                 comp = record.comp_map
                 for name, value in comp.items():
-                    if 'l2' in name:
-                        continue
                     name = list(name.split('.'))
                     match self.core:
                         case 'BOOM':
@@ -203,6 +201,18 @@ class FuzzMachine:
 
         plt.legend()
         plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
+
+        coverage_contr = {}
+        for record in full_leak_record:
+            coverage = record['coverage']
+            for comp, hash_value in coverage:
+                if comp not in coverage_contr:
+                    coverage_contr[comp] = {hash_value}
+                else:
+                    coverage_contr[comp].add(hash_value)
+        with open(os.path.join(self.repo_path, f'coverage_contr'), 'wt') as file:
+            for comp, value_list in coverage_contr.items():
+                file.write(f'{comp}\n{len(value_list)}\n{value_list}\n')
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
@@ -480,7 +490,7 @@ class FuzzMachine:
                         else:
                             new_config_list = []
                             for leak_seed, config in zip(self.leak_seed_list, config_list):
-                                config = leak_seed.mutate(config, True)
+                                config = leak_seed.mutate(config)
                                 new_config_list.append(config)
                             config_list = new_config_list
                 case FuzzFSM.STOP:
