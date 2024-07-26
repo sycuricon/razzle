@@ -32,6 +32,7 @@ class FuzzBody:
         self.leak_cosim_result = None
         self.leak_coverage = None
         self.leak_comp_taint = None
+        self.is_divergent = None
 
         self.post_coverage = None
         self.post_comp_taint = None
@@ -263,7 +264,7 @@ class FuzzBody:
                 dut_window_begin = exec_time + 1 
             if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+            if exec_info in ['VCTM_END_ENQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
                 dut_window_end = exec_time
         
         is_access = False
@@ -316,12 +317,8 @@ class FuzzBody:
                 variant_list.append(int(variant))
         
         dut_sync_time = 0
-        dut_window_begin = 0
         dut_window_end = 0
-        vnt_sync_time = 0
-        vnt_window_begin = 0
         vnt_window_end = 0
-        dut_texe_begin = 0
         dut_texe_enq_num = 0
         dut_texe_deq_num = 0
         is_trigger = False
@@ -329,22 +326,14 @@ class FuzzBody:
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
-            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
-                dut_window_begin = exec_time + 1 
-            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
+            if exec_info == 'DELAY_END_DEQ' and is_dut:
                 dut_sync_time = exec_time + 1
-            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+            if exec_info in ['VCTM_END_ENQ', 'TEXE_START_ENQ'] and is_dut:
                 dut_window_end = exec_time
 
-            if exec_info == 'DELAY_END_ENQ' and vnt_window_begin == 0 and not is_dut:
-                vnt_window_begin = exec_time + 1 
-            if exec_info == 'DELAY_END_DEQ' and vnt_sync_time == 0 and not is_dut:
-                vnt_sync_time = exec_time + 1
-            if exec_info == 'VCTM_END_DEQ' and vnt_sync_time != 0 and vnt_window_end == 0 and not is_dut:
+            if exec_info in ['VCTM_END_ENQ', 'TEXE_START_ENQ'] and not is_dut:
                 vnt_window_end = exec_time
 
-            if exec_info == "TEXE_START_ENQ" and dut_texe_begin == 0 and is_dut:
-                dut_texe_begin = exec_time
             if exec_info == "TEXE_START_ENQ" and is_dut:
                 dut_texe_enq_num += 1
             if exec_info == "TEXE_START_DEQ" and is_dut:
@@ -353,25 +342,26 @@ class FuzzBody:
         is_trigger = dut_texe_enq_num > dut_texe_deq_num
         is_divergent = dut_window_end != vnt_window_end
 
-        if not is_trigger:
-            self.leak_coverage = [('',0)]
-            self.leak_comp_taint = TaintComp()
-            self.leak_cosim_result = None
-            self.leak_max_taint = None
-            return FuzzResult.FAIL
-
-        self.leak_coverage = self.compute_coverage(taint_folder)
-        self.leak_comp_taint = self.compute_comp(taint_folder)
-
-        base_spread_list = base_list[dut_sync_time:dut_window_end]
-        variant_spread_list = variant_list[dut_sync_time:dut_window_end]
-        self.leak_cosim_result, ave_dist, self.leak_max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
-
         leak_result = FuzzResult.FAIL
-        if self.config['encode_fuzz_type'] in [EncodeType.FUZZ_PIPELINE] and is_divergent:
-            leak_result = FuzzResult.SUCCESS
-        elif self.taint_leak_more(self.access_comp_taint, self.leak_comp_taint):
-            leak_result = FuzzResult.MAYBE
+        self.is_divergent = False
+        self.leak_coverage = [('',0)]
+        self.leak_comp_taint = TaintComp()
+        self.leak_cosim_result = None
+        self.leak_max_taint = None
+
+        if is_trigger:
+            self.leak_coverage = self.compute_coverage(taint_folder)
+            self.leak_comp_taint = self.compute_comp(taint_folder)
+
+            base_spread_list = base_list[dut_sync_time:dut_window_end]
+            variant_spread_list = variant_list[dut_sync_time:dut_window_end]
+            self.leak_cosim_result, ave_dist, self.leak_max_taint = self.taint_analysis(base_spread_list, variant_spread_list)
+
+            if is_divergent:
+                leak_result = FuzzResult.SUCCESS
+                self.is_divergent = True
+            elif self.taint_leak_more(self.access_comp_taint, self.leak_comp_taint):
+                leak_result = FuzzResult.MAYBE
         
         return leak_result
     

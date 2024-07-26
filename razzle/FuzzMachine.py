@@ -113,30 +113,33 @@ class FuzzMachine:
         leak_success = []
         leak_index = []
         for record in leak_record:
-            if eval(record['config']['trans']['victim']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE:
-                continue
-            if eval(record['config']['result']) == FuzzResult.FAIL:
+            result = eval(record['config']['result'])
+            if result == FuzzResult.FAIL or result is None:
                 continue
             if 'comp' not in record:
                 continue
+
             idx = record['config']['iter_num']
-            record = record['comp']
-            comp_simple = set()
-            comp = record.comp_map
-            for name, value in comp.items():
-                if 'l2' in name:
-                    continue
-                name = list(name.split('.'))
-                match self.core:
-                    case 'BOOM':
-                        name = '.'.join(name[5:-2])
-                    case 'XiangShan':
-                        name = '.'.join(name[7:-2])
-                    case _:
-                        raise Exception("invalid core type")
-                comp_simple.add(name)
-            comp_simple = list(comp_simple)
-            comp_simple.sort()
+            if record['config']['is_divergent'] == True:
+                comp_simple = ['divergent']
+            else:
+                record = record['comp']
+                comp_simple = set()
+                comp = record.comp_map
+                for name, value in comp.items():
+                    if 'l2' in name:
+                        continue
+                    name = list(name.split('.'))
+                    match self.core:
+                        case 'BOOM':
+                            name = '.'.join(name[5:-2])
+                        case 'XiangShan':
+                            name = '.'.join(name[7:-2])
+                        case _:
+                            raise Exception("invalid core type")
+                    comp_simple.add(name)
+                comp_simple = list(comp_simple)
+                comp_simple.sort()
             try:
                 leak_idx = leak_success.index(comp_simple)
                 leak_index[leak_idx].append(idx)
@@ -166,6 +169,8 @@ class FuzzMachine:
 
         analysis_file_name = os.path.join(self.repo_path, f'{stage_name}_coverage_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
+            file.write(f"|iter_num|coverage_contr|taint_sum|strategy|\n")
+            file.write(f"|--------|--------------|---------|--------|\n")
             for record in leak_record:
                 if 'config' not in record:
                     continue
@@ -176,19 +181,25 @@ class FuzzMachine:
     
     def _coverage_record_analysis(self, leak_record):
         data_leak_record = []
-        control_leak_record = []
+        ctrl_leak_record = []
+        full_leak_record = []
         for record in leak_record:
+            if 'is_divergent' in record['config'] and record['config']['is_divergent'] == True:
+                continue
             strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
             if strategy == EncodeType.FUZZ_PIPELINE:
-                control_leak_record.append(record)
+                ctrl_leak_record.append(record)
+                full_leak_record.append(record)
                 data_leak_record.append({})
             elif strategy in [EncodeType.FUZZ_BACKEND, EncodeType.FUZZ_FRONTEND]:
-                control_leak_record.append({})
+                ctrl_leak_record.append({})
                 data_leak_record.append(record)
+                full_leak_record.append(record)
+
         
-        self._part_coverage_record_analysis(leak_record, 'full')
+        self._part_coverage_record_analysis(full_leak_record, 'full')
         self._part_coverage_record_analysis(data_leak_record, 'data')
-        self._part_coverage_record_analysis(control_leak_record, 'ctrl')
+        self._part_coverage_record_analysis(ctrl_leak_record, 'ctrl')
 
         plt.legend()
         plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
@@ -266,6 +277,7 @@ class FuzzMachine:
                 max_taint = fuzz_body.leak_max_taint
                 cosim_result = fuzz_body.leak_cosim_result
         config = fuzz_body.config
+        is_divergent = fuzz_body.is_divergent
 
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             record = fuzz_body.record_fuzz()
@@ -275,6 +287,8 @@ class FuzzMachine:
                 record['cosim_result'] = cosim_result
             if max_taint is not None:
                 record['max_taint'] = max_taint
+            if is_divergent is not None:
+                record['is_divergent'] = is_divergent
             print(record)
             file.write(hjson.dumps(record))
         
@@ -332,8 +346,8 @@ class FuzzMachine:
         fuzz_body.update_sub_repo(sub_repo)
         fuzz_body.fuzz_access(config)
         self.record_fuzz(fuzz_body, 'access')
-        cov_inc = self.coverage.update_coverage(fuzz_body.access_coverage, is_leak=False)
-        self.fuzz_log.log_cover(fuzz_body.access_iter_num, cov_inc)
+        # cov_inc = self.coverage.update_coverage(fuzz_body.access_coverage, is_leak=False)
+        # self.fuzz_log.log_cover(fuzz_body.access_iter_num, cov_inc)
         return fuzz_body.access_result, fuzz_body
     
     def fuzz_leak(self, config_list, fuzz_body:FuzzBody):
@@ -358,9 +372,10 @@ class FuzzMachine:
         for fuzz_body in fuzz_body_list:
             self.record_fuzz(fuzz_body, 'leak')
             cov_inc = 0
-            cov_inc += self.coverage.update_coverage(fuzz_body.leak_coverage, is_leak=True)
-            cov_inc += self.coverage.update_coverage(fuzz_body.post_coverage, is_leak=False)
-            self.fuzz_log.log_cover(fuzz_body.leak_iter_num, cov_inc)
+            if not fuzz_body.is_divergent:
+                cov_inc += self.coverage.update_coverage(fuzz_body.leak_coverage, is_leak=True)
+                cov_inc += self.coverage.update_coverage(fuzz_body.post_coverage, is_leak=False)
+                self.fuzz_log.log_cover(fuzz_body.leak_iter_num, cov_inc)
 
     def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, thread_num):
         self.fuzz_log = FuzzLog(self.repo_path)
@@ -383,7 +398,7 @@ class FuzzMachine:
         last_state = FuzzFSM.IDLE
         state = FuzzFSM.IDLE
 
-        self.coverage = Coverage()
+        self.coverage = Coverage(self.thread_num)
         self.trigger_seed = TriggerSeed(self.coverage)
         self.access_seed = AccessSeed(self.coverage)
         self.leak_seed_list = [LeakSeed(self.coverage) for _ in range(self.thread_num)]
@@ -450,6 +465,7 @@ class FuzzMachine:
                     while True:
                         self.fuzz_leak(config_list, access_fuzz_body)
                         cover_contr = self.coverage.evalute_coverage()
+                        self.fuzz_log.log_rate(cover_contr)
 
                         iter_num += 1
                         if cover_contr < self.TRIGGER_RARE:

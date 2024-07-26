@@ -30,6 +30,9 @@ class FuzzLog:
     def log_cover(self, iter_num, cover_inc):
         self.log_record(f'inc_coverage ({iter_num}) {cover_inc}')
     
+    def log_rate(self, rate):
+        self.log_record(f'coverage_rate {rate}')
+    
     def log_diverage(self):
         self.log_record(f'coverage_diverage')
 
@@ -43,7 +46,7 @@ class TaintComp:
         self.taint_sum += value
 
 class Coverage:
-    def __init__(self):
+    def __init__(self, LEAK_EVALUTE_LEN=8):
         self.state_list = []
         self.trigger_set = set()
         self.coverage_set = set()
@@ -53,6 +56,7 @@ class Coverage:
         self.access_set = None
         self.leak_list = None
         self.leak_set = None
+        self.LEAK_EVALUTE_LEN = LEAK_EVALUTE_LEN if LEAK_EVALUTE_LEN > 8 else 8
 
         self.acc_state = True
 
@@ -105,7 +109,7 @@ class Coverage:
 
             if is_leak:
                 self.coverage_list.append(cov_inc)
-                if len(self.coverage_list) > 8:
+                if len(self.coverage_list) > self.LEAK_EVALUTE_LEN:
                     self.coverage_list.pop(0)
                 self.coverage_sum += cov_inc
                 self.coverage_iter += 1
@@ -121,10 +125,12 @@ class Coverage:
         return self.leak_list[-1], cov_inc
     
     def evalute_coverage(self):
+        if len(self.coverage_list) < self.LEAK_EVALUTE_LEN:
+            return 2.0
         cov_inc = sum(self.coverage_list)
         iter_inc = len(self.coverage_list)
         local_rate = cov_inc/iter_inc
-        global_rate = (self.coverage_sum - cov_inc)/(self.coverage_iter - iter_inc)
+        global_rate = (self.coverage_sum - cov_inc + 1)/(self.coverage_iter - iter_inc + 1)
         return local_rate/(global_rate + 0.1)
 
 class Seed:
