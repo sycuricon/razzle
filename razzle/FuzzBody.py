@@ -223,14 +223,15 @@ class FuzzBody:
             comp = line[0][:-1]
             if 'l2' in comp:
                 continue
-            if 'regfile' in comp:
-                continue
-            if 'rob' in comp:
-                continue
+            # if 'regfile' in comp:
+            #     continue
+            # if 'rob' in comp:
+            #     continue
             hash_value = line[1:]
-            for value in hash_value:
-                value = int(value, base=16)
-                coverage.append((comp, value))
+            coverage.append((comp, len(hash_value)))
+            # for value in hash_value:
+            #     value = int(value, base=16)
+            #     coverage.append((comp, value))
         return coverage
     
     def compute_comp(self, taint_folder):
@@ -263,18 +264,15 @@ class FuzzBody:
                 base_list.append(int(base))
                 variant_list.append(int(variant))
 
-        dut_sync_time = 0
         dut_window_begin = 0
         dut_window_end = 0
         for line in open(f'{taint_folder}.taint.log', 'rt'):
             exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
-            if exec_info == 'DELAY_END_ENQ' and dut_window_begin == 0 and is_dut:
+            if exec_info == 'DELAY_END_ENQ' and is_dut:
                 dut_window_begin = exec_time + 1 
-            if exec_info == 'DELAY_END_DEQ' and dut_sync_time == 0 and is_dut:
-                dut_sync_time = exec_time + 1
-            if exec_info in ['VCTM_END_ENQ', 'TEXE_START_DEQ'] and dut_sync_time != 0 and dut_window_end == 0 and is_dut:
+            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and is_dut:
                 dut_window_end = exec_time
         
         is_access = False

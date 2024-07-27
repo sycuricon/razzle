@@ -184,6 +184,8 @@ class FuzzMachine:
         for record in leak_record:
             if 'is_divergent' in record['config'] and record['config']['is_divergent'] == True:
                 continue
+            if 'coverage' not in record:
+                continue
             strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
             if strategy == EncodeType.FUZZ_PIPELINE:
                 ctrl_leak_record.append(record)
@@ -193,7 +195,6 @@ class FuzzMachine:
                 ctrl_leak_record.append({})
                 data_leak_record.append(record)
                 full_leak_record.append(record)
-
         
         self._part_coverage_record_analysis(full_leak_record, 'full')
         self._part_coverage_record_analysis(data_leak_record, 'data')
@@ -210,18 +211,19 @@ class FuzzMachine:
                     coverage_contr[comp] = {hash_value}
                 else:
                     coverage_contr[comp].add(hash_value)
-        with open(os.path.join(self.repo_path, f'coverage_contr'), 'wt') as file:
+        with open(os.path.join(self.repo_path, f'coverage_contr.md'), 'wt') as file:
             for comp, value_list in coverage_contr.items():
                 file.write(f'{comp}\n{len(value_list)}\n{value_list}\n')
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
         trigger_record = self._load_stage_record('trigger', None)
-        access_record = self._load_stage_record('access', None)
-        leak_record = self._load_stage_record('leak', thread_num)
-
         self._trigger_record_analysis(trigger_record)
+
+        access_record = self._load_stage_record('access', None)
         self._access_record_analysis(access_record)
+
+        leak_record = self._load_stage_record('leak', thread_num)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
     
@@ -450,8 +452,8 @@ class FuzzMachine:
                         else:
                             config = self.access_seed.mutate(config)
                     else:
-                        config = self.trigger_seed.mutate({})
-                        config = self.access_seed.mutate(config)
+                        config = self.trigger_seed.mutate({}, True)
+                        config = self.access_seed.mutate(config, True)
                         state = FuzzFSM.MUTATE_TRIGGER
                 case FuzzFSM.ACCUMULATE:
                     self.coverage.accumulate()
