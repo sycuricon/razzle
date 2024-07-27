@@ -8,6 +8,8 @@ $load_state_setup
 
 $load_state_body
 
+fence
+sfence.vma
 mret
 
 .section .data.init

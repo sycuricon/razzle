@@ -13,6 +13,8 @@ $load_state_body
 
 INFO_INIT_END
 
+fence
+sfence.vma
 mret
 
 .section .data.init

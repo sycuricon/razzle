@@ -50,6 +50,7 @@ class SecretProtectBlock(TransBlock):
                 'ld t1, 0(t0)',
                 f'andi t1, t1, ~({hex(mask)})',
                 'sd t1, 0(t0)',
+                'fence',
                 'sfence.vma',
             ]
             self._load_inst_str(inst_list)

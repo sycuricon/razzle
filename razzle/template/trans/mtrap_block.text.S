@@ -17,6 +17,8 @@ set_mtrap_return_entry:
     andi t1, t0, 0x4
     slli t1, t1, 61
     csrs satp, t1
+    fence
+    sfence.vma
 
     andi t1, t0, 0x8
     slli t1, t1, 9
