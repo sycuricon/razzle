@@ -301,7 +301,7 @@ class FuzzMachine:
                 record['max_taint'] = max_taint
             if is_divergent is not None:
                 record['is_divergent'] = is_divergent
-            print(record)
+            # print(record)
             file.write(hjson.dumps(record))
         
         with open(os.path.join(self.repo_path, f"{stage_name}_iter_num"), "wt") as file:

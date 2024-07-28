@@ -228,10 +228,9 @@ class FuzzBody:
             # if 'rob' in comp:
             #     continue
             hash_value = line[1:]
-            coverage.append((comp, len(hash_value)))
-            # for value in hash_value:
-            #     value = int(value, base=16)
-            #     coverage.append((comp, value))
+            for value in hash_value:
+                value = int(value, base=16)
+                coverage.append((comp, value))
         return coverage
     
     def compute_comp(self, taint_folder):
