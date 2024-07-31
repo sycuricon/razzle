@@ -49,11 +49,9 @@ class ReturnBlock(TransBlock):
         super().__init__('return_block', extension, output_path)
 
     def gen_instr(self):
-        self._load_inst_str(
-            [
-                'ebreak'
-            ]
-        )
+        inst_list = ['ebreak']
+        inst_list.extend(['nop'] * 17)
+        self._load_inst_str(inst_list)
 
 class DelayBlock(TransBlock):
     def __init__(self, extension, output_path, delay_len, delay_float_rate, delay_mem):
