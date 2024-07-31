@@ -146,8 +146,8 @@ class LoadInitTrainBlock(LoadInitBlock):
                         train_param[train_inst['RS1']] = 0
                         train_param[train_inst['RS2']] = 0
                     case 'BNE'|'BLT'|'BLTU':
-                        train_param[train_inst['RS1']] = 1
-                        train_param[train_inst['RS2']] = 0
+                        train_param[train_inst['RS1']] = 0
+                        train_param[train_inst['RS2']] = 1
                     case 'C.BEQZ':
                         train_param[train_inst['RS1']] = 0
                     case 'C.BNEZ':
