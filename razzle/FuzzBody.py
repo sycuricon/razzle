@@ -154,8 +154,11 @@ class FuzzBody:
                 {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
             )
             rm_asm = ShellCommand("rm", [])
+            idx_set = set()
             for idx in reduce_list:
-                reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
+                if idx not in idx_set:
+                    idx_set.add(idx)
+                    reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
             reduce_baker.run()
         else:
             if len(self.trans.swap_block_list) > 4:
@@ -163,11 +166,14 @@ class FuzzBody:
                     {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
                 )
                 rm_asm = ShellCommand("rm", [])
+                idx_set = set()
                 for swap_mem in self.trans.swap_block_list:
                     idx = swap_mem['swap_id']
                     if 0 <= idx < 4:
                         continue
-                    reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
+                    if idx not in idx_set:
+                        idx_set.add(idx)
+                        reduce_baker.add_cmd(rm_asm.gen_cmd([f'{self.output_path}/{self.sub_repo}/*{idx}*']))
                 reduce_baker.run()
     
     def fuzz_trigger(self, config):

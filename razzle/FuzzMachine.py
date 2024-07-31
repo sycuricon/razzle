@@ -62,10 +62,11 @@ class FuzzMachine:
                 trigger_dict[trigger_type] = {}
             trigger_type_dict = trigger_dict[trigger_type]
             if train_type not in trigger_type_dict:
-                trigger_type_dict[train_type] = {'summary':0, 'success':0}
+                trigger_type_dict[train_type] = {'summary':0, 'success':0, 'list':[]}
             trigger_type_dict[train_type]['summary'] += 1
             if result == FuzzResult.SUCCESS:
                 trigger_type_dict[train_type]['success'] += 1
+                trigger_type_dict[train_type]['list'].append(int(record['iter_num']))
         
         analysis_file_name = os.path.join(self.repo_path, 'trigger_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
@@ -75,13 +76,16 @@ class FuzzMachine:
                 for train_type, train_content in trigger_content.items():
                     summary = train_content['summary']
                     success = train_content['success']
+                    test_list = train_content['list']
                     rate = success/summary
                     if success > 0:
                         file.write(f'|{trigger_type}|{train_type}|{summary}|{success}|{rate}|\n')
+                        file.write(f'{test_list}\n')
                 
 
     def _access_record_analysis(self, access_record):
         access_success = []
+        access_testcase = []
         for record in access_record:
             record = record['config']
             result = eval(record['result'])
@@ -98,16 +102,21 @@ class FuzzMachine:
             testcase['attack_priv'] = record['threat']['attack_priv']
             testcase['attack_addr'] = record['threat']['attack_addr']
             testcase['li_offset'] = record['trans']['victim']['block_info']['access_secret_block']['li_offset']
-            testcase['addr'] = hex(record['trans']['victim']['block_info']['access_secret_block']['address'])
-            if testcase not in access_success:
+            testcase['addr'] = hex(record['trans']['victim']['block_info']['access_secret_block']['address'])           
+            try:
+                idx = access_success.index(testcase)
+                access_testcase[idx].append(record['iter_num'])
+            except ValueError:
                 access_success.append(testcase)
+                access_testcase.append([record['iter_num']])
 
         analysis_file_name = os.path.join(self.repo_path, 'access_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|addr|\n')
             file.write('|----|----|----|----|----|----|----|----|\n')
-            for testcase in access_success:
+            for testcase, testcase_idx in zip(access_success,access_testcase):
                 file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['victim_priv']}{testcase['victim_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['addr']}|\n")
+                file.write(f'{testcase_idx}\n')
 
     def _leak_record_analysis(self, leak_record):
         leak_success = []
@@ -182,8 +191,8 @@ class FuzzMachine:
         ctrl_leak_record = []
         full_leak_record = []
         for record in leak_record:
-            if 'is_divergent' in record['config'] and record['config']['is_divergent'] == True:
-                continue
+            # if 'is_divergent' in record['config'] and record['config']['is_divergent'] == True:
+            #     continue
             if 'coverage' not in record:
                 continue
             strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
@@ -217,13 +226,12 @@ class FuzzMachine:
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
-        trigger_record = self._load_stage_record('trigger', None)
-        self._trigger_record_analysis(trigger_record)
-
-        access_record = self._load_stage_record('access', None)
-        self._access_record_analysis(access_record)
-
+        # trigger_record = self._load_stage_record('trigger', None)
+        # access_record = self._load_stage_record('access', None)
+        
         leak_record = self._load_stage_record('leak', thread_num)
+        self._trigger_record_analysis(leak_record)
+        self._access_record_analysis(leak_record)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
     

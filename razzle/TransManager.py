@@ -460,34 +460,39 @@ class TransManager:
         windows_param = 0.8 if self.trans_victim.need_train() else 0.4
 
         swap_block_list = [self.trans_adjust.mem_region, self.trans_protect.mem_region, self.trans_victim.mem_region, self.trans_exit.mem_region]
-        for _ in range(0, 10):
-            if random.random() < 1 - windows_param:
+        for i in range(0, 10):
+            random_value = random.random()
+            if random_value >= windows_param:
                 break
-        
-            train_type_array = [
-                TrainType.BRANCH_NOT_TAKEN,
-                TrainType.BRANCH_TAKEN,
-                TrainType.JALR,
-                TrainType.CALL,
-                TrainType.RETURN,
-                TrainType.JMP,
+            elif random_value < windows_param * 0.6 and i != 0:
+                trans_body = self.trans_train_pool[self.trans_train_id - 1]
+                swap_block_list.insert(0, trans_body.mem_region)
+            else:
+                train_type_array = [
+                    TrainType.BRANCH_NOT_TAKEN,
+                    TrainType.BRANCH_TAKEN,
+                    TrainType.JALR,
+                    TrainType.CALL,
+                    TrainType.RETURN,
+                    TrainType.JMP,
 
-                TrainType.FLOAT,
-                TrainType.INT,
-                TrainType.SYSTEM,
-                TrainType.LOAD,
-                TrainType.STORE,
-                TrainType.AMO
-            ]
+                    TrainType.FLOAT,
+                    TrainType.INT,
+                    TrainType.SYSTEM,
+                    TrainType.LOAD,
+                    TrainType.STORE,
+                    TrainType.AMO
+                ]
 
-            train_type = random.choice(train_type_array)
+                train_type = random.choice(train_type_array)
 
-            trans_body = self.trans_train_pool[self.trans_train_id]
-            self.trans_train_id += 1
-            trans_body.gen_block(config, train_type, align, single, self.trans_victim)
-            self._generate_body_block(trans_body)
+                trans_body = self.trans_train_pool[self.trans_train_id]
+                self.trans_train_id += 1
+                trans_body.gen_block(config, train_type, align, single, self.trans_victim)
+                self._generate_body_block(trans_body)
 
-            swap_block_list.insert(0, trans_body.mem_region)
+                swap_block_list.insert(0, trans_body.mem_region)
+
         self.swap_block_list = swap_block_list
 
     def build_frame(self):
