@@ -67,7 +67,7 @@ class DelayBlock(TransBlock):
             ]
         else:
             self.GPR_list = [
-                reg for reg in reg_range if reg not in ["A0", "ZERO", "T0"]
+                reg for reg in reg_range if reg not in ["A0", "ZERO", "T0", "T1"]
             ]
 
         self.FLOAT_list = float_range
@@ -169,19 +169,6 @@ class DelayBlock(TransBlock):
                     if instr.has("RD"):
                         block.inst_list.append(instr)
                         break
-        
-        if self.delay_mem:
-            for i in range(2):
-                instr = rand_instr(instr_extension=extension, instr_category=[
-                    'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x800, 8))
-                instr.solve()
-                instr['RS1'] = 'T0'
-                if instr['CATEGORY'] == 'LOAD' and (instr['RD'] in dep_list or instr['RD'] in ['T0', 'A0']):
-                    instr['RD'] = random.choice([reg for reg in self.GPR_list if reg not in dep_list and reg not in ['T0', 'A0']])
-                elif instr['CATEGORY'] == 'FLOAT_LOAD' and instr['FRD'] in dep_list:
-                    instr['FRD'] = random.choice([freg for freg in self.FLOAT_list if freg not in dep_list])
-                insert_place = random.randint(1, len(block.inst_list) - 1)
-                block.inst_list.insert(insert_place, instr)
 
         self._add_inst_block(block)
     
@@ -206,6 +193,7 @@ class DelayBlock(TransBlock):
         self._gen_block_begin()
         dep_list = self._gen_dep_list()
         self._gen_inst_list(dep_list)
+
         self.result_reg = dep_list[-1]
         reg = self.result_reg.lower()
         imm = random.randint(-0x800, 0x7ff)
@@ -213,6 +201,13 @@ class DelayBlock(TransBlock):
             'delay_offset:',
             f'addi {reg}, {reg}, {imm}',
         ]
+
+        if self.delay_mem:
+            offset = random.randint(-0x800, 0)
+            inst_offset.append(f'andi t1, {reg}, 0x7ff')
+            inst_offset.append(f'add t0, t0, t1')
+            inst_offset.append(f'lb t0, {hex(offset)}(t0)')
+
         self._load_inst_str(inst_offset)
 
         self._gen_block_end()
