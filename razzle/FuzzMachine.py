@@ -258,8 +258,7 @@ class FuzzMachine:
         self.origin_fuzz_body.generate(config)
 
         with open(os.path.join(self.origin_fuzz_body.output_path, self.origin_fuzz_body.sub_repo, 'config'), 'wt') as file:
-            for key, value in config.items():
-                file.write(f'{key}:{value}\n')
+            file.write(hjson.dumps(self.origin_fuzz_body.record_fuzz()))
     
     def get_repo(self, stage_name, thread_num=0):
         iter_num_file = os.path.join(self.repo_path, f"{stage_name}_iter_num")
