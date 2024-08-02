@@ -103,6 +103,9 @@ class TransAdjustManager(TransBaseManager):
         self.encode_block = EncodeBlock(self.extension, self.output_path, None, EncodeType.FUZZ_DEFAULT)
         self.encode_block.gen_instr()
 
+        self.warm_up_block = WarmUpBlock(self.extension, self.output_path)
+        self.warm_up_block.gen_instr()
+
         self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [], self.mode)
         self.load_init_block.gen_instr()
 
@@ -110,7 +113,7 @@ class TransAdjustManager(TransBaseManager):
         self.return_block.gen_instr()
 
         nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
-        need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
+        need_nop_len = nop_len - self.warm_up_block._get_inst_len() - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
         self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
         self.nop_block.gen_instr()
         
@@ -131,7 +134,7 @@ class TransAdjustManager(TransBaseManager):
         self.secret_migrate_block.gen_instr()
 
         nop_len = trans_victim.symbol_table['encode_block_entry'] - trans_victim.symbol_table['_text_swap_start']
-        need_nop_len = nop_len - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
+        need_nop_len = nop_len - self.warm_up_block._get_inst_len() - self.load_init_block._get_inst_len() - self.secret_migrate_block._get_inst_len()
         self.nop_block = NopBlock(self.extension, self.output_path, need_nop_len)
         self.nop_block.gen_instr()
 
@@ -154,6 +157,7 @@ class TransAdjustManager(TransBaseManager):
 
         self.data_section.clear()
 
+        self._set_section(text_swap_section, empty_section, [self.warm_up_block])
         self._set_section(text_swap_section, self.data_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.secret_migrate_block, self.nop_block, self.encode_block, self.return_block])
 

@@ -268,6 +268,20 @@ class TriggerType(Enum):
         return trigger_type in [TriggerType.BRANCH, TriggerType.JALR, TriggerType.RETURN, TriggerType.JMP,\
             TriggerType.INT, TriggerType.FLOAT, TriggerType.LOAD, TriggerType.STORE, TriggerType.AMO]
 
+class WarmUpBlock(TransBlock):
+    def __init__(self, extension, output_path):
+        super().__init__(f'warm_up_block', extension, output_path)
+
+    def gen_instr(self):
+        inst_list = [
+            'INFO_TRAIN_START',
+            'nop',
+            'nop',
+            'nop',
+            'warm_up_done:'
+        ]
+        self._load_inst_str(inst_list)
+
 class LoadInitBlock(TransBlock):
     def __init__(self, depth, extension, output_path, init_block_list, mode):
         super().__init__(f'load_init_block', extension, output_path)
@@ -288,18 +302,6 @@ class LoadInitBlock(TransBlock):
                 case _:
                     raise Exception(f'invalid privilege {priv}')
         self.prefix = hex(self.prefix)
-    
-    def _gen_begin(self):
-        inst_list = [
-            'INFO_TRAIN_START'
-        ]
-        self._load_inst_str(inst_list)
-    
-    def _gen_end(self):
-        inst_list = [
-            'warm_up_done:'
-        ]
-        self._load_inst_str(inst_list)
     
     def _need_init_compute(self):
         for block in self.init_block_list:
@@ -364,6 +366,4 @@ class LoadInitBlock(TransBlock):
         self.reg_init_block = self.inst_block_list[-1]
     
     def gen_instr(self):
-        self._gen_begin()
         self._gen_init_code()
-        self._gen_end()

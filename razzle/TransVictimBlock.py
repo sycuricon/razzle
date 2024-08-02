@@ -414,6 +414,21 @@ class EncodeBlock(TransBlock):
             record['encode_type'].append(f'{block.block_type}')
         return self.name, record
 
+class WarmUpVictimBlock(WarmUpBlock):
+    def __init__(self, extension, output_path):
+        super().__init__(extension, output_path)
+
+    def gen_instr(self):
+        inst_list = [
+            'INFO_VCTM_START',
+            'warm_up_list:',
+            'j warm_up_top',
+            'nop',
+            'nop',
+            'warm_up_done:'
+        ]
+        self._load_inst_str(inst_list)
+
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block, mode):
         super().__init__(depth, extension, output_path, init_block_list, mode)
@@ -491,24 +506,8 @@ class LoadInitTriggerBlock(LoadInitBlock):
     def _simulate_dep_reg_result(self):
         dump_result = inst_simlutor(self.baker, [self, self.delay_block, self.random_block])
         return dump_result[self.delay_block.result_reg]
-    
-    def _gen_begin(self):
-        inst_list = [
-            'INFO_VCTM_START'
-        ]
-        self._load_inst_str(inst_list)
-    
-    def _gen_end(self):
-        inst_list = [
-            'warm_up_list:',
-            'fence',
-            'j warm_up_top',
-            'warm_up_done:'
-        ]
-        self._load_inst_str(inst_list)
 
     def gen_instr(self):
-        self._gen_begin()
         self._gen_init_code()
         self.dep_reg_result = self._simulate_dep_reg_result()
         self.trigger_param = self._compute_trigger_param()
@@ -519,8 +518,6 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 self.data_list[-2] = a0_data_asm
             else:
                 self.data_list[-1] = a0_data_asm
-        
-        self._gen_end()
 
     def update_init_seq(self, init_block_list):
         self.init_block_list = init_block_list
@@ -612,12 +609,15 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr()
 
+        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path)
+        self.warm_up_block.gen_instr()
+
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
         self.load_init_block = LoadInitTriggerBlock(self.swap_idx, self.extension, self.output_path, block_list, self.delay_block, self.trigger_block, self.trans_frame.random_data_block, self.mode)
         self.load_init_block.gen_instr()
         self.temp_load_init_block = self.load_init_block
 
-        inst_len = self.load_init_block._get_inst_len() + 64
+        inst_len = self.load_init_block._get_inst_len() + self.warm_up_block._get_inst_len() + 64
         nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
@@ -703,6 +703,7 @@ class TransVictimManager(TransBaseManager):
         self.data_section.clear()
 
         self._set_section(empty_section, self.data_section, [self.access_secret_block])
+        self._set_section(text_swap_section, empty_section, [self.warm_up_block])
         self._set_section(text_swap_section, self.data_section, [self.load_init_block])
         self._set_section(text_swap_section, empty_section, [self.nop_block, self.delay_block, self.trigger_block])
         

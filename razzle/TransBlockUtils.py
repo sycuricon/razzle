@@ -596,6 +596,7 @@ class SystemBlock(BaseBlock):
 class TransBlock:
     def __init__(self, name, extension, output_path):
         self.name = name
+        self.output_path = output_path
         self.entry = self.name + "_entry"
         self.inst_block_list = []
         self.data_list = []
