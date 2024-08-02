@@ -198,7 +198,14 @@ class ReturnVictimBlock(ReturnBlock):
 
     def gen_instr(self):
         inst_list = ['nop'] * 16
-        inst_list.extend(['INFO_VCTM_END', 'ebreak'])
+        inst_list.extend(
+            [
+                'INFO_VCTM_END', 
+                'ebreak',
+                'warm_up_top:',
+                'j warm_up_bottom'
+            ]
+        )
         self._load_inst_str(inst_list)
 
 class EncodeType(Enum):
@@ -227,19 +234,21 @@ class EncodeBlock(TransBlock):
     
     def _gen_block_end(self):
 
+        inst_exit = [
+            "encode_exit:",
+            "INFO_TEXE_END",
+            "ebreak",
+            "warm_up_bottom:",
+            "j warm_up_done"
+        ]
+        self._load_inst_str(inst_exit)
+
         inst_len = self._get_inst_len()
         inst_dummy = [
             "encode_nop_fill:",
         ]
         inst_dummy.extend(['c.nop' for _ in range((192 - inst_len)//2)])
         self._load_inst_str(inst_dummy)
-
-        inst_exit = [
-            "encode_exit:",
-            "INFO_TEXE_END",
-            f"ebreak",
-        ]
-        self._load_inst_str(inst_exit)
 
     def _gen_random(self):
         kind_class = {
@@ -488,6 +497,15 @@ class LoadInitTriggerBlock(LoadInitBlock):
             'INFO_VCTM_START'
         ]
         self._load_inst_str(inst_list)
+    
+    def _gen_end(self):
+        inst_list = [
+            'warm_up_list:',
+            'fence',
+            'j warm_up_top',
+            'warm_up_done:'
+        ]
+        self._load_inst_str(inst_list)
 
     def gen_instr(self):
         self._gen_begin()
@@ -501,6 +519,8 @@ class LoadInitTriggerBlock(LoadInitBlock):
                 self.data_list[-2] = a0_data_asm
             else:
                 self.data_list[-1] = a0_data_asm
+        
+        self._gen_end()
 
     def update_init_seq(self, init_block_list):
         self.init_block_list = init_block_list
@@ -641,11 +661,6 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.gen_instr()
 
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
-
-        inst_len = self.load_init_block._get_inst_len() + 64
-        nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
-        self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
-        self.nop_block.gen_instr()
 
     def mutate_encode(self, config):
         self.mode = ''.join([config['victim_priv'], config['victim_addr']])

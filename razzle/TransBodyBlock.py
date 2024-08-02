@@ -50,7 +50,7 @@ class ReturnBlock(TransBlock):
 
     def gen_instr(self):
         inst_list = ['ebreak']
-        inst_list.extend(['nop'] * 17)
+        inst_list.extend(['nop'] * (17 + 1))
         self._load_inst_str(inst_list)
 
 class DelayBlock(TransBlock):
@@ -295,6 +295,12 @@ class LoadInitBlock(TransBlock):
         ]
         self._load_inst_str(inst_list)
     
+    def _gen_end(self):
+        inst_list = [
+            'warm_up_done:'
+        ]
+        self._load_inst_str(inst_list)
+    
     def _need_init_compute(self):
         for block in self.init_block_list:
             block._compute_need_inited()
@@ -360,3 +366,4 @@ class LoadInitBlock(TransBlock):
     def gen_instr(self):
         self._gen_begin()
         self._gen_init_code()
+        self._gen_end()
