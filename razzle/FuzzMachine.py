@@ -302,6 +302,7 @@ class FuzzMachine:
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             record = fuzz_body.record_fuzz()
             record['iter_num'] = iter_num
+            record['time'] = time.time()
             record['result'] = f'{result}'
             if cosim_result is not None:
                 record['cosim_result'] = cosim_result
