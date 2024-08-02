@@ -228,9 +228,9 @@ class NopBlock(TransBlock):
 
     def gen_instr(self):
         inst_list = [
-            'c.nop' for _ in range(self.c_nop_len//2)
+            'c.nop' for _ in range(self.c_nop_len//2 - 2)
         ]
-        # inst_list.insert(0, 'fence')
+        inst_list.insert(0, 'fence')
 
         self._load_inst_str(inst_list)
 
