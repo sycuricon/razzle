@@ -226,12 +226,13 @@ class FuzzMachine:
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
-        # trigger_record = self._load_stage_record('trigger', None)
-        # access_record = self._load_stage_record('access', None)
-        
+        trigger_record = self._load_stage_record('trigger', None)
+        self._trigger_record_analysis(trigger_record)
+
+        access_record = self._load_stage_record('access', None)
+        self._access_record_analysis(access_record)
+
         leak_record = self._load_stage_record('leak', thread_num)
-        self._trigger_record_analysis(leak_record)
-        self._access_record_analysis(leak_record)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
     
@@ -441,6 +442,7 @@ class FuzzMachine:
                 case FuzzFSM.MUTATE_TRIGGER:
                     for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
                         trigger_result, trigger_fuzz_body = self.fuzz_trigger(config, self.origin_fuzz_body)
+                        self.trigger_seed.update_sample(trigger_result)
                         if trigger_result == FuzzResult.SUCCESS:
                             state = FuzzFSM.MUTATE_ACCESS
                             break
@@ -453,6 +455,7 @@ class FuzzMachine:
                 case FuzzFSM.MUTATE_ACCESS:
                     for iter_num in range(MAX_ACCESS_MUTATE_ITER):
                         access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
+                        self.access_seed.update_sample(access_result)
                         if access_result == FuzzResult.SUCCESS:
                             state = FuzzFSM.ACCUMULATE
                             break

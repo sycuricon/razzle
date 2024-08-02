@@ -4,6 +4,7 @@ from enum import *
 import os
 import time
 from TransManager import *
+import math
 
 global_random_state = random.getstate()
 
@@ -134,6 +135,33 @@ class Coverage:
         return local_rate/(global_rate + 0.1)
 
 class Seed:
+    class StatTable:
+        def __init__(self):
+            self.table = {}
+        
+        def statistic_rate(self, success, sample):
+            func = lambda x : math.sqrt(math.log2(x)/x)
+            return func((success + 4)) * func((sample + 4))
+        
+        def register_entry(self, key):
+            self.table[key] = {'success':0, 'sample':0, 'rate':self.statistic_rate(0, 0)}
+        
+        def update_sample(self, key, result):
+            self.table[key]['sample'] += 1
+            self.table[key]['success'] += 1 if result == FuzzResult.SUCCESS else 0
+            self.table[key]['rate'] = self.statistic_rate(self.table[key]['success'], self.table[key]['sample'])
+
+        def mutate_return(self, key_bound):
+            key_rate = {}
+            rate_summary = 0
+            for key in key_bound:
+                rate = self.table[key]['rate']
+                key_rate[key] = rate
+                rate_summary += rate
+            for key, value in key_rate.items():
+                key_rate[key] = value/rate_summary
+            return random_choice(key_rate)
+
     def __init__(self, length):
         self.seed = BitArray(length=length)
         self.seed[:] = random.getrandbits(length)
@@ -197,8 +225,8 @@ class TriggerSeed(Seed):
         DELAY_LEN = auto()
         DELAY_FLOAT_RATE = auto()
         DELAY_MEM = auto()
-        TRIGGER = auto()
         PRIV_MODE = auto()
+        TRIGGER = auto()
         PMP_R = auto()
         PMP_L = auto()
         PTE_R = auto()
@@ -209,8 +237,8 @@ class TriggerSeed(Seed):
         TriggerFieldEnum.DELAY_LEN: 2,
         TriggerFieldEnum.DELAY_FLOAT_RATE: 2,
         TriggerFieldEnum.DELAY_MEM: 1,
-        TriggerFieldEnum.TRIGGER: 5,
         TriggerFieldEnum.PRIV_MODE: 4,
+        TriggerFieldEnum.TRIGGER: 5,
         TriggerFieldEnum.PMP_R: 1,
         TriggerFieldEnum.PMP_L: 1,
         TriggerFieldEnum.PTE_R: 1,
@@ -229,6 +257,10 @@ class TriggerSeed(Seed):
     def __init__(self, coverage:Coverage):
         super().__init__(self.seed_length)
         self.coverage = coverage
+
+        self.stat_table = Seed.StatTable()
+        for trigger_type in TriggerType:
+            self.stat_table.register_entry(trigger_type)
     
     def mutate(self, config, is_full=False):
         self.mutate_begin()
@@ -242,6 +274,19 @@ class TriggerSeed(Seed):
         self.mutate_end()
         
         return self.config
+    
+    def mutate_field(self, field):
+        if field == TriggerSeed.TriggerFieldEnum.TRIGGER:
+            trigger_type = [value for value in TriggerType]
+            trigger_type = self.stat_table.mutate_return(trigger_type)
+            base = self.field_base[field]
+            length = self.field_len[field]
+            self.seed[base:base+length] = trigger_type.value - 1
+        else:
+            super().mutate_field(field)
+
+    def update_sample(self, result):
+        self.stat_table.update_sample(self.config['trigger_type'], result)
     
     def parse(self, config):
         config = copy.deepcopy(config)
@@ -274,97 +319,15 @@ class TriggerSeed(Seed):
         config['delay_float_rate'] = self.get_field(self.TriggerFieldEnum.DELAY_FLOAT_RATE) * 0.1 + 0.4
         config['delay_mem'] = True if self.get_field(self.TriggerFieldEnum.DELAY_MEM) == 1 else False
 
-        trigger_field_value = self.get_field(self.TriggerFieldEnum.TRIGGER)
-        if config['victim_addr'] == 'v':
-            match trigger_field_value:
-                case 0:
-                    config['trigger_type'] = TriggerType.ECALL
-                case 1:
-                    config['trigger_type'] = TriggerType.ILLEGAL
-                case 2:
-                    config['trigger_type'] = TriggerType.EBREAK
-                case 3:
-                    config['trigger_type'] = TriggerType.INT
-                case 4:
-                    config['trigger_type'] = TriggerType.FLOAT
-                case 5:
-                    config['trigger_type'] = TriggerType.LOAD
-                case 6:
-                    config['trigger_type'] = TriggerType.STORE
-                case 7:
-                    config['trigger_type'] = TriggerType.AMO
-                case 8:
-                    config['trigger_type'] = TriggerType.JMP
-                case 9:
-                    config['trigger_type'] = TriggerType.AMO_MISALIGN
-                case 10:
-                    config['trigger_type'] = TriggerType.STORE_MISALIGN
-                case 11:
-                    config['trigger_type'] = TriggerType.LOAD_MISALIGN
-                case 12|13:
-                    config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
-                case 14|15:
-                    config['trigger_type'] = TriggerType.AMO_PAGE_FAULT
-                case 16|17:
-                    config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-                case 18|19:
-                    config['trigger_type'] = TriggerType.STORE_PAGE_FAULT
-                case 20|21:
-                    config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-                case 22|23:
-                    config['trigger_type'] = TriggerType.LOAD_PAGE_FAULT
-                case 24|25:
-                    config['trigger_type'] = TriggerType.RETURN
-                case 26|27:
-                    config['trigger_type'] = TriggerType.BRANCH
-                case 28|29:
-                    config['trigger_type'] = TriggerType.JALR
-                case 30|31:
-                    config['trigger_type'] = TriggerType.V4
-                case _:
-                    raise Exception(f"the invalid trigger number {trigger_field_value}")
-        else:
-            match trigger_field_value:
-                case 0|1:
-                    config['trigger_type'] = TriggerType.ECALL
-                case 2|3:
-                    config['trigger_type'] = TriggerType.ILLEGAL
-                case 4|5:
-                    config['trigger_type'] = TriggerType.EBREAK
-                case 6:
-                    config['trigger_type'] = TriggerType.INT
-                case 7:
-                    config['trigger_type'] = TriggerType.FLOAT
-                case 8:
-                    config['trigger_type'] = TriggerType.LOAD
-                case 9:
-                    config['trigger_type'] = TriggerType.STORE
-                case 10:
-                    config['trigger_type'] = TriggerType.AMO
-                case 11:
-                    config['trigger_type'] = TriggerType.JMP
-                case 12|13:
-                    config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
-                case 14|15:
-                    config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-                case 16|17:
-                    config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-                case 18|19:
-                    config['trigger_type'] = TriggerType.AMO_MISALIGN
-                case 20|21:
-                    config['trigger_type'] = TriggerType.STORE_MISALIGN
-                case 22|23:
-                    config['trigger_type'] = TriggerType.LOAD_MISALIGN
-                case 24|25:
-                    config['trigger_type'] = TriggerType.RETURN
-                case 26|27:
-                    config['trigger_type'] = TriggerType.BRANCH
-                case 28|29:
-                    config['trigger_type'] = TriggerType.JALR
-                case 30|31:
-                    config['trigger_type'] = TriggerType.V4
-                case _:
-                    raise Exception(f"the invalid trigger number {trigger_field_value}")
+        config['trigger_type'] = TriggerType(self.get_field(self.TriggerFieldEnum.TRIGGER) + 1)
+        if config['attack_addr'] != 'v':
+            if config['trigger_type'] == TriggerType.LOAD_PAGE_FAULT:
+                config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
+            elif config['trigger_type'] == TriggerType.STORE_PAGE_FAULT:
+                config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
+            elif config['trigger_type'] == TriggerType.AMO_PAGE_FAULT:
+                config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+        
         return config
 
 class AccessSeed(Seed):
@@ -393,6 +356,23 @@ class AccessSeed(Seed):
     def __init__(self, coverage:Coverage):
         super().__init__(self.seed_length)
         self.coverage = coverage
+
+        self.stat_table = Seed.StatTable()
+        for secret_migrate_type in SecretMigrateType:
+            self.stat_table.register_entry(secret_migrate_type)
+    
+    def mutate_field(self, field):
+        if field == AccessSeed.AccessFieldEnum.SECRET_MIGRATE:
+            secret_migrate_type = [value for value in SecretMigrateType]
+            secret_migrate_type = self.stat_table.mutate_return(secret_migrate_type)
+            base = self.field_base[field]
+            length = self.field_len[field]
+            self.seed[base:base+length] = secret_migrate_type.value - 1
+        else:
+            super().mutate_field(field)
+
+    def update_sample(self, result):
+        self.stat_table.update_sample(self.config['secret_migrate_type'], result)
     
     def mutate(self, config, is_full=False):
         self.mutate_begin()
@@ -411,16 +391,7 @@ class AccessSeed(Seed):
         config = copy.deepcopy(config)
         config['access_seed'] = self.get_field(self.AccessFieldEnum.ACCESS_SEED)
 
-        secret_migrate_field = self.get_field(self.AccessFieldEnum.SECRET_MIGRATE)
-        match(secret_migrate_field):
-            case 0:
-                config['secret_migrate_type'] = SecretMigrateType.MEMORY
-            case 1:
-                config['secret_migrate_type'] = SecretMigrateType.STORE_BUFFER
-            case 2:
-                config['secret_migrate_type'] = SecretMigrateType.CACHE
-            case 3:
-                config['secret_migrate_type'] = SecretMigrateType.LOAD_BUFFER
+        config['secret_migrate_type'] = SecretMigrateType(self.get_field(self.AccessFieldEnum.SECRET_MIGRATE) + 1)
 
         access_secret_mask_value = self.get_field(self.AccessFieldEnum.ACCESS_SECRET_MASK)
         config['access_secret_mask'] = 64 if access_secret_mask_value > 8 else access_secret_mask_value * 4 + 32
