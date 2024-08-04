@@ -415,14 +415,15 @@ class EncodeBlock(TransBlock):
         return self.name, record
 
 class WarmUpVictimBlock(WarmUpBlock):
-    def __init__(self, extension, output_path):
+    def __init__(self, extension, output_path, warm_up):
         super().__init__(extension, output_path)
+        self.warm_up = warm_up
 
     def gen_instr(self):
         inst_list = [
             'INFO_VCTM_START',
             'warm_up_list:',
-            'j warm_up_top',
+            'j warm_up_top' if self.warm_up else 'nop',
             'nop',
             'nop',
             'warm_up_done:'
@@ -609,7 +610,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr()
 
-        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path)
+        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path, False)
         self.warm_up_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
@@ -617,7 +618,7 @@ class TransVictimManager(TransBaseManager):
         self.load_init_block.gen_instr()
         self.temp_load_init_block = self.load_init_block
 
-        inst_len = self.load_init_block._get_inst_len() + self.warm_up_block._get_inst_len() + 64
+        inst_len = self.load_init_block._get_inst_len() + self.warm_up_block._get_inst_len()
         nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
@@ -668,6 +669,9 @@ class TransVictimManager(TransBaseManager):
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr()
+
+        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path, config['warm_up'])
+        self.warm_up_block.gen_instr()
 
         old_inst_len = self.load_init_block._get_inst_len()
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)

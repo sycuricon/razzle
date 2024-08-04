@@ -409,12 +409,14 @@ class AccessSeed(Seed):
 class LeakSeed(Seed):
     class LeakFieldEnum(Enum):
         LEAK_SEED = auto()
+        WARM_UP = auto()
         ENCODE_FUZZ_TYPE = auto()
         ENCODE_BLOCK_LEN = auto()
         ENCODE_BLOCK_NUM = auto()
     
     field_len = {
         LeakFieldEnum.LEAK_SEED: 26,
+        LeakFieldEnum.WARM_UP: 1,
         LeakFieldEnum.ENCODE_FUZZ_TYPE: 3,
         LeakFieldEnum.ENCODE_BLOCK_LEN: 2,
         LeakFieldEnum.ENCODE_BLOCK_NUM: 2
@@ -464,6 +466,8 @@ class LeakSeed(Seed):
                 config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
             case _:
                 raise Exception("the encode fuzz type is invalid")
+        
+        config['warm_up'] = True if self.get_field(self.LeakFieldEnum.WARM_UP) == 1 else False
 
         config['encode_block_len'] = self.get_field(self.LeakFieldEnum.ENCODE_BLOCK_LEN) + 4
 
