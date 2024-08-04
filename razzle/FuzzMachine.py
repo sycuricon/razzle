@@ -23,6 +23,7 @@ class FuzzMachine:
         self.ACCESS_RATE = fuzz_config['access_rate']
         
         self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, self.prefix_domain, self.core)
+        self.start_time = time.time()
     
     def _load_stage_record(self, stage_name, thread_num):
         stage_file_name = os.path.join(self.repo_path, f'{stage_name}_iter_record')
@@ -161,6 +162,7 @@ class FuzzMachine:
 
     def _part_coverage_record_analysis(self, leak_record, stage_name):
         cov_contr = [0]
+        time_list = [0]
 
         coverage = Coverage()
         for record in leak_record:
@@ -168,10 +170,12 @@ class FuzzMachine:
                 record['coverage_contr'] = 0
                 record['comp'] = TaintComp()
                 cov_contr.append(cov_contr[-1])
+                time_list.append(time_list[-1])
             else:
                 coverage_contr = coverage.update_coverage(record['coverage'])
                 record['coverage_contr'] = coverage_contr
                 cov_contr.append(cov_contr[-1] + coverage_contr)
+                time_list.append(record['config']['time']/3600)
         leak_record.sort(key=lambda x:x['coverage_contr'], reverse=True)
 
         analysis_file_name = os.path.join(self.repo_path, f'{stage_name}_coverage_analysis_result.md')
@@ -184,7 +188,10 @@ class FuzzMachine:
                 strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
                 file.write(f"{record['config']['iter_num']} {record['coverage_contr']} {record['comp'].taint_sum} {strategy}\n")
     
+        plt.subplot(2, 1, 1)
         plt.plot(cov_contr, label=stage_name)
+        plt.subplot(2, 1, 2)
+        plt.plot(time_list, cov_contr, label=stage_name)
     
     def _coverage_record_analysis(self, leak_record):
         data_leak_record = []
@@ -221,8 +228,12 @@ class FuzzMachine:
                 else:
                     coverage_contr[comp].add(hash_value)
         with open(os.path.join(self.repo_path, f'coverage_contr.md'), 'wt') as file:
+            cover_sum = 0
             for comp, value_list in coverage_contr.items():
-                file.write(f'{comp}\n{len(value_list)}\n{value_list}\n')
+                cover_len = len(value_list)
+                file.write(f'{comp}\n{cover_len}\n{value_list}\n')
+                cover_sum += cover_len
+            file.write(f'cover_sum: {cover_sum}\n')
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
@@ -302,7 +313,7 @@ class FuzzMachine:
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             record = fuzz_body.record_fuzz()
             record['iter_num'] = iter_num
-            record['time'] = time.time()
+            record['time'] = time.time() - self.start_time
             record['result'] = f'{result}'
             if cosim_result is not None:
                 record['cosim_result'] = cosim_result
