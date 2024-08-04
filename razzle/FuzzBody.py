@@ -276,17 +276,17 @@ class FuzzBody:
             exec_time = int(exec_time)
             is_dut = True if int(is_dut) == 1 else False
             if exec_info == 'DELAY_END_ENQ' and is_dut:
-                dut_window_begin = exec_time + 1 
-            if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and is_dut:
+                dut_window_begin = exec_time
+            if exec_info == 'DELAY_END_DEQ' and is_dut:
                 dut_window_end = exec_time
         
         is_access = False
         base_window_list = base_list[dut_window_begin:dut_window_end]
-        for i in range(len(base_window_list)-1):
-            if base_window_list[i+1] > base_window_list[i]:
-                is_access = True
-                break
+        
         self.access_max_taint = max(base_window_list)
+        taint_before_window = base_window_list[0]
+        if self.access_max_taint > taint_before_window:
+            is_access = True
 
         self.access_coverage = self.compute_coverage(taint_folder)
         self.access_comp_taint = self.compute_comp(taint_folder)
