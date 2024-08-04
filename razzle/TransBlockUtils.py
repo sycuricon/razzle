@@ -351,8 +351,13 @@ class RetCallBlock(BaseBlock):
         self.block_type = BaseBlockType.CALLRET
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
-        self.inst_list.append(Instruction('auipc t1, 0'))
-        self.inst_list.append(Instruction('add ra, t1, zero'))
+        self.base_reg, taint_reg = self.get_random_reg('RD', normal_reg - {'RA'}, taint_reg - {'RA'})
+        if taint_reg:
+            normal_reg.add(self.base_reg)
+            taint_reg.update_difference(self.base_reg)
+        self.base_reg = self.base_reg.lower()
+        self.inst_list.append(Instruction(f'auipc {self.base_reg}, 0'))
+        self.inst_list.append(Instruction(f'add ra, {self.base_reg}, zero'))
         self.jalr_offset = 8
         return super().gen_random_block(normal_reg, taint_reg, normal_freg, taint_freg)
 
@@ -367,11 +372,11 @@ class RetCallBlock(BaseBlock):
             inst['IMM'] = self.jalr_offset
             inst_list.append(inst)
         else:
-            inst = Instruction(f'jalr ra, 0(t1)')
+            inst = Instruction(f'jalr ra, 0({self.base_reg})')
             update_jalr_offset(inst)
             inst['IMM'] = self.jalr_offset
             inst_list.append(inst)
-            inst = Instruction('add ra, t1, zero')
+            inst = Instruction(f'add ra, {self.base_reg}, zero')
             update_jalr_offset(inst)
             inst_list.append(inst)
         
@@ -384,7 +389,12 @@ class JMPBlock(BaseBlock):
         self.block_list = [self]
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
-        self.inst_list.append(Instruction('auipc t1, 0'))
+        self.base_reg, taint_reg = self.get_random_reg('RD', normal_reg - {'RA'}, taint_reg - {'RA'})
+        if taint_reg:
+            normal_reg.add(self.base_reg)
+            taint_reg.update_difference(self.base_reg)
+        self.base_reg = self.base_reg.lower()
+        self.inst_list.append(Instruction(f'auipc {self.base_reg}, 0'))
         self.jalr_offset = 4
         for _ in range(5):
             self.gen_random_inst()
@@ -399,7 +409,7 @@ class JMPBlock(BaseBlock):
             self.jalr_offset += (2 if inst['NAME'].startswith('C.') else 4)
         
         if random.random() < 0.75:
-            inst = Instruction(f'jalr zero, 0(t1)')
+            inst = Instruction(f'jalr zero, 0({self.base_reg})')
             update_jalr_offset(inst)
             inst['IMM'] = self.jalr_offset
             self.block_list[-1].inst_list.append(inst)
