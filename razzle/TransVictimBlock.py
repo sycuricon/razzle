@@ -429,6 +429,11 @@ class WarmUpVictimBlock(WarmUpBlock):
             'warm_up_done:'
         ]
         self._load_inst_str(inst_list)
+    
+    def record_fuzz(self):
+        record = {}
+        record['warm_up'] = self.warm_up
+        return self.name, record
 
 class LoadInitTriggerBlock(LoadInitBlock):
     def __init__(self, depth, extension, output_path, init_block_list, delay_block, trigger_block, random_block, mode):
@@ -618,8 +623,9 @@ class TransVictimManager(TransBaseManager):
         self.load_init_block.gen_instr()
         self.temp_load_init_block = self.load_init_block
 
+        align_size = 64
         inst_len = self.load_init_block._get_inst_len() + self.warm_up_block._get_inst_len()
-        nop_inst_len = (inst_len + 64 + 64 - 1) // 64 * 64 - inst_len
+        nop_inst_len = (inst_len + align_size + align_size - 1) // align_size * align_size - inst_len
         
         self.nop_block = NopBlock(self.extension, self.output_path, nop_inst_len)
         self.nop_block.gen_instr()
@@ -687,7 +693,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.gen_instr()
 
     def record_fuzz(self):
-        block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block]
+        block_list = [self.warm_up_block, self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block]
         record = self._base_record_fuzz(block_list)
         record['return_front'] = self.return_front
         return 'victim', record
