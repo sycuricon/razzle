@@ -198,10 +198,10 @@ class NopRetBlock(TransBlock):
         self.c_nop_len = c_nop_len
 
     def gen_instr(self):
-        inst_list = [
+        inst_list = ['ebreak']
+        inst_list.extend([
             'c.nop'
-        ] * ((self.c_nop_len - 4)//2)
-
+        ] * ((self.c_nop_len - 8)//2))
         inst_list.append('ebreak')
 
         self._load_inst_str(inst_list)
