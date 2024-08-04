@@ -615,7 +615,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr()
 
-        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path, False)
+        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path, config['warm_up'])
         self.warm_up_block.gen_instr()
 
         block_list = [self.delay_block, self.trigger_block, self.access_secret_block, self.encode_block, self.return_block]
@@ -675,9 +675,6 @@ class TransVictimManager(TransBaseManager):
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type
         self.encode_block.gen_instr()
-
-        self.warm_up_block = WarmUpVictimBlock(self.extension, self.output_path, config['warm_up'])
-        self.warm_up_block.gen_instr()
 
         old_inst_len = self.load_init_block._get_inst_len()
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)

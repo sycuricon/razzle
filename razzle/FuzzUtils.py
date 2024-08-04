@@ -227,6 +227,7 @@ class TriggerSeed(Seed):
         DELAY_MEM = auto()
         PRIV_MODE = auto()
         TRIGGER = auto()
+        WARM_UP = auto()
         PMP_R = auto()
         PMP_L = auto()
         PTE_R = auto()
@@ -239,6 +240,7 @@ class TriggerSeed(Seed):
         TriggerFieldEnum.DELAY_MEM: 1,
         TriggerFieldEnum.PRIV_MODE: 4,
         TriggerFieldEnum.TRIGGER: 5,
+        TriggerFieldEnum.WARM_UP: 1,
         TriggerFieldEnum.PMP_R: 1,
         TriggerFieldEnum.PMP_L: 1,
         TriggerFieldEnum.PTE_R: 1,
@@ -328,6 +330,8 @@ class TriggerSeed(Seed):
             elif config['trigger_type'] == TriggerType.AMO_PAGE_FAULT:
                 config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
         
+        config['warm_up'] = self.get_field(self.TriggerFieldEnum.WARM_UP) == 1
+
         return config
 
 class AccessSeed(Seed):
@@ -409,14 +413,12 @@ class AccessSeed(Seed):
 class LeakSeed(Seed):
     class LeakFieldEnum(Enum):
         LEAK_SEED = auto()
-        WARM_UP = auto()
         ENCODE_FUZZ_TYPE = auto()
         ENCODE_BLOCK_LEN = auto()
         ENCODE_BLOCK_NUM = auto()
     
     field_len = {
         LeakFieldEnum.LEAK_SEED: 26,
-        LeakFieldEnum.WARM_UP: 1,
         LeakFieldEnum.ENCODE_FUZZ_TYPE: 3,
         LeakFieldEnum.ENCODE_BLOCK_LEN: 2,
         LeakFieldEnum.ENCODE_BLOCK_NUM: 2
@@ -466,8 +468,6 @@ class LeakSeed(Seed):
                 config['encode_fuzz_type'] = EncodeType.FUZZ_PIPELINE
             case _:
                 raise Exception("the encode fuzz type is invalid")
-        
-        config['warm_up'] = True if self.get_field(self.LeakFieldEnum.WARM_UP) == 1 else False
 
         config['encode_block_len'] = self.get_field(self.LeakFieldEnum.ENCODE_BLOCK_LEN) + 4
 
