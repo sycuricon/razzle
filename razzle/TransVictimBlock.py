@@ -288,7 +288,7 @@ class EncodeBlock(TransBlock):
                 block.inst_list.append(Instruction(f'add t0, t0, {self.secret_reg}'))
                 block.inst_list.append(Instruction(f'jalr zero, 12(t0)'))
             case EncodeType.FUZZ_PIPELINE:
-                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, encode_nop_fill'))
+                block.inst_list.append(Instruction(f'c.beqz {self.secret_reg}, return_block_entry'))
             case EncodeType.FUZZ_BACKEND:
                 pass
             case _:
