@@ -455,12 +455,16 @@ class FuzzMachine:
                     for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
                         trigger_result, trigger_fuzz_body = self.fuzz_trigger(config, self.origin_fuzz_body)
                         self.trigger_seed.update_sample(trigger_result)
+                        # do access/leak fuzz
                         if trigger_result == FuzzResult.SUCCESS:
                             state = FuzzFSM.MUTATE_ACCESS
                             break
                         else:
                             config = self.trigger_seed.mutate({})
                             config = self.access_seed.parse(config)
+                        # do trigger fuzz
+                        # config = self.trigger_seed.mutate({})
+                        # config = self.access_seed.parse(config)
                     else:
                         config = self.trigger_seed.mutate({}, True)
                         config = self.access_seed.mutate(config, True)
@@ -468,11 +472,14 @@ class FuzzMachine:
                     for iter_num in range(MAX_ACCESS_MUTATE_ITER):
                         access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
                         self.access_seed.update_sample(access_result)
+                        # do leak fuzz
                         if access_result == FuzzResult.SUCCESS:
                             state = FuzzFSM.ACCUMULATE
                             break
                         else:
                             config = self.access_seed.mutate(config)
+                        # do access fuzz
+                        # config = self.access_seed.mutate(config)
                     else:
                         config = self.trigger_seed.mutate({}, True)
                         config = self.access_seed.mutate(config, True)
