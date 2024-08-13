@@ -192,6 +192,11 @@ class FuzzMachine:
         plt.plot(cov_contr, label=stage_name)
         plt.subplot(2, 1, 2)
         plt.plot(time_list, cov_contr, label=stage_name)
+
+        curve_file_name = os.path.join(self.repo_path, f'{stage_name}_curve')
+        with open(curve_file_name, "wt") as file:
+            for i, cov in enumerate(cov_contr):
+                file.write(f'{i} {cov}\n')
     
     def _coverage_record_analysis(self, leak_record):
         data_leak_record = []
