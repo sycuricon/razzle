@@ -2,6 +2,7 @@ from FuzzBody import *
 from FuzzUtils import *
 import threading
 import matplotlib.pyplot as plt
+import numpy as np
 
 class FuzzMachine:
     def __init__(self, hjson_filename, output_path, prefix, core="BOOM"):
@@ -51,6 +52,7 @@ class FuzzMachine:
     
     def _trigger_record_analysis(self, trigger_record):
         trigger_dict = {}
+        trigger_len = 0
         for record in trigger_record:
             record = record['config']
             trigger_type = record['trans']['victim']['block_info']['trigger_block']['type']
@@ -69,12 +71,16 @@ class FuzzMachine:
                 trigger_type_dict[train_type]['success'] += 1
                 trigger_type_dict[train_type]['list'].append(int(record['iter_num']))
         
+        trigger_num = []
+        trigger_label = []
         analysis_file_name = os.path.join(self.repo_path, 'trigger_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write('|trigger_type|train_type|summary|success|rate|\n')
             file.write('|----|----|----|----|-----|\n')
             for trigger_type, trigger_content in trigger_dict.items():
                 for train_type, train_content in trigger_content.items():
+                    trigger_type = f'{trigger_type}'.split('.')[-1].lower()
+                    train_type = f'{train_type}'.split('.')[-1].lower()
                     summary = train_content['summary']
                     success = train_content['success']
                     test_list = train_content['list']
@@ -82,7 +88,33 @@ class FuzzMachine:
                     if success > 0:
                         file.write(f'|{trigger_type}|{train_type}|{summary}|{success}|{rate}|\n')
                         file.write(f'{test_list}\n')
-                
+                        trigger_num.append(summary)
+                        trigger_label.append(f'{train_type}.{trigger_type}')
+        trigger_num = np.array(trigger_num)
+        plt.pie(trigger_num, labels=trigger_label, textprops={'fontsize':8})
+        plt.savefig(os.path.join(self.repo_path, f'trigger_rate.png'))
+        plt.clf()
+        
+        trigger_case_folder = os.path.join(self.repo_path, 'trigger_template')
+        case_num = 0
+        line_num = 0
+        valid_num = 0
+        for dirname in os.listdir(trigger_case_folder):
+            case_num += 1
+            dirname = os.path.join(trigger_case_folder, dirname)
+            for filename in os.listdir(dirname):
+                if filename.endswith('.S') and '1' not in filename and '2' not in filename and '3' not in filename:
+                    filename = os.path.join(dirname, filename)
+                    for line in open(filename):
+                        line = line.strip()
+                        if line != '' and line[0] != '.' and line[0] != '#' and line[-1] != ':':
+                            if line != 'nop' and line != 'c.nop':
+                                valid_num += 1
+                            line_num += 1
+        analysis_file_name = os.path.join(self.repo_path, 'reduce_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            file.write(f'line_num:\t{line_num/case_num}\n')
+            file.write(f'valid_num:\t{valid_num/case_num}\n')
 
     def _access_record_analysis(self, access_record):
         access_success = []
