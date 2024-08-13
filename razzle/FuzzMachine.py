@@ -271,6 +271,52 @@ class FuzzMachine:
                 file.write(f'{comp}\n{cover_len}\n{value_list}\n')
                 cover_sum += cover_len
             file.write(f'cover_sum: {cover_sum}\n')
+    
+    def _overhead_record_analysis(self):
+        overhead_cycle = 0
+        victim_cycle = 0
+        leak_len = 0
+        for dirname in os.listdir(self.output_path):
+            if 'leak' not in dirname:
+                continue
+            leak_len += 1
+            dirname = os.path.join(self.output_path, dirname)
+            for filename in os.listdir(dirname):
+                if '.log' not in filename and 'leak' not in filename:
+                    continue
+                filename = os.path.join(dirname, filename)
+                train_begin = 0
+                train_end = 0
+                victim_begin = 0
+                victim_end = 0
+                for line in open(filename):
+                    cycle, label, port, is_dut = line.strip().split(', ')
+                    cycle = int(cycle)
+                    is_dut = int(is_dut)
+                    if is_dut == 0:
+                        continue
+                    match label:
+                        case 'TRAIN_START_ENQ':
+                            if train_begin == 0:
+                                train_begin = cycle
+                        case 'DELAY_START_ENQ':
+                            if train_end == 0:
+                                train_end = cycle
+                                victim_begin = cycle
+                        case 'VCTM_END_DEQ'|'TEXE_START_DEQ':
+                            if victim_end == 0:
+                                victim_end = cycle
+                overhead_cycle += train_end - train_begin
+                victim_cycle += victim_end - victim_begin
+                break
+        
+        summary_cycle = overhead_cycle + victim_cycle
+        analysis_file_name = os.path.join(self.repo_path, 'overhead_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            file.write(f'overhead_cycle:\t{overhead_cycle}\tave:\t{overhead_cycle/leak_len}\n')
+            file.write(f'victim_cycle:\t{victim_cycle}\tave:\t{victim_cycle/leak_len}\n')
+            file.write(f'summary_cycle:\t{summary_cycle}\tave:\t{summary_cycle/leak_len}\n')
+            file.write(f'overhead_rate:\t{overhead_cycle/summary_cycle}')
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
@@ -283,6 +329,7 @@ class FuzzMachine:
         leak_record = self._load_stage_record('leak', thread_num)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
+        self._overhead_record_analysis()
     
     def offline_compile(self, mem_cfg_file_name):
         mem_cfg_file = open(mem_cfg_file_name)
