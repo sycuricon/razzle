@@ -248,6 +248,10 @@ class FuzzMachine:
                 ctrl_leak_record.append({})
                 data_leak_record.append(record)
                 full_leak_record.append(record)
+            else:
+                ctrl_leak_record.append({})
+                data_leak_record.append({})
+                full_leak_record.append(record)
         
         self._part_coverage_record_analysis(full_leak_record, 'full')
         self._part_coverage_record_analysis(data_leak_record, 'data')
@@ -296,9 +300,9 @@ class FuzzMachine:
                     if is_dut == 0:
                         continue
                     match label:
-                        case 'TRAIN_START_ENQ':
-                            if train_begin == 0:
-                                train_begin = cycle
+                        # case 'TRAIN_START_ENQ':
+                        #     if train_begin == 0:
+                        #         train_begin = cycle
                         case 'DELAY_START_ENQ':
                             if train_end == 0:
                                 train_end = cycle
