@@ -19,7 +19,7 @@ def analysis_entry(args):
 
 def fuzz_entry(args):
     fuzz = FuzzMachine(args.input, args.output, args.prefix, args.core)
-    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, int(args.thread_num))
+    fuzz.fuzz(args.rtl_sim, args.rtl_sim_mode, args.taint_log, args.fuzz_mode, int(args.thread_num))
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -60,6 +60,9 @@ if __name__ == "__main__":
     )
     parser_fuzz.add_argument(
         "--thread_num", dest="thread_num", help="the thread of the leak"
+    )
+    parser_fuzz.add_argument(
+        "--fuzz_mode", dest="fuzz_mode", help="fuzz for trigger, access or leak"
     )
     
     args = parser.parse_args()

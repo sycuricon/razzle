@@ -497,13 +497,15 @@ class FuzzMachine:
                 cov_inc += self.coverage.update_coverage(fuzz_body.post_coverage, is_leak=False)
                 self.fuzz_log.log_cover(fuzz_body.leak_iter_num, cov_inc)
 
-    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, thread_num):
+    def fuzz(self, rtl_sim, rtl_sim_mode, taint_log, fuzz_mode, thread_num):
         self.fuzz_log = FuzzLog(self.repo_path)
         self.thread_num = thread_num
 
         self.rtl_sim = rtl_sim
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
         self.rtl_sim_mode = rtl_sim_mode
+        assert fuzz_mode in ['trigger', 'access', 'leak'], "the fuzz mode must be in trigger, access and leak"
+        self.fuzz_mode = fuzz_mode
         self.taint_log = taint_log
         self.origin_fuzz_body.set_sim_param(self.rtl_sim, self.rtl_sim_mode, self.taint_log)
 
@@ -543,16 +545,16 @@ class FuzzMachine:
                     for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
                         trigger_result, trigger_fuzz_body = self.fuzz_trigger(config, self.origin_fuzz_body)
                         self.trigger_seed.update_sample(trigger_result)
-                        # do access/leak fuzz
-                        if trigger_result == FuzzResult.SUCCESS:
-                            state = FuzzFSM.MUTATE_ACCESS
-                            break
+                        if self.fuzz_mode in ['access', 'leak']:
+                            if trigger_result == FuzzResult.SUCCESS:
+                                state = FuzzFSM.MUTATE_ACCESS
+                                break
+                            else:
+                                config = self.trigger_seed.mutate({})
+                                config = self.access_seed.parse(config)
                         else:
                             config = self.trigger_seed.mutate({})
                             config = self.access_seed.parse(config)
-                        # do trigger fuzz
-                        # config = self.trigger_seed.mutate({})
-                        # config = self.access_seed.parse(config)
                     else:
                         config = self.trigger_seed.mutate({}, True)
                         config = self.access_seed.mutate(config, True)
@@ -560,14 +562,14 @@ class FuzzMachine:
                     for iter_num in range(MAX_ACCESS_MUTATE_ITER):
                         access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
                         self.access_seed.update_sample(access_result)
-                        # do leak fuzz
-                        if access_result == FuzzResult.SUCCESS:
-                            state = FuzzFSM.ACCUMULATE
-                            break
+                        if self.fuzz_mode in ['leak']:
+                            if access_result == FuzzResult.SUCCESS:
+                                state = FuzzFSM.ACCUMULATE
+                                break
+                            else:
+                                config = self.access_seed.mutate(config)
                         else:
                             config = self.access_seed.mutate(config)
-                        # do access fuzz
-                        # config = self.access_seed.mutate(config)
                     else:
                         config = self.trigger_seed.mutate({}, True)
                         config = self.access_seed.mutate(config, True)
@@ -615,5 +617,3 @@ class FuzzMachine:
                 case FuzzFSM.STOP:
                     break
             self.fuzz_log.log_state(last_state, state, iter_num)
-
-        
