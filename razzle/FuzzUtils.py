@@ -323,12 +323,15 @@ class TriggerSeed(Seed):
 
         config['trigger_type'] = TriggerType(self.get_field(self.TriggerFieldEnum.TRIGGER) + 1)
         if config['attack_addr'] != 'v':
-            if config['trigger_type'] == TriggerType.LOAD_PAGE_FAULT:
-                config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
-            elif config['trigger_type'] == TriggerType.STORE_PAGE_FAULT:
-                config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
-            elif config['trigger_type'] == TriggerType.AMO_PAGE_FAULT:
-                config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+            match config['trigger_type']:
+                case TriggerType.LOAD_PAGE_FAULT:
+                    config['trigger_type'] = TriggerType.LOAD_ACCESS_FAULT
+                case TriggerType.STORE_PAGE_FAULT:
+                    config['trigger_type'] = TriggerType.STORE_ACCESS_FAULT
+                case TriggerType.AMO_PAGE_FAULT:
+                    config['trigger_type'] = TriggerType.AMO_ACCESS_FAULT
+                case _:
+                    pass
         
         config['warm_up'] = self.get_field(self.TriggerFieldEnum.WARM_UP) == 1
 

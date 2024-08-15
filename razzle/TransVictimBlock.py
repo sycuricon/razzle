@@ -585,7 +585,7 @@ class TransVictimManager(TransBaseManager):
         self.trans_frame = trans_frame
     
     def gen_block(self, config, strategy):
-        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
 
         assert strategy in [EncodeType.FUZZ_FRONTEND, EncodeType.FUZZ_BACKEND,\
             EncodeType.FUZZ_PIPELINE, EncodeType.FUZZ_DEFAULT]
@@ -656,7 +656,7 @@ class TransVictimManager(TransBaseManager):
         self.encode_block.leak_reduce(encode_list)
 
     def mutate_access(self, config):
-        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
         random.seed(config['access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path,\
             config['access_secret_li'], config['access_secret_mask'],\
@@ -670,7 +670,7 @@ class TransVictimManager(TransBaseManager):
         self.load_init_block = copy.deepcopy(self.temp_load_init_block)
 
     def mutate_encode(self, config):
-        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
+        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
         random.seed(config['leak_seed'])
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, config['encode_fuzz_type'], config['encode_block_len'], config['encode_block_num'])
         self.encode_block.trigger_type = self.trigger_block.trigger_type

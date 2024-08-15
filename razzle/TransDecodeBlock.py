@@ -45,7 +45,7 @@ class TransDecodeManager(TransBaseManager):
         self.trans_frame = trans_frame
 
     def gen_block(self, config, trans_victim):
-        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
 
         self.load_init_block = copy.deepcopy(trans_victim.load_init_block)
         self.load_init_block.update_depth(self.swap_idx)

@@ -213,7 +213,7 @@ class TransTrainManager(TransBaseManager):
         self.trans_frame = trans_frame
 
     def gen_block(self, config, train_type, align, single, trans_victim):
-        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
 
         self.single = single
         self.align = align

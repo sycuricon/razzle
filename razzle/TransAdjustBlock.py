@@ -95,7 +95,7 @@ class TransAdjustManager(TransBaseManager):
         self.trans_frame = trans_frame
     
     def gen_block(self, config, trans_victim):
-        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
 
         self.secret_migrate_block = SecretMigrateBlock(self.extension, self.output_path, [], config['secret_migrate_type'])
         self.secret_migrate_block.gen_instr()
@@ -121,7 +121,7 @@ class TransAdjustManager(TransBaseManager):
         self.gen_block(config, trans_victim)
 
     def mutate_encode(self, config, trans_victim):
-        self.mode = ''.join([config['attack_priv'], config['attack_addr']])
+        self.mode = ''.join([config['victim_priv'], config['victim_addr']])
 
         self.encode_block = copy.deepcopy(trans_victim.encode_block)
         if self.encode_block.loop:
