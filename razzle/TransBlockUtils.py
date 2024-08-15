@@ -788,6 +788,7 @@ class TransBaseManager(SectionManager):
         record = {}
         record['swap_id'] = self.swap_idx
         record['block_info'] = {}
+        record['mode'] = self.mode
         for block in block_list:
             key, value = block.record_fuzz()
             record['block_info'][key] = value
