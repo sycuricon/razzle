@@ -277,12 +277,17 @@ class TransTrainManager(TransBaseManager):
             self.arbitrary_block = ArbitraryBlock(self.extension, self.output_path)
             self.arbitrary_block.gen_instr()
 
-            self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.arbitrary_block])
+            self.load_init_block = LoadInitBlock(self.swap_idx, self.extension, self.output_path, [self.arbitrary_block], self.mode)
             self.load_init_block.gen_instr()
+
+            self.return_front = False
 
     
     def record_fuzz(self):
-        block_list = [self.train_block]
+        if self.single:
+            block_list = [self.train_block]
+        else:
+            block_list = []
         record = self._base_record_fuzz(block_list)
         record['align'] = self.align
         record['single'] = self.single

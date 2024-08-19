@@ -59,7 +59,10 @@ class FuzzMachine:
             if len(record['trans']['train']) == 0:
                 train_type = TrainType.NONE
             else:
-                train_type = record['trans']['train'][0]['block_info']['train_block']['type']
+                try:
+                    train_type = record['trans']['train'][0]['block_info']['train_block']['type']
+                except KeyError:
+                    train_type = TrainType.NONE
             result = eval(record['result'])
             if trigger_type not in trigger_dict:
                 trigger_dict[trigger_type] = {}
@@ -326,10 +329,10 @@ class FuzzMachine:
         thread_num = int(thread_num)
         trigger_record = self._load_stage_record('trigger', None)
         self._trigger_record_analysis(trigger_record)
-
+        
         access_record = self._load_stage_record('access', None)
         self._access_record_analysis(access_record)
-
+        
         leak_record = self._load_stage_record('leak', thread_num)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
