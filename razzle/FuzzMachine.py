@@ -427,7 +427,7 @@ class FuzzMachine:
             if os.path.exists(file_name):
                 cp_baker.add_cmd(gen_asm.gen_cmd([file_name, f'{self.output_path}/{fuzz_body.sub_repo}']))
         if stage_name == 'leak' and result == FuzzResult.SUCCESS:
-            post_taint_folder = taint_folder.replace('leak', 'post')
+            post_taint_folder = taint_folder[::-1].replace('leak'[::-1], 'post'[::-1], 1)[::-1]
             for suffix in suffix_taint:
                 file_name = f'{post_taint_folder}{suffix}'
                 if os.path.exists(file_name):
