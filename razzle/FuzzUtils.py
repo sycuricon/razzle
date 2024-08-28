@@ -303,7 +303,7 @@ class TriggerSeed(Seed):
         if config['attack_addr'] == 'p':
             config['pte_r'] = True
             config['pte_v'] = True
-            config['pmp_r'] = False
+            config['pmp_r'] = self.get_field(self.TriggerFieldEnum.PMP_R) == 1
             config['pmp_l'] = True if config['attack_priv'] == 'M'\
                 else self.get_field(self.TriggerFieldEnum.PMP_L) == 1
         else:
@@ -311,9 +311,6 @@ class TriggerSeed(Seed):
             config['pte_v'] = self.get_field(self.TriggerFieldEnum.PTE_V) == 1
             config['pmp_r'] = self.get_field(self.TriggerFieldEnum.PMP_R) == 1
             config['pmp_l'] = False
-            if config['pte_r'] and config['pte_v'] and config['pmp_r'] and\
-                config['train_priv'] == config['attack_priv']:
-                config['pte_r'] = False
 
         config['trigger_seed'] = self.get_field(self.TriggerFieldEnum.TRIGGER_SEED)
 
