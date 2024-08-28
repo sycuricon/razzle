@@ -25,6 +25,7 @@ class FuzzBody:
         self.access_coverage = None
         self.access_comp_taint = None
 
+        self.leak_type = None
         self.leak_iter_num = None
         self.leak_result = None
         self.leak_taint_folder = None
@@ -373,8 +374,9 @@ class FuzzBody:
             if is_divergent:
                 leak_result = FuzzResult.SUCCESS
                 self.is_divergent = True
-            elif self.taint_leak_more(self.access_comp_taint, self.leak_comp_taint):
-                leak_result = FuzzResult.MAYBE
+            elif self.leak_type != EncodeType.FUZZ_PIPELINE and\
+                self.taint_leak_more(self.access_comp_taint, self.leak_comp_taint):
+                    leak_result = FuzzResult.MAYBE
         
         return leak_result
     
@@ -396,6 +398,7 @@ class FuzzBody:
         self.trans.swap_block_list[-2] = self.trans.trans_victim.mem_region
         self.trans.swap_block_list[-4] = self.trans.trans_adjust.mem_region
         self.mem_cfg.add_swap_list(self.trans.swap_block_list)
+        self.leak_type = config['encode_fuzz_type']
 
     def fuzz_leak(self, thread_i):
         self.leak_taint_folder, barker = self.stage_simulate('variant', f'{self.prefix_domain}_leak_thread_{thread_i}', 'duo')
