@@ -132,8 +132,8 @@ class FuzzMachine:
             testcase['pmp_l'] = record['trans']['protect']['block_info']['secret_protect_block']['pmp_l']
             testcase['pte_r'] = record['trans']['protect']['block_info']['secret_protect_block']['pte_r']
             testcase['pte_v'] = record['trans']['protect']['block_info']['secret_protect_block']['pte_v']
-            testcase['victim_priv'] = record['threat']['victim_priv']
-            testcase['victim_addr'] = record['threat']['victim_addr']
+            testcase['train_priv'] = record['threat']['train_priv']
+            testcase['train_addr'] = record['threat']['train_addr']
             testcase['attack_priv'] = record['threat']['attack_priv']
             testcase['attack_addr'] = record['threat']['attack_addr']
             testcase['li_offset'] = record['trans']['victim']['block_info']['access_secret_block']['li_offset']
@@ -150,7 +150,7 @@ class FuzzMachine:
             file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|addr|\n')
             file.write('|----|----|----|----|----|----|----|----|\n')
             for testcase, testcase_idx in zip(access_success,access_testcase):
-                file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['victim_priv']}{testcase['victim_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['addr']}|\n")
+                file.write(f"|{testcase['train_type']}|{testcase['pmp_r']}|{testcase['pmp_l']}|{testcase['pte_r']}|{testcase['pte_v']}|{testcase['train_priv']}{testcase['train_addr']}{testcase['attack_priv']}{testcase['attack_addr']}|{testcase['li_offset']}|{testcase['addr']}|\n")
                 file.write(f'{testcase_idx}\n')
 
     def _leak_record_analysis(self, leak_record):

@@ -294,7 +294,7 @@ class TriggerSeed(Seed):
         config = copy.deepcopy(config)
         
         priv_mode = self.get_field(self.TriggerFieldEnum.PRIV_MODE)
-        config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'] = \
+        config['train_priv'], config['train_addr'], config['attack_priv'], config['attack_addr'] = \
             [   'UpUp', 'UpSp', 'UpMp', 'SpUp', 'SpMp',\
                 'MpUp', 'MpSp', 'MpMp', 'UvUv', 'UvSv', 'UvMp',\
                 'SvUv', 'SvSv', 'SvMp', 'MpUv', 'MpSv',\
@@ -312,7 +312,7 @@ class TriggerSeed(Seed):
             config['pmp_r'] = self.get_field(self.TriggerFieldEnum.PMP_R) == 1
             config['pmp_l'] = False
             if config['pte_r'] and config['pte_v'] and config['pmp_r'] and\
-                config['victim_priv'] == config['attack_priv']:
+                config['train_priv'] == config['attack_priv']:
                 config['pte_r'] = False
 
         config['trigger_seed'] = self.get_field(self.TriggerFieldEnum.TRIGGER_SEED)

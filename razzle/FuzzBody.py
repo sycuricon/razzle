@@ -422,8 +422,8 @@ class FuzzBody:
         record = {}
         record['trans'] = self.trans.record_fuzz()
         thread_record = record['threat'] = {}
-        thread_record['victim_priv'] = self.config['victim_priv']
-        thread_record['victim_addr'] = self.config['victim_addr']
+        thread_record['train_priv'] = self.config['train_priv']
+        thread_record['train_addr'] = self.config['train_addr']
         thread_record['attack_priv'] = self.config['attack_priv']
         thread_record['attack_addr'] = self.config['attack_addr']
         seed_record = record['seed'] = {}

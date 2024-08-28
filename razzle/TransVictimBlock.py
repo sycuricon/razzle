@@ -122,12 +122,12 @@ class TriggerBlock(TransBlock):
         return self.name, record
 
 class AccessSecretBlock(TransBlock):
-    def __init__(self, extension, output_path, li, mask, victim_priv, victim_addr, attack_priv, attack_addr):
+    def __init__(self, extension, output_path, li, mask, train_priv, train_addr, attack_priv, attack_addr):
         super().__init__('access_secret_block', extension, output_path)
         self.li_offset = li
         self.mask = mask
-        self.victim_priv = victim_priv
-        self.victim_addr = victim_addr
+        self.train_priv = train_priv
+        self.train_addr = train_addr
         self.attack_priv = attack_priv
         self.attack_addr = attack_addr
     
@@ -149,10 +149,10 @@ class AccessSecretBlock(TransBlock):
         offset = hex(self.address - trapoline_address)
         if self.attack_addr == 'p':
             base_trapoline_address = 0x80005000
-        elif self.victim_addr == 'p':
+        elif self.train_addr == 'p':
             base_trapoline_address =  0x5000 if self.attack_priv == 'U' else 0xfffffffffff05000 
         else:
-            base_trapoline_address =  0x5000 if self.victim_priv == 'U' else 0xfffffffffff05000 
+            base_trapoline_address =  0x5000 if self.train_priv == 'U' else 0xfffffffffff05000 
 
         if self.li_offset:
             
@@ -601,7 +601,7 @@ class TransVictimManager(TransBaseManager):
         random.seed(config['access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path, \
             config['access_secret_li'], config['access_secret_mask'],\
-            config['victim_priv'], config['victim_addr'],\
+            config['train_priv'], config['train_addr'],\
             config['attack_priv'], config['attack_addr'])
         self.access_secret_block.gen_instr()
         random.setstate(tmp_random_state)
@@ -660,7 +660,7 @@ class TransVictimManager(TransBaseManager):
         random.seed(config['access_seed'])
         self.access_secret_block = AccessSecretBlock(self.extension, self.output_path,\
             config['access_secret_li'], config['access_secret_mask'],\
-            config['victim_priv'], config['victim_addr'], config['attack_priv'], config['attack_addr'])
+            config['train_priv'], config['train_addr'], config['attack_priv'], config['attack_addr'])
         self.access_secret_block.gen_instr()
 
         self.encode_block = EncodeBlock(self.extension, self.output_path, self.access_secret_block.secret_reg, EncodeType.FUZZ_DEFAULT)
