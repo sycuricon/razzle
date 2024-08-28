@@ -166,6 +166,8 @@ class FuzzMachine:
             idx = record['config']['iter_num']
             if record['config']['is_divergent'] == True:
                 comp_simple = ['divergent']
+            elif EncodeType.FUZZ_PIPELINE == eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy']):
+                continue
             else:
                 record = record['comp']
                 comp_simple = set()
