@@ -389,33 +389,41 @@ class JMPBlock(BaseBlock):
         self.block_list = [self]
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
-        self.base_reg, taint_reg = self.get_random_reg('RD', normal_reg - {'RA'}, taint_reg - {'RA'})
-        if taint_reg:
+        self.base_reg, taint = self.get_random_reg('RD', normal_reg - {'RA'}, taint_reg - {'RA'})
+        if taint:
             normal_reg.add(self.base_reg)
             taint_reg.update_difference(self.base_reg)
         self.base_reg = self.base_reg.lower()
         self.inst_list.append(Instruction(f'auipc {self.base_reg}, 0'))
         self.jalr_offset = 4
         for _ in range(5):
-            self.gen_random_inst()
+            self.gen_random_inst(normal_reg, taint_reg)
         self.block_list[-1].inst_list.append(Instruction('c.nop'))
         return self.block_list
     
     def get_block_list(self):
         return self.block_list
     
-    def gen_random_inst(self):
+    def gen_random_inst(self, normal_reg, taint_reg):
         def update_jalr_offset(inst):
             self.jalr_offset += (2 if inst['NAME'].startswith('C.') else 4)
         
+        return_reg, taint = self.get_random_reg('RD', normal_reg - \
+            {'RA', self.base_reg.upper()}, \
+            taint_reg - {'RA', self.base_reg.upper()})
+        if taint:
+            normal_reg.add(self.base_reg)
+            taint_reg.update_difference(self.base_reg)
+        return_reg = return_reg.lower()
+        
         if random.random() < 0.75:
-            inst = Instruction(f'jalr zero, 0({self.base_reg})')
+            inst = Instruction(f'jalr {return_reg}, 0({self.base_reg})')
             update_jalr_offset(inst)
             inst['IMM'] = self.jalr_offset
             self.block_list[-1].inst_list.append(inst)
         else:
             block = BaseBlock(f'{self.name}_{len(self.block_list)}', self.extension, True)
-            inst = Instruction(f'jal zero, {block.name}')
+            inst = Instruction(f'jal {return_reg}, {block.name}')
             update_jalr_offset(inst)
             self.block_list[-1].inst_list.append(inst)
             self.block_list[-1].add_succeed(block)
