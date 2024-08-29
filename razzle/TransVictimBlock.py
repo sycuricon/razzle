@@ -200,7 +200,7 @@ class ReturnVictimBlock(ReturnBlock):
         inst_list = ['nop'] * 16
         inst_list.extend(
             [
-                'INFO_VCTM_END', 
+                'nop', 
                 'ebreak',
                 'warm_up_top:',
                 'j warm_up_bottom'
