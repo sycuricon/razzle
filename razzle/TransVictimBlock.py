@@ -197,10 +197,12 @@ class ReturnVictimBlock(ReturnBlock):
         super().__init__(extension, output_path)
 
     def gen_instr(self):
-        inst_list = ['nop'] * 16
+        inst_list = ['INFO_VCTM_END']
+        inst_list.extend(
+            ['nop' for _ in range(16)]
+        )
         inst_list.extend(
             [
-                'nop', 
                 'ebreak',
                 'warm_up_top:',
                 'j warm_up_bottom'

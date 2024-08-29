@@ -36,21 +36,21 @@ set_mtrap_return_entry:
 
 .align 12
 
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
-    nop
     INFO_VCTM_END
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    nop
+    INFO_SIM_EXIT
     j mtrap_block_entry

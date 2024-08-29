@@ -72,6 +72,7 @@ void setup_pmp();
 #define ENUM_INFO_BIM_END           11
 #define ENUM_INFO_TRAIN_START       12
 #define ENUM_INFO_TRAIN_END         13
+#define ENUM_INFO_SIM_EXIT          14
 
 #ifndef __ASSEMBLER__
 #define INFO_VCTM_START     asm("slti zero, zero, " macro_2_str(ENUM_INFO_VCTM_START)     "\n");   // 0x00002013
@@ -102,6 +103,7 @@ void setup_pmp();
 #define INFO_BIM_END        slti zero, zero, ENUM_INFO_BIM_END
 #define INFO_TRAIN_START    slti zero, zero, ENUM_INFO_TRAIN_START
 #define INFO_TRAIN_END      slti zero, zero, ENUM_INFO_TRAIN_END
+#define INFO_SIM_EXIT       slti zero, zero, ENUM_INFO_SIM_EXIT
 #define INFO_CONTROL_LEAK   csrr t0, cycle;                             \
                             li t1, CMD_SWITCH_STATE | STATE_DEFAULT;    \
                             csrw 0x800, t1;                             \
