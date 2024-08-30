@@ -502,9 +502,7 @@ class LoadInitTriggerBlock(LoadInitBlock):
             case TriggerType.JALR | TriggerType.RETURN:
                 trigger_inst_imm = trigger_inst['IMM'] if trigger_inst.has('IMM') else 0
                 trigger_param = f'{self.ret_label}  + {self.prefix} - {hex(self.dep_reg_result)} - {hex(trigger_inst_imm)}'
-            case TriggerType.JMP:
-                trigger_param = f'{random.randint(0, 2**64-1)}'
-            case TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL | TriggerType.INT | TriggerType.FLOAT:
+            case TriggerType.JMP | TriggerType.EBREAK | TriggerType.ILLEGAL | TriggerType.ECALL | TriggerType.INT | TriggerType.FLOAT:
                 trigger_param = None
             case _:
                 raise Exception("the trigger type is invalid")
