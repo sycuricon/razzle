@@ -1,6 +1,7 @@
 from typing import Optional
 from SectionManager import *
 from SectionUtils import *
+import time
 
 class ShellCommand:
     def __init__(self, cmd, args=[]):
@@ -74,5 +75,10 @@ class BuildManager:
         self.add_cmd(f'echo "[*] Script {self.final_script} done"')
 
         self.save_script()
-        if os.system(f"{self.final_script}") != 0:
-            raise Exception(f'{self.final_script} execution fails')
+        for _ in range(3):
+            if os.system(f"{self.final_script}") != 0:
+                time.sleep(10)
+            else:
+                break
+        else:
+            raise Exception('cannot handle this system call by delay')
