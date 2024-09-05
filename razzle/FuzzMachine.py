@@ -156,6 +156,7 @@ class FuzzMachine:
     def _leak_record_analysis(self, leak_record):
         leak_success = []
         leak_index = []
+        liveness_record = {}
         for record in leak_record:
             result = eval(record['config']['result'])
             if result == FuzzResult.FAIL or result is None:
@@ -182,6 +183,7 @@ class FuzzMachine:
                         case _:
                             raise Exception("invalid core type")
                     comp_simple.add(name)
+                    liveness_record[name] = liveness_record.get(name, 0) + 1
                 comp_simple = list(comp_simple)
                 comp_simple.sort()
             try:
@@ -195,6 +197,10 @@ class FuzzMachine:
         with open(analysis_file_name, "wt") as file:
             for comp, idx in zip(leak_success, leak_index):
                 file.write(f'{idx}\n{comp}\n')
+        analysis_file_name = os.path.join(self.repo_path, 'liveness_analysis_result.md')
+        with open(analysis_file_name, "wt") as file:
+            for comp, value in liveness_record.items():
+                file.write(f'{comp}\t{value}\n')
 
     def _part_coverage_record_analysis(self, leak_record, stage_name):
         cov_contr = [0]
