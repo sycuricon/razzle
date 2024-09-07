@@ -158,6 +158,7 @@ class FuzzMachine:
         leak_index = []
         liveness_record = {}
         for record in leak_record:
+            dcache_can_record = False
             result = eval(record['config']['result'])
             if result == FuzzResult.FAIL or result is None:
                 continue
@@ -183,7 +184,12 @@ class FuzzMachine:
                         case _:
                             raise Exception("invalid core type")
                     comp_simple.add(name)
-                    liveness_record[name] = liveness_record.get(name, 0) + 1
+                    if 'dcache' in name:
+                        if dcache_can_record:
+                            liveness_record[name] = liveness_record.get(name, 0) + 1
+                        dcache_can_record = True
+                    else:
+                        liveness_record[name] = liveness_record.get(name, 0) + 1
                 comp_simple = list(comp_simple)
                 comp_simple.sort()
             try:
