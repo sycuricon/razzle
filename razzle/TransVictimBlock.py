@@ -78,7 +78,7 @@ class TriggerBlock(TransBlock):
                     inst['RS1'] = 'A0'
 
                 if inst['NAME'] in ['LB', 'LBU'] and self.trigger_type == TriggerType.LOAD_MISALIGN:
-                    self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD_PAGE_FAULT, TriggerType.LOAD])
+                    self.trigger_type = random.choice([TriggerType.LOAD_ACCESS_FAULT, TriggerType.LOAD])
                 
                 inst['IMM'] = down_align(inst['IMM'], 8)
             case TriggerType.STORE_ACCESS_FAULT|TriggerType.STORE_MISALIGN|TriggerType.STORE_PAGE_FAULT|TriggerType.STORE:
@@ -91,7 +91,7 @@ class TriggerBlock(TransBlock):
                     inst['RS1'] = 'A0'
                 
                 if inst['NAME'] in ['SB', 'SBU'] and self.trigger_type == TriggerType.STORE_MISALIGN:
-                    self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE_PAGE_FAULT, TriggerType.STORE])
+                    self.trigger_type = random.choice([TriggerType.STORE_ACCESS_FAULT, TriggerType.STORE])
                 
                 inst['IMM'] = down_align(inst['IMM'], 8)
             case TriggerType.AMO_ACCESS_FAULT|TriggerType.AMO_MISALIGN|TriggerType.AMO_PAGE_FAULT|TriggerType.AMO:
