@@ -178,9 +178,13 @@ class FuzzMachine:
                     name = list(name.split('.'))
                     match self.core:
                         case 'BOOM':
-                            name = '.'.join(name[5:-2])
+                            if name[-1].startswith('unnamed$$'):
+                                name.pop()
+                            name = '.'.join(name[5:-1])
                         case 'XiangShan':
-                            name = '.'.join(name[7:-2])
+                            if name[-1].startswith('unnamed$$'):
+                                name.pop()
+                            name = '.'.join(name[7:-1])
                         case _:
                             raise Exception("invalid core type")
                     comp_simple.add(name)

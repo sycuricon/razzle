@@ -252,7 +252,7 @@ class FuzzBody:
                 hash_value = int(line[1])
                 taint_comp[comp] = hash_value
             else:
-                comp = line[:-1]
+                comp = line
                 if 'l2' in comp:
                     continue
                 taint_comp[comp] = 1
