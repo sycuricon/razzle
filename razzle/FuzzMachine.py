@@ -342,6 +342,80 @@ class FuzzMachine:
             file.write(f'summary_cycle:\t{summary_cycle}\tave:\t{summary_cycle/leak_len}\n')
             file.write(f'overhead_rate:\t{overhead_cycle/summary_cycle}')
 
+    def _statistic_record_analysis(self, leak_record):
+        combination = {'spectre':{}, 'meltdown':{}}
+
+        for record in leak_record:
+            config = record['config']
+            comp = record['comp']
+            if eval(config['result']) == FuzzResult.FAIL:
+                continue
+            trigger_type = config['trans']['victim']['block_info']['trigger_block']['type'].split('.')[-1].lower()
+            if 'access' in trigger_type:
+                trigger_type = 'access_fault'
+            elif 'page' in trigger_type:
+                trigger_type = 'page_fault'
+            elif 'misalign' in trigger_type:
+                trigger_type = 'misalign'
+            
+            access_mask = config['trans']['victim']['block_info']['access_secret_block']['mask']
+            access_type = True
+            if ((access_mask + 1) & access_mask) == 0:
+                access_type = False
+            
+            train_priv = config['threat']['train_priv']
+            train_addr = config['threat']['train_addr']
+            attack_priv = config['threat']['attack_priv']
+            attack_addr = config['threat']['attack_addr']
+            pmp_r = config['trans']['protect']['block_info']['secret_protect_block']['pmp_r']
+            pmp_l = config['trans']['protect']['block_info']['secret_protect_block']['pmp_l']
+            pte_r = config['trans']['protect']['block_info']['secret_protect_block']['pte_r']
+            pte_v = config['trans']['protect']['block_info']['secret_protect_block']['pte_v']
+            has_privilege = True
+            if attack_priv == 'M' and pmp_r == False and pmp_l == True or\
+                attack_priv in ['U', 'S'] and pmp_r == False or\
+                attack_addr == 'v' and train_addr == 'p' and (pte_r == False or pte_v == False) or\
+                attack_addr == 'v' and train_addr == 'v':
+                has_privilege = False
+            
+            encode_comp = set()
+            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE:
+                for key in comp.comp_map.keys():
+                    key = key.lower()
+                    for comp_name in [\
+                        'icache','lsu','fp', 
+                    ]:
+                        if comp_name in key:
+                            encode_comp.add(comp_name)
+                            continue
+            else:
+                for key in comp.comp_map.keys():
+                    key = key.lower()
+                    for comp_name in [\
+                        'tage','bim','ubtb','btb','ras','loop',\
+                        'icache','dcache','tlb','lsu',  
+                    ]:
+                        if comp_name in key:
+                            encode_comp.add(comp_name)
+                            continue
+            
+            class_dict = combination['meltdown']
+            if has_privilege:
+                class_dict = combination['spectre']
+            class_dict[trigger_type] = class_dict.get(trigger_type, {})
+            class_dict = class_dict[trigger_type]
+            class_dict[access_type] = class_dict.get(access_type, set())
+            class_set = class_dict[access_type]
+            class_set.update(encode_comp)
+
+        with open(os.path.join(self.repo_path, "statistic.md"), 'wt') as file:
+            for large_class, large_class_value in combination.items():
+                for trigger_type, trigger_value in large_class_value.items():
+                    for access_type, access_value in trigger_value.items():
+                        for encode_comp in access_value:
+                            file.write(f'{large_class} {trigger_type} {access_type} {encode_comp}\n')
+
+
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
         trigger_record = self._load_stage_record('trigger', None)
@@ -353,6 +427,7 @@ class FuzzMachine:
         leak_record = self._load_stage_record('leak', thread_num)
         self._leak_record_analysis(leak_record)
         self._coverage_record_analysis(leak_record)
+        self._statistic_record_analysis(leak_record)
         self._overhead_record_analysis()
     
     def offline_compile(self, mem_cfg_file_name):
