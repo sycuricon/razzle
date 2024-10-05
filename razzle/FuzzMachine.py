@@ -374,8 +374,8 @@ class FuzzMachine:
             has_privilege = True
             if attack_priv == 'M' and pmp_r == False and pmp_l == True or\
                 attack_priv in ['U', 'S'] and pmp_r == False or\
-                attack_addr == 'v' and train_addr == 'p' and (pte_r == False or pte_v == False) or\
-                attack_addr == 'v' and train_addr == 'v':
+                attack_addr == 'v' and (train_addr == 'p' or attack_priv == train_priv) and (pte_v == False or pte_r == False) or\
+                attack_addr == 'v' and train_addr == 'v' and attack_priv != train_priv:
                 has_privilege = False
             
             encode_comp = set()
@@ -385,15 +385,23 @@ class FuzzMachine:
                     for comp_name in [\
                         'icache','lsu','fp', 
                     ]:
-                        if comp_name in key:
-                            encode_comp.add(comp_name)
+                        if 'tlb' in key:
                             continue
+                        if comp_name in key:
+                            if comp_name == 'lsu' and (config['trans']['victim']['block_info']['delay_block']['delay_mem'] == False or config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False):
+                                continue
+                            if comp_name == 'fp' and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False:
+                                continue
+                            if comp_name == 'icache' and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == True:
+                                continue
+                            encode_comp.add(comp_name)
+                            break
             else:
                 for key in comp.comp_map.keys():
                     key = key.lower()
                     for comp_name in [\
                         'tage','bim','ubtb','btb','ras','loop',\
-                        'icache','dcache','tlb','lsu',  
+                        'icache','dcache','tlb', 
                     ]:
                         if comp_name in key:
                             encode_comp.add(comp_name)
