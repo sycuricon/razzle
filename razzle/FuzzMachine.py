@@ -358,9 +358,9 @@ class FuzzMachine:
             elif 'misalign' in trigger_type:
                 trigger_type = 'misalign'
             
-            access_mask = config['trans']['victim']['block_info']['access_secret_block']['mask']
+            access_address = config['trans']['victim']['block_info']['access_secret_block']['address']
             access_type = True
-            if ((access_mask + 1) & access_mask) == 0:
+            if access_address in [0x80004001, 0x4001, 0xfffffffffff04001]:
                 access_type = False
             
             train_priv = config['threat']['train_priv']
