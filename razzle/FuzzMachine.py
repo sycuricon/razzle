@@ -343,7 +343,7 @@ class FuzzMachine:
             file.write(f'overhead_rate:\t{overhead_cycle/summary_cycle}')
 
     def _statistic_record_analysis(self, leak_record):
-        combination = {'spectre':{}, 'meltdown':{}}
+        combination = {'spectre':{}, 'meltdown':{}, 'both':{}}
 
         for record in leak_record:
             config = record['config']
@@ -383,12 +383,10 @@ class FuzzMachine:
                 for key in comp.comp_map.keys():
                     key = key.lower()
                     for comp_name in [\
-                        'icache','lsu','fp', 
+                        'icache','lsu', 'lsq', 'fp', 
                     ]:
-                        if 'tlb' in key:
-                            continue
                         if comp_name in key:
-                            if comp_name == 'lsu' and (config['trans']['victim']['block_info']['delay_block']['delay_mem'] == False or config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False):
+                            if comp_name in ['lsu', 'lsq'] and (config['trans']['victim']['block_info']['delay_block']['delay_mem'] == False or config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False):
                                 continue
                             if comp_name == 'fp' and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False:
                                 continue
@@ -405,23 +403,29 @@ class FuzzMachine:
                     ]:
                         if comp_name in key:
                             encode_comp.add(comp_name)
-                            continue
+                            break
             
             class_dict = combination['meltdown']
             if has_privilege:
-                class_dict = combination['spectre']
+                if access_type:
+                    class_dict = combination['both']
+                else:
+                    class_dict = combination['spectre']
             class_dict[trigger_type] = class_dict.get(trigger_type, {})
             class_dict = class_dict[trigger_type]
-            class_dict[access_type] = class_dict.get(access_type, set())
-            class_set = class_dict[access_type]
-            class_set.update(encode_comp)
+            for comp in encode_comp:
+                class_dict[comp] = class_dict.get(comp, [])
+                class_dict[comp].append(config['iter_num'])
+
+            if trigger_type == 'page_fault':
+                print(access_type, has_privilege, config['iter_num'])
 
         with open(os.path.join(self.repo_path, "statistic.md"), 'wt') as file:
             for large_class, large_class_value in combination.items():
                 for trigger_type, trigger_value in large_class_value.items():
-                    for access_type, access_value in trigger_value.items():
-                        for encode_comp in access_value:
-                            file.write(f'{large_class} {trigger_type} {access_type} {encode_comp}\n')
+                    for encode_type, encode_iter in trigger_value.items():
+                        file.write(f'{large_class} {trigger_type} {encode_type}\n')
+                        file.write(f'{encode_iter}\n')
 
 
     def fuzz_analysis(self, thread_num):
