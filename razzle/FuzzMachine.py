@@ -238,7 +238,7 @@ class FuzzMachine:
                 if 'config' not in record:
                     continue
                 strategy = eval(record['config']['trans']['adjust']['block_info']['encode_block']['strategy'])
-                file.write(f"{record['config']['iter_num']} {record['coverage_contr']} {record['comp'].taint_sum} {strategy}\n")
+                file.write(f"{record['config']['iter_num']} {record['coverage_contr']} {record['comp'].taint_sum} {strategy} {record['config']['trans']['victim']['block_info']['trigger_block']['type']}\n")
     
         plt.subplot(2, 1, 1)
         plt.plot(cov_contr, label=stage_name)
@@ -280,6 +280,7 @@ class FuzzMachine:
         plt.legend()
         plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
 
+        trigger_contr = {}
         coverage_contr = {}
         for record in full_leak_record:
             coverage = record['coverage']
@@ -288,6 +289,11 @@ class FuzzMachine:
                     coverage_contr[comp] = {hash_value}
                 else:
                     coverage_contr[comp].add(hash_value)
+
+            trigger_type = record['config']['trans']['victim']['block_info']['trigger_block']['type']
+            trigger_contr[trigger_type] = trigger_contr.get(trigger_type, set())
+            trigger_contr[trigger_type].update(coverage)
+
         with open(os.path.join(self.repo_path, f'coverage_contr.md'), 'wt') as file:
             cover_sum = 0
             for comp, value_list in coverage_contr.items():
@@ -296,6 +302,9 @@ class FuzzMachine:
                 cover_sum += cover_len
             file.write(f'cover_sum: {cover_sum}\n')
     
+            for trigger_type, contr in trigger_contr.items():
+                file.write(f'{trigger_type} {len(contr)}\n')
+
     def _overhead_record_analysis(self):
         overhead_cycle = 0
         victim_cycle = 0
@@ -416,9 +425,6 @@ class FuzzMachine:
             for comp in encode_comp:
                 class_dict[comp] = class_dict.get(comp, [])
                 class_dict[comp].append(config['iter_num'])
-
-            if trigger_type == 'page_fault':
-                print(access_type, has_privilege, config['iter_num'])
 
         with open(os.path.join(self.repo_path, "statistic.md"), 'wt') as file:
             for large_class, large_class_value in combination.items():
