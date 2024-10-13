@@ -33,6 +33,10 @@ class FuzzLog:
     
     def log_rate(self, rate):
         self.log_record(f'coverage_rate {rate}')
+
+    def log_rand_seed(self, rand_seed):
+        self.log_record(f'rand_seed {rand_seed}')
+        global_random_state = random.getstate()
     
     def log_diverage(self):
         self.log_record(f'coverage_diverage')

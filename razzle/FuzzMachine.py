@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 class FuzzMachine:
-    def __init__(self, hjson_filename, output_path, prefix, core="BOOM"):
+    def __init__(self, hjson_filename, output_path, prefix, core="BOOM", rand_seed=0):
         self.hjson_filename = hjson_filename
         self.build_path = output_path
         assert core in ['BOOM', 'XiangShan']
@@ -25,6 +25,9 @@ class FuzzMachine:
         
         self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, self.prefix_domain, self.core)
         self.start_time = time.time()
+
+        self.rand_seed = rand_seed
+        random.seed(self.rand_seed)
     
     def _load_stage_record(self, stage_name, thread_num):
         stage_file_name = os.path.join(self.repo_path, f'{stage_name}_iter_record')
@@ -392,7 +395,7 @@ class FuzzMachine:
                 has_privilege = False
             
             encode_comp = set()
-            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE:
+            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE or config['is_divergent']:
                 for key in comp.comp_map.keys():
                     key = key.lower()
                     for comp_name in [\
@@ -655,6 +658,7 @@ class FuzzMachine:
             last_state = state
             match(state):
                 case FuzzFSM.IDLE:
+                    self.fuzz_log.log_rand_seed(self.rand_seed)
                     config = self.trigger_seed.mutate({}, True)
                     config = self.access_seed.mutate(config, True)
                     state = FuzzFSM.MUTATE_TRIGGER
