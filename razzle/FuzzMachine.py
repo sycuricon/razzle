@@ -41,9 +41,13 @@ class FuzzMachine:
             else:
                 taint_name = f'{self.prefix_domain}_{stage_name}_thread_{iter_num%thread_num}'
             testcase_path = os.path.join(self.output_path, f'{stage_name}_{iter_num}', taint_name)
-            if os.path.exists(f'{testcase_path}.taint.cov'):
+
+            if record.get('is_divergent', False):
+                record_tuple['coverage'] = []
+            elif os.path.exists(f'{testcase_path}.taint.cov'):
                 coverage = self.origin_fuzz_body.compute_coverage(testcase_path)
                 record_tuple['coverage'] = coverage
+
             if os.path.exists(f'{testcase_path}.taint.live'):
                 comp = self.origin_fuzz_body.compute_comp(testcase_path)
                 record_tuple['comp'] = comp
