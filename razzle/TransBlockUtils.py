@@ -436,9 +436,10 @@ class BranchBlock(BaseBlock):
         self.block_list = [self]
     
     def gen_random_block(self, normal_reg, taint_reg, normal_freg, taint_freg):
-        for _ in range(6):
+        all_len = 0
+        while(all_len < self.len):
             self.gen_random_inst(normal_reg, taint_reg, normal_freg, taint_freg)
-        self.block_list[-1].inst_list.append(Instruction('c.nop'))
+            all_len += self.block_list[-2].get_inst_len()
         return self.block_list
     
     def get_block_list(self):
@@ -453,6 +454,7 @@ class BranchBlock(BaseBlock):
         _ = self.set_instr_reg(inst, 'RS1', normal_reg, taint_reg)
         _ = self.set_instr_reg(inst, 'RS2', normal_reg, taint_reg)
         self.block_list[-1].inst_list.append(inst)
+        self.block_list[-1].inst_list.extend([Instruction('c.nop')] * random.randint(0, 2))
         self.block_list[-1].add_succeed(block)
         self.block_list.append(block)
 
