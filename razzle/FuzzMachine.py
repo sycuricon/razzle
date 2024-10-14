@@ -415,7 +415,7 @@ class FuzzMachine:
                     key = key.lower()
                     for comp_name in [\
                         'tage','bim','ubtb','btb','ras','loop',\
-                        'icache','dcache','tlb', 
+                        'icache','dcache','tlb','ftb'
                     ]:
                         if comp_name in key:
                             encode_comp.add(comp_name)
