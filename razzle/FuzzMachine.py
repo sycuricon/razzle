@@ -50,9 +50,25 @@ class FuzzMachine:
             elif os.path.exists(f'{testcase_path}.taint.cov'):
                 coverage = self.origin_fuzz_body.compute_coverage(testcase_path)
                 record_tuple['coverage'] = coverage
+            else:
+                record_tuple['coverage'] = []
 
-            if os.path.exists(f'{testcase_path}.taint.live'):
+            if record.get('is_divergent', False):
+                record_tuple['comp'] = TaintComp()
+            elif os.path.exists(f'{testcase_path}.taint.live'):
                 comp = self.origin_fuzz_body.compute_comp(testcase_path)
+                if stage_name == 'leak':
+                    taint_name = f'{self.prefix_domain}_post_thread_{iter_num%thread_num}'
+                    post_testcase_path = os.path.join(self.output_path, f'{stage_name}_{iter_num}', taint_name)
+                    if os.path.exists(f'{post_testcase_path}.taint.live'):
+                        post_comp = self.origin_fuzz_body.compute_comp(post_testcase_path)
+                        for key, value in post_comp.comp_map.items():
+                            if key in comp.comp_map:
+                                comp[key] = comp[key] - value
+                                if comp[key] <= 0:
+                                    comp.comp_map.pop(key)
+                    
+
                 record_tuple['comp'] = comp
             else:
                 record_tuple['comp'] = TaintComp()
@@ -167,7 +183,6 @@ class FuzzMachine:
         leak_index = []
         liveness_record = {}
         for record in leak_record:
-            dcache_can_record = False
             result = eval(record['config']['result'])
             if result == FuzzResult.FAIL or result is None:
                 continue
@@ -197,12 +212,7 @@ class FuzzMachine:
                         case _:
                             raise Exception("invalid core type")
                     comp_simple.add(name)
-                    if 'dcache' in name:
-                        if dcache_can_record:
-                            liveness_record[name] = liveness_record.get(name, 0) + 1
-                        dcache_can_record = True
-                    else:
-                        liveness_record[name] = liveness_record.get(name, 0) + 1
+                    liveness_record[name] = liveness_record.get(name, 0) + 1
                 comp_simple = list(comp_simple)
                 comp_simple.sort()
             try:

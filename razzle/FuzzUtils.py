@@ -47,8 +47,11 @@ class TaintComp:
         self.comp_map = {}
 
     def __setitem__(self, key, value):
-        self.comp_map[key] = self.comp_map.get(key, 0) + value
+        self.comp_map[key] = value
         self.taint_sum += value
+
+    def __getitem__(self, key):
+        return self.comp_map[key]
 
 class Coverage:
     def __init__(self, LEAK_EVALUTE_LEN=8):
