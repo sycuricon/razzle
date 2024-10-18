@@ -54,6 +54,8 @@ class FuzzMachine:
             if os.path.exists(f'{testcase_path}.taint.live'):
                 comp = self.origin_fuzz_body.compute_comp(testcase_path)
                 record_tuple['comp'] = comp
+            else:
+                record_tuple['comp'] = TaintComp()
             record_tuple_list.append(record_tuple)
         return record_tuple_list
     
@@ -361,7 +363,7 @@ class FuzzMachine:
     def _statistic_record_analysis(self, leak_record):
         combination = {'spectre':{}, 'meltdown':{}, 'both':{}}
 
-        for record in leak_record:
+        for i,record in enumerate(leak_record):
             config = record['config']
             comp = record['comp']
             if eval(config['result']) == FuzzResult.FAIL:
@@ -395,21 +397,17 @@ class FuzzMachine:
                 has_privilege = False
             
             encode_comp = set()
-            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE or config['is_divergent']:
-                for key in comp.comp_map.keys():
-                    key = key.lower()
-                    for comp_name in [\
-                        'icache','lsu', 'lsq', 'fp', 
-                    ]:
-                        if comp_name in key:
-                            if comp_name in ['lsu', 'lsq'] and (config['trans']['victim']['block_info']['delay_block']['delay_mem'] == False or config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False):
-                                continue
-                            if comp_name == 'fp' and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False:
-                                continue
-                            if comp_name == 'icache' and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == True:
-                                continue
-                            encode_comp.add(comp_name)
-                            break
+            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE or 'is_divergent' in config and config['is_divergent']:
+                if config['trans']['victim']['block_info']['delay_block']['delay_mem'] == True\
+                    and 'BaseBlockType.LOAD_STORE' in config['trans']['victim']['block_info']['encode_block']['encode_type']:
+                    encode_comp.add('ls-ct')
+                elif config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == True\
+                    and 'BaseBlockType.FLOAT' in config['trans']['victim']['block_info']['encode_block']['encode_type']:
+                    encode_comp.add('fp-ct')
+                elif config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False\
+                    and 'BaseBlockType.LOAD' not in config['trans']['victim']['block_info']['encode_block']['encode_type']\
+                    and 'BaseBlockType.FLOAT' not in config['trans']['victim']['block_info']['encode_block']['encode_type']:
+                    encode_comp.add('delay-fetch')
             else:
                 for key in comp.comp_map.keys():
                     key = key.lower()
