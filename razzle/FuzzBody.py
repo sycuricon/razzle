@@ -34,6 +34,7 @@ class FuzzBody:
         self.leak_coverage = None
         self.leak_comp_taint = None
         self.is_divergent = None
+        self.divergent_label = None
 
         self.post_coverage = None
         self.post_comp_taint = None
@@ -331,9 +332,7 @@ class FuzzBody:
                 variant_list.append(int(variant))
         
         dut_label_list = []
-        dut_texe_end_idx = 0
         vnt_label_list = []
-        vnt_texe_end_idx = 0
 
         dut_sync_time = 0
         dut_window_end = 0
@@ -348,12 +347,8 @@ class FuzzBody:
             
             if exec_info != 'SIM_EXIT_ENQ':
                 if is_dut:
-                    if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and dut_texe_end_idx == 0:
-                        dut_texe_end_idx = len(dut_label_list)
                     dut_label_list.append((exec_info, exec_time))
                 else:
-                    if exec_info in ['VCTM_END_DEQ', 'TEXE_START_DEQ'] and vnt_texe_end_idx == 0:
-                        vnt_texe_end_idx = len(vnt_label_list)
                     vnt_label_list.append((exec_info, exec_time))
 
             if exec_info == 'DELAY_END_DEQ' and is_dut:
@@ -371,17 +366,21 @@ class FuzzBody:
         
         is_trigger = dut_texe_enq_num > dut_texe_deq_num
         is_divergent = False
-        if len(dut_label_list) != len(vnt_label_list):
+
+        cmp_len = min(len(dut_label_list), len(vnt_label_list))
+        dut_label_list = dut_label_list[:cmp_len]
+        vnt_label_list = vnt_label_list[:cmp_len]
+        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list, vnt_label_list):
+            if dut_label != vnt_label or dut_time != vnt_time:
+                is_divergent = True
+                self.divergent_label = dut_label
+                break
+        if is_divergent == False and len(dut_label_list) != len(vnt_label_list):
             is_divergent = True
-        elif dut_texe_end_idx != vnt_texe_end_idx:
-            is_divergent = True
-        else:
-            dut_label_list = dut_label_list[dut_texe_end_idx:]
-            vnt_label_list = vnt_label_list[vnt_texe_end_idx:]
-            for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list, vnt_label_list):
-                if dut_label != vnt_label or dut_time != vnt_time:
-                    is_divergent = True
-                    break
+            if len(dut_label_list) > len(vnt_label_list):
+                self.divergent_label = dut_label_list[cmp_len]
+            else:
+                self.divergent_label = vnt_label_list[cmp_len]
 
         leak_result = FuzzResult.FAIL
         self.is_divergent = False

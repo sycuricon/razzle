@@ -55,6 +55,41 @@ class FuzzMachine:
 
             if record.get('is_divergent', False):
                 record_tuple['comp'] = TaintComp()
+                # can be comment begin
+                if 'divergent_label' not in record:
+                    if os.path.exists(f'{testcase_path}.taint.log'):
+                        dut_label_list = []
+                        vnt_label_list = []
+                        for line in open(f'{testcase_path}.taint.log', 'rt'):
+                            exec_time, exec_info, _, is_dut = list(map(str.strip ,line.strip().split(',')))
+                            exec_time = int(exec_time)
+                            is_dut = True if int(is_dut) == 1 else False
+                            
+                            if exec_info != 'SIM_EXIT_ENQ':
+                                if is_dut:
+                                    dut_label_list.append((exec_info, exec_time))
+                                else:
+                                    vnt_label_list.append((exec_info, exec_time))
+                                        
+                        divergent_label = None
+                        is_divergent = False
+                        cmp_len = min(len(dut_label_list), len(vnt_label_list))
+                        dut_label_list = dut_label_list[:cmp_len]
+                        vnt_label_list = vnt_label_list[:cmp_len]
+                        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list, vnt_label_list):
+                            if dut_label != vnt_label or dut_time != vnt_time:
+                                is_divergent = True
+                                divergent_label = dut_label
+                                break
+                        if is_divergent == False and len(dut_label_list) != len(vnt_label_list):
+                            is_divergent = True
+                            if len(dut_label_list) > len(vnt_label_list):
+                                self.divergent_label = dut_label_list[cmp_len]
+                            else:
+                                self.divergent_label = vnt_label_list[cmp_len]
+                        if divergent_label is not None:
+                            record['divergent_label'] = divergent_label
+                # can be comment end
             elif os.path.exists(f'{testcase_path}.taint.live'):
                 comp = self.origin_fuzz_body.compute_comp(testcase_path)
                 if stage_name == 'leak':
@@ -408,13 +443,16 @@ class FuzzMachine:
             
             encode_comp = set()
             if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE or 'is_divergent' in config and config['is_divergent']:
-                if config['trans']['victim']['block_info']['delay_block']['delay_mem'] == True\
+                if config['divergent_label'] == 'DELAY_END_DEQ'\
+                    and config['trans']['victim']['block_info']['delay_block']['delay_mem'] == True\
                     and 'BaseBlockType.LOAD_STORE' in config['trans']['victim']['block_info']['encode_block']['encode_type']:
                     encode_comp.add('ls-ct')
-                elif config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == True\
+                elif config['divergent_label'] == 'DELAY_END_DEQ'\
+                    and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == True\
                     and 'BaseBlockType.FLOAT' in config['trans']['victim']['block_info']['encode_block']['encode_type']:
                     encode_comp.add('fp-ct')
-                elif config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False\
+                elif config['divergent_label'] != 'DELAY_END_DEQ'\
+                    and config['trans']['victim']['block_info']['warm_up_block']['warm_up'] == False\
                     and 'BaseBlockType.LOAD' not in config['trans']['victim']['block_info']['encode_block']['encode_type']\
                     and 'BaseBlockType.FLOAT' not in config['trans']['victim']['block_info']['encode_block']['encode_type']:
                     encode_comp.add('delay-fetch')
@@ -525,6 +563,7 @@ class FuzzMachine:
                 cosim_result = fuzz_body.leak_cosim_result
         config = fuzz_body.config
         is_divergent = fuzz_body.is_divergent
+        divergent_label = fuzz_body.divergent_label
 
         with open(os.path.join(self.repo_path, f'{stage_name}_iter_record'), "at") as file:
             record = fuzz_body.record_fuzz()
@@ -537,6 +576,8 @@ class FuzzMachine:
                 record['max_taint'] = max_taint
             if is_divergent is not None:
                 record['is_divergent'] = is_divergent
+            if divergent_label is not None:
+                record['divergent_label'] = divergent_label
             # print(record)
             file.write(hjson.dumps(record))
         
