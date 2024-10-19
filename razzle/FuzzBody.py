@@ -368,9 +368,7 @@ class FuzzBody:
         is_divergent = False
 
         cmp_len = min(len(dut_label_list), len(vnt_label_list))
-        dut_label_list = dut_label_list[:cmp_len]
-        vnt_label_list = vnt_label_list[:cmp_len]
-        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list, vnt_label_list):
+        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list[:cmp_len], vnt_label_list[:cmp_len]):
             if dut_label != vnt_label or dut_time != vnt_time:
                 is_divergent = True
                 self.divergent_label = dut_label

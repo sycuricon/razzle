@@ -74,9 +74,7 @@ class FuzzMachine:
                         divergent_label = None
                         is_divergent = False
                         cmp_len = min(len(dut_label_list), len(vnt_label_list))
-                        dut_label_list = dut_label_list[:cmp_len]
-                        vnt_label_list = vnt_label_list[:cmp_len]
-                        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list, vnt_label_list):
+                        for (dut_label, dut_time), (vnt_label, vnt_time) in zip(dut_label_list[:cmp_len], vnt_label_list[:cmp_len]):
                             if dut_label != vnt_label or dut_time != vnt_time:
                                 is_divergent = True
                                 divergent_label = dut_label
@@ -84,11 +82,11 @@ class FuzzMachine:
                         if is_divergent == False and len(dut_label_list) != len(vnt_label_list):
                             is_divergent = True
                             if len(dut_label_list) > len(vnt_label_list):
-                                self.divergent_label = dut_label_list[cmp_len]
+                                divergent_label = dut_label_list[cmp_len]
                             else:
-                                self.divergent_label = vnt_label_list[cmp_len]
-                        if divergent_label is not None:
-                            record['divergent_label'] = divergent_label
+                                divergent_label = vnt_label_list[cmp_len]
+                        assert divergent_label is not None, testcase_path
+                        record['divergent_label'] = divergent_label
                 # can be comment end
             elif os.path.exists(f'{testcase_path}.taint.live'):
                 comp = self.origin_fuzz_body.compute_comp(testcase_path)
@@ -442,7 +440,7 @@ class FuzzMachine:
                 has_privilege = False
             
             encode_comp = set()
-            if eval(config['trans']['adjust']['block_info']['encode_block']['strategy']) == EncodeType.FUZZ_PIPELINE or 'is_divergent' in config and config['is_divergent']:
+            if 'is_divergent' in config and config['is_divergent']:
                 if config['divergent_label'] == 'DELAY_END_DEQ'\
                     and config['trans']['victim']['block_info']['delay_block']['delay_mem'] == True\
                     and 'BaseBlockType.LOAD_STORE' in config['trans']['victim']['block_info']['encode_block']['encode_type']:
