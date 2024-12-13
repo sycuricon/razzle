@@ -11,19 +11,20 @@ class FuzzMachine:
         assert core in ['BOOM', 'XiangShan']
         self.core = core
         self.prefix_domain = f'{self.core}_{prefix}'
-        self.output_path = os.path.join(self.build_path, f'{self.prefix_domain}.fuzz_code')
-        self.repo_path = os.path.join(self.build_path, f'{self.prefix_domain}.template_repo')
-        if not os.path.exists(self.output_path):
-            os.makedirs(self.output_path)
-        if not os.path.exists(self.repo_path):
-            os.makedirs(self.repo_path)
+        self.output_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'fuzz_code')
+        self.repo_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'template_repo')
+        self.analysis_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'analysis_result')
+        self.script_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'script_workspace')
+        for folder in [self.prefix_domain, self.output_path, self.repo_path, self.analysis_path, self.script_path]:
+            if not os.path.exists(folder):
+                os.makedirs(folder)
 
         hjson_file = open(hjson_filename)
         fuzz_config = hjson.load(hjson_file)
         self.TRIGGER_RARE = fuzz_config['trigger_rate']
         self.ACCESS_RATE = fuzz_config['access_rate']
         
-        self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, self.prefix_domain, self.core)
+        self.origin_fuzz_body = FuzzBody(fuzz_config, self.output_path, self.prefix_domain, self.core, self.script_path)
         self.start_time = time.time()
 
         self.rand_seed = rand_seed
@@ -583,7 +584,7 @@ class FuzzMachine:
             file.write(f'{iter_num}\n')
         
         cp_baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.repo_path, file_name=f"store_taint_log.sh"
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.script_path, self.repo_path, file_name=f"store_taint_log.sh"
         )
         gen_asm = ShellCommand("cp", [])
         suffix_taint = ['.taint.log', '.taint.csv', '.taint.live', '.taint.cov']

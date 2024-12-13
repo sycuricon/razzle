@@ -2,11 +2,12 @@ from TransManager import *
 from FuzzUtils import *
 
 class FuzzBody:
-    def __init__(self, fuzz_config, output_path, prefix, core):
+    def __init__(self, fuzz_config, output_path, prefix, core, script_path):
         self.output_path = output_path
         self.prefix_domain = prefix
         self.core = core
-        
+        self.script_path = script_path
+
         self.train_single = eval(fuzz_config['train_single'])
         self.train_align = eval(fuzz_config['train_align'])
         self.mem_cfg = MemCfg(int(fuzz_config['mem_start'], base=16), int(fuzz_config['mem_size'], base=16), self.output_path)
@@ -95,7 +96,7 @@ class FuzzBody:
 
         assert mode in ['normal', 'robprofile', 'variant']
         baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{label}_rtl_sim.sh"
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.script_path, self.rtl_sim, file_name=f"{label}_rtl_sim.sh"
         )
         export_cmd = ShellCommand("export", [])
         gen_asm = ShellCommand("make", [f'{self.rtl_sim_mode}'])
@@ -153,7 +154,7 @@ class FuzzBody:
                 self.mem_cfg.add_mem_region('data_train', [swap_region])
             
             reduce_baker = BuildManager(
-                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
+                {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.script_path, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
             )
             rm_asm = ShellCommand("rm", [])
             idx_set = set()
@@ -165,7 +166,7 @@ class FuzzBody:
         else:
             if len(self.trans.swap_block_list) > 4:
                 reduce_baker = BuildManager(
-                    {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
+                    {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.script_path, self.rtl_sim, file_name=f"{self.prefix_domain}_reduce_trigger.sh"
                 )
                 rm_asm = ShellCommand("rm", [])
                 idx_set = set()

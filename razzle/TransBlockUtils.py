@@ -624,6 +624,7 @@ class TransBlock:
         self.baker = BuildManager(
             {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]},
             os.path.join(output_path, self.name),
+            os.path.join(output_path, self.name),
         )
 
     def _load_inst_file(self, file_name, mutate = False):

@@ -85,7 +85,7 @@ class TransManager:
         self.config = config
 
         self.baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path, output_path
         )
 
         self.output_path = output_path
@@ -212,7 +212,7 @@ class TransManager:
     
     def _generate_compile_shell(self, swap_idx, trans_block):
         baker = BuildManager(
-            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, file_name=f"compile_{swap_idx}.sh"
+            {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, self.output_path, self.output_path, file_name=f"compile_{swap_idx}.sh"
         )
 
         RAZZLE_ROOT = os.environ["RAZZLE_ROOT"]
