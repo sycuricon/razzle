@@ -1,5 +1,10 @@
 hjson>=3.1.0
+bitarray >= 2.9.2
 bitstring >= 4.0.0
 python-constraint >= 1.4.0
 libconf >= 2.0.1
+matplotlib >= 3.9.1
+matplotlib-inline >= 0.1.7
+numpy >= 2.0.0
+
 
