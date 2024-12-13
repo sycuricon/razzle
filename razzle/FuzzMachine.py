@@ -152,7 +152,7 @@ class FuzzMachine:
         
         trigger_num = []
         trigger_label = []
-        analysis_file_name = os.path.join(self.repo_path, 'trigger_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, 'trigger_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write('|trigger_type|train_type|summary|success|rate|line_num|valid_num|case_num|\n')
             file.write('|----|----|----|----|-----|----|----|----|\n')
@@ -174,7 +174,7 @@ class FuzzMachine:
                         trigger_label.append(f'{train_type}.{trigger_type}')
         trigger_num = np.array(trigger_num)
         plt.pie(trigger_num, labels=trigger_label, textprops={'fontsize':8})
-        plt.savefig(os.path.join(self.repo_path, f'trigger_rate.png'))
+        plt.savefig(os.path.join(self.analysis_path, f'trigger_rate.png'))
         plt.clf()
 
     def _access_record_analysis(self, access_record):
@@ -204,7 +204,7 @@ class FuzzMachine:
                 access_success.append(testcase)
                 access_testcase.append([record['iter_num']])
 
-        analysis_file_name = os.path.join(self.repo_path, 'access_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, 'access_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write('|train_type|pmp_r|pmp_l|pte_r|pte_v|threat|li_offset|addr|\n')
             file.write('|----|----|----|----|----|----|----|----|\n')
@@ -256,11 +256,11 @@ class FuzzMachine:
                 leak_success.append(comp_simple)
                 leak_index.append([idx])
         
-        analysis_file_name = os.path.join(self.repo_path, 'leak_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, 'leak_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             for comp, idx in zip(leak_success, leak_index):
                 file.write(f'{idx}\n{comp}\n')
-        analysis_file_name = os.path.join(self.repo_path, 'liveness_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, 'liveness_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             for comp, value in liveness_record.items():
                 file.write(f'{comp}\t{value}\n')
@@ -283,7 +283,7 @@ class FuzzMachine:
                 time_list.append(record['config']['time']/3600)
         leak_record.sort(key=lambda x:x['coverage_contr'], reverse=True)
 
-        analysis_file_name = os.path.join(self.repo_path, f'{stage_name}_coverage_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, f'{stage_name}_coverage_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write(f"|iter_num|coverage_contr|taint_sum|strategy|\n")
             file.write(f"|--------|--------------|---------|--------|\n")
@@ -298,7 +298,7 @@ class FuzzMachine:
         plt.subplot(2, 1, 2)
         plt.plot(time_list, cov_contr, label=stage_name)
 
-        curve_file_name = os.path.join(self.repo_path, f'{stage_name}_curve')
+        curve_file_name = os.path.join(self.analysis_path, f'{stage_name}_curve')
         with open(curve_file_name, "wt") as file:
             for i, cov in enumerate(cov_contr):
                 file.write(f'{i} {cov}\n')
@@ -331,7 +331,7 @@ class FuzzMachine:
         self._part_coverage_record_analysis(ctrl_leak_record, 'ctrl')
 
         plt.legend()
-        plt.savefig(os.path.join(self.repo_path, f'coverage.png'))
+        plt.savefig(os.path.join(self.analysis_path, f'coverage.png'))
 
         trigger_contr = {}
         coverage_contr = {}
@@ -347,7 +347,7 @@ class FuzzMachine:
             trigger_contr[trigger_type] = trigger_contr.get(trigger_type, set())
             trigger_contr[trigger_type].update(coverage)
 
-        with open(os.path.join(self.repo_path, f'coverage_contr.md'), 'wt') as file:
+        with open(os.path.join(self.analysis_path, f'coverage_contr.md'), 'wt') as file:
             cover_sum = 0
             for comp, value_list in coverage_contr.items():
                 cover_len = len(value_list)
@@ -397,7 +397,7 @@ class FuzzMachine:
                 break
         
         summary_cycle = overhead_cycle + victim_cycle
-        analysis_file_name = os.path.join(self.repo_path, 'overhead_analysis_result.md')
+        analysis_file_name = os.path.join(self.analysis_path, 'overhead_analysis_result.md')
         with open(analysis_file_name, "wt") as file:
             file.write(f'overhead_cycle:\t{overhead_cycle}\tave:\t{overhead_cycle/leak_len}\n')
             file.write(f'victim_cycle:\t{victim_cycle}\tave:\t{victim_cycle/leak_len}\n')
@@ -478,13 +478,12 @@ class FuzzMachine:
                 class_dict[comp] = class_dict.get(comp, [])
                 class_dict[comp].append(config['iter_num'])
 
-        with open(os.path.join(self.repo_path, "statistic.md"), 'wt') as file:
+        with open(os.path.join(self.analysis_path, "statistic.md"), 'wt') as file:
             for large_class, large_class_value in combination.items():
                 for trigger_type, trigger_value in large_class_value.items():
                     for encode_type, encode_iter in trigger_value.items():
                         file.write(f'{large_class} {trigger_type} {encode_type}\n')
                         file.write(f'{encode_iter}\n')
-
 
     def fuzz_analysis(self, thread_num):
         thread_num = int(thread_num)
