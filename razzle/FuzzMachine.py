@@ -11,11 +11,12 @@ class FuzzMachine:
         assert core in ['BOOM', 'XiangShan']
         self.core = core
         self.prefix_domain = f'{self.core}_{prefix}'
-        self.output_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'fuzz_code')
-        self.repo_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'template_repo')
-        self.analysis_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'analysis_result')
-        self.script_path = os.path.join(self.build_path, f'{self.prefix_domain}', 'script_workspace')
-        for folder in [self.prefix_domain, self.output_path, self.repo_path, self.analysis_path, self.script_path]:
+        self.build_path = os.path.join(self.build_path, f'{self.prefix_domain}')
+        self.output_path = os.path.join(self.build_path, 'fuzz_code')
+        self.repo_path = os.path.join(self.build_path, 'template_repo')
+        self.analysis_path = os.path.join(self.build_path, 'analysis_result')
+        self.script_path = os.path.join(self.build_path, 'script_workspace')
+        for folder in [self.build_path, self.output_path, self.repo_path, self.analysis_path, self.script_path]:
             if not os.path.exists(folder):
                 os.makedirs(folder)
 

@@ -6,7 +6,7 @@ import time
 from TransManager import *
 import math
 
-global_random_state = random.getstate()
+global_random_state = 0
 
 class FuzzResult(Enum):
     SUCCESS = auto()
@@ -36,6 +36,7 @@ class FuzzLog:
 
     def log_rand_seed(self, rand_seed):
         self.log_record(f'rand_seed {rand_seed}')
+        global global_random_state
         global_random_state = random.getstate()
     
     def log_diverage(self):
@@ -189,10 +190,12 @@ class Seed:
 
     def mutate_begin(self):
         self.tmp_random_state = random.getstate()
+        global global_random_state 
         random.setstate(global_random_state)
     
     def mutate_end(self):
-        global_random_state = random.getstate()
+        global global_random_state 
+        global_random_state= random.getstate()
         random.setstate(self.tmp_random_state)
     
     def mutate_random_field(self, is_full):
