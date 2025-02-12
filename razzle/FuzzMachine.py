@@ -672,7 +672,7 @@ class FuzzMachine:
         self.rtl_sim = rtl_sim
         assert rtl_sim_mode in ['vcs', 'vlt'], "the rtl_sim_mode must be in vcs and vlt"
         self.rtl_sim_mode = rtl_sim_mode
-        assert fuzz_mode in ['trigger', 'access', 'leak'], "the fuzz mode must be in trigger, access and leak"
+        assert fuzz_mode in ['trigger', 'access', 'leak', 'no_coverage'], "the fuzz mode must be in trigger, access, leak and no_coverage"
         self.fuzz_mode = fuzz_mode
         self.taint_log = taint_log
         self.origin_fuzz_body.set_sim_param(self.rtl_sim, self.rtl_sim_mode, self.taint_log)
@@ -700,89 +700,106 @@ class FuzzMachine:
 
         self.origin_fuzz_body.update_sub_repo('frame')
         self.origin_fuzz_body.trans.build_frame()
+        self.fuzz_working_flag = os.path.join(self.repo_path, 'fuzz_working_flag')
+        if not os.path.exists(self.fuzz_working_flag):
+            os.system(f'touch {self.fuzz_working_flag}')
 
-        while True:
-            iter_num = 0
-            last_state = state
-            match(state):
-                case FuzzFSM.IDLE:
-                    self.fuzz_log.log_rand_seed(self.rand_seed)
-                    config = self.trigger_seed.mutate({}, True)
-                    config = self.access_seed.mutate(config, True)
-                    state = FuzzFSM.MUTATE_TRIGGER
-                case FuzzFSM.MUTATE_TRIGGER:
-                    for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
-                        trigger_result, trigger_fuzz_body = self.fuzz_trigger(config, self.origin_fuzz_body)
-                        self.trigger_seed.update_sample(trigger_result)
-                        if self.fuzz_mode in ['access', 'leak']:
-                            if trigger_result == FuzzResult.SUCCESS:
-                                state = FuzzFSM.MUTATE_ACCESS
-                                break
+        try:
+            while True:
+                iter_num = 0
+                last_state = state
+                match(state):
+                    case FuzzFSM.IDLE:
+                        self.fuzz_log.log_rand_seed(self.rand_seed)
+                        config = self.trigger_seed.mutate({}, True)
+                        config = self.access_seed.mutate(config, True)
+                        state = FuzzFSM.MUTATE_TRIGGER
+                    case FuzzFSM.MUTATE_TRIGGER:
+                        for iter_num in range(MAX_TRIGGER_MUTATE_ITER):
+                            trigger_result, trigger_fuzz_body = self.fuzz_trigger(config, self.origin_fuzz_body)
+                            self.trigger_seed.update_sample(trigger_result)
+                            if self.fuzz_mode in ['access', 'leak', 'no_coverage']:
+                                if trigger_result == FuzzResult.SUCCESS:
+                                    state = FuzzFSM.MUTATE_ACCESS
+                                    break
+                                else:
+                                    config = self.trigger_seed.mutate({})
+                                    config = self.access_seed.parse(config)
                             else:
                                 config = self.trigger_seed.mutate({})
                                 config = self.access_seed.parse(config)
                         else:
-                            config = self.trigger_seed.mutate({})
-                            config = self.access_seed.parse(config)
-                    else:
-                        config = self.trigger_seed.mutate({}, True)
-                        config = self.access_seed.mutate(config, True)
-                case FuzzFSM.MUTATE_ACCESS:
-                    for iter_num in range(MAX_ACCESS_MUTATE_ITER):
-                        access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
-                        self.access_seed.update_sample(access_result)
-                        if self.fuzz_mode in ['leak']:
-                            if access_result == FuzzResult.SUCCESS:
-                                state = FuzzFSM.ACCUMULATE
-                                break
+                            config = self.trigger_seed.mutate({}, True)
+                            config = self.access_seed.mutate(config, True)
+                    case FuzzFSM.MUTATE_ACCESS:
+                        for iter_num in range(MAX_ACCESS_MUTATE_ITER):
+                            access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
+                            self.access_seed.update_sample(access_result)
+                            if self.fuzz_mode in ['leak', 'no_coverage']:
+                                if access_result == FuzzResult.SUCCESS:
+                                    state = FuzzFSM.ACCUMULATE
+                                    break
+                                else:
+                                    config = self.access_seed.mutate(config)
                             else:
                                 config = self.access_seed.mutate(config)
                         else:
-                            config = self.access_seed.mutate(config)
-                    else:
-                        config = self.trigger_seed.mutate({}, True)
-                        config = self.access_seed.mutate(config, True)
-                        state = FuzzFSM.MUTATE_TRIGGER
-                case FuzzFSM.ACCUMULATE:
-                    self.coverage.accumulate()
-
-                    config_list = []
-                    for leak_seed in self.leak_seed_list:
-                        config = leak_seed.mutate(config, True)
-                        config_list.append(config)
-
-                    for iter_num in range(LEAK_ACCUMULATE_ITER):
-                        self.fuzz_leak(config_list, access_fuzz_body)
-
-                        new_config_list = []
-                        for leak_seed, config in zip(self.leak_seed_list, config_list):
-                            config = leak_seed.mutate(config, True)
-                            new_config_list.append(config)
-                        config_list = new_config_list
-
-                    state = FuzzFSM.MUTATE_LEAK
-                case FuzzFSM.MUTATE_LEAK:
-                    while True:
-                        self.fuzz_leak(config_list, access_fuzz_body)
-                        cover_contr = self.coverage.evalute_coverage()
-                        self.fuzz_log.log_rate(cover_contr)
-
-                        iter_num += 1
-                        if cover_contr < self.TRIGGER_RARE:
                             config = self.trigger_seed.mutate({}, True)
                             config = self.access_seed.mutate(config, True)
                             state = FuzzFSM.MUTATE_TRIGGER
-                            break
-                        elif cover_contr < self.ACCESS_RATE:
-                            config = self.access_seed.mutate(config, True)
-                            state = FuzzFSM.MUTATE_ACCESS
-                            break
-                        else:
+                    case FuzzFSM.ACCUMULATE:
+                        self.coverage.accumulate()
+
+                        config_list = []
+                        for leak_seed in self.leak_seed_list:
+                            config = leak_seed.mutate(config, True)
+                            config_list.append(config)
+
+                        for iter_num in range(LEAK_ACCUMULATE_ITER):
+                            self.fuzz_leak(config_list, access_fuzz_body)
+
                             new_config_list = []
                             for leak_seed, config in zip(self.leak_seed_list, config_list):
-                                config = leak_seed.mutate(config)
+                                config = leak_seed.mutate(config, True)
                                 new_config_list.append(config)
                             config_list = new_config_list
-                case FuzzFSM.STOP:
-                    break
-            self.fuzz_log.log_state(last_state, state, iter_num)
+
+                        state = FuzzFSM.MUTATE_LEAK
+                    case FuzzFSM.MUTATE_LEAK:
+                        while True:
+                            self.fuzz_leak(config_list, access_fuzz_body)
+                            cover_contr = self.coverage.evalute_coverage()
+                            self.fuzz_log.log_rate(cover_contr)
+
+                            iter_num += 1
+                            if self.fuzz_mode in ['no_coverage']:
+                                config = self.trigger_seed.mutate({}, False if random.randint(0, 1) == 0 else True)
+                                config = self.access_seed.mutate(config, False if random.randint(0, 1) == 0 else True)
+                                state = FuzzFSM.MUTATE_TRIGGER
+                                break
+
+                            if cover_contr < self.TRIGGER_RARE:
+                                config = self.trigger_seed.mutate({}, True)
+                                config = self.access_seed.mutate(config, True)
+                                state = FuzzFSM.MUTATE_TRIGGER
+                                break
+                            elif cover_contr < self.ACCESS_RATE:
+                                config = self.access_seed.mutate(config, True)
+                                state = FuzzFSM.MUTATE_ACCESS
+                                break
+                            else:
+                                new_config_list = []
+                                for leak_seed, config in zip(self.leak_seed_list, config_list):
+                                    config = leak_seed.mutate(config)
+                                    new_config_list.append(config)
+                                config_list = new_config_list
+                    case FuzzFSM.STOP:
+                        break
+                with open(self.fuzz_working_flag) as _:
+                    pass
+                self.fuzz_log.log_state(last_state, state, iter_num)
+        except Exception as e:
+            if os.path.exists(self.fuzz_working_flag):
+                os.system(f'rm {self.fuzz_working_flag}')
+            self.fuzz_log.log_file_interrupt()
+            raise e

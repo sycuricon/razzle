@@ -63,7 +63,7 @@ if __name__ == "__main__":
         "--thread_num", dest="thread_num", help="the thread of the leak"
     )
     parser_fuzz.add_argument(
-        "--fuzz_mode", dest="fuzz_mode", help="fuzz for trigger, access or leak"
+        "--fuzz_mode", dest="fuzz_mode", help="fuzz for trigger, access, leak or no_coverage"
     )
     
     args = parser.parse_args()
