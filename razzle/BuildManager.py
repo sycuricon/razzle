@@ -77,8 +77,9 @@ class BuildManager:
         self.add_cmd(f'echo "[*] Script {self.final_script} done"')
 
         self.save_script()
-        for _ in range(3):
+        for i in range(3):
             if os.system(f"{self.final_script}") != 0:
+                print(f'try to handle exception by delay time {i+1}th')
                 time.sleep(10)
             else:
                 break

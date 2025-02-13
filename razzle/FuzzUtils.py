@@ -39,6 +39,9 @@ class FuzzLog:
         global global_random_state
         global_random_state = random.getstate()
     
+    def log_file_interrupt(self):
+        self.log_record(f'stop because of working_flag deleted')
+    
     def log_diverage(self):
         self.log_record(f'coverage_diverage')
 
