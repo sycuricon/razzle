@@ -22,6 +22,11 @@ def CodeGenerate(config, extension, output_path):
     random_data_block = RandomDataBlock(extension, output_path)
     random_data_block.gen_instr()
     random_data_block.gen_file('random_data.S')
+
+    include_path = os.path.join(output_path, 'include')
+    os.mkdir(include_path)
+    os.system(f'cp razzle/template/fuzzing.h {include_path}')
+    os.system(f'cp razzle/template/parafuzz.h {include_path}')
     
 
 if __name__ == "__main__":

@@ -751,6 +751,7 @@ class TransBlock:
         file_path = os.path.join(self.output_path, filename)
         with open(file_path, 'wt') as file:
             file.write(f'#include "fuzzing.h"\n')
+            file.write(f'#include "parafuzz.h"\n')
             inst_asm_list, data_asm_list = self.gen_asm()
             file.write(f'.section ".text.{self.name}","ax",@progbits\n')
             file.writelines(inst_asm_list)
