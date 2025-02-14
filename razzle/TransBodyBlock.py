@@ -12,14 +12,16 @@ from payload.MagicDevice import *
 from payload.Block import *
 
 class ArbitraryBlock(TransBlock):
-    def __init__(self, extension, output_path):
+    def __init__(self, extension, output_path, block_num=None, block_weight=None):
         super().__init__('arbitrary_block', extension, output_path)
+        self.block_num = block_num if block_num is not None else random.randint(4, 8)
+        self.block_weight = block_weight if block_weight is not None else [1, 2, 2, 1]
 
     def gen_instr(self):
         block_list = []
-        block_cnt = random.randint(4, 8)
+        block_cnt = self.block_num
         for i in range(block_cnt):
-            block = RandomBlock(f'{self.name}_{i}', self.extension)
+            block = RandomBlock(f'{self.name}_{i}', self.extension, self.block_weight)
             block.gen_instr()
             block_list.append(block)
 

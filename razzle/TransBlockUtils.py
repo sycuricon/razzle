@@ -169,16 +169,17 @@ class BaseBlock:
         return sum
 
 class RandomBlock(BaseBlock):
-    def __init__(self, name, extension):
+    def __init__(self, name, extension, block_weight):
         super().__init__(name, extension, True)
-        self.gen_func = [
+        gen_func = [
             RandomBlock._gen_atomic,
             RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_float_arithmetic,
-            RandomBlock._gen_int_arithmetic,
             RandomBlock._gen_int_arithmetic,
             RandomBlock._gen_load_store,
         ]
+        self.gen_func = []
+        for func, weight_num in zip(gen_func, block_weight):
+            self.gen_func.extend([func] * weight_num)
     
     def _gen_int_arithmetic(self):
         extension = [extension_i for extension_i in [
@@ -745,6 +746,17 @@ class TransBlock:
         inst_asm_list = self.gen_inst_asm()
         data_asm_list = self.gen_data_asm()
         return inst_asm_list, data_asm_list
+    
+    def gen_file(self, filename):
+        file_path = os.path.join(self.output_path, filename)
+        with open(file_path, 'wt') as file:
+            file.write(f'#include "fuzzing.h"\n')
+            inst_asm_list, data_asm_list = self.gen_asm()
+            file.write(f'.section ".text.{self.name}","ax",@progbits\n')
+            file.writelines(inst_asm_list)
+            file.writelines('\n\n')
+            file.write(f'.section ".data.{self.name}","ax",@progbits\n')
+            file.writelines(data_asm_list)
 
     def work(self):
         return len(self.extension) > 0
