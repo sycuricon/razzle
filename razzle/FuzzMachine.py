@@ -773,26 +773,40 @@ class FuzzMachine:
 
                             iter_num += 1
                             if self.fuzz_mode in ['no_coverage']:
-                                config = self.trigger_seed.mutate({}, False if random.randint(0, 1) == 0 else True)
-                                config = self.access_seed.mutate(config, False if random.randint(0, 1) == 0 else True)
-                                state = FuzzFSM.MUTATE_TRIGGER
-                                break
-
-                            if cover_contr < self.TRIGGER_RARE:
-                                config = self.trigger_seed.mutate({}, True)
-                                config = self.access_seed.mutate(config, True)
-                                state = FuzzFSM.MUTATE_TRIGGER
-                                break
-                            elif cover_contr < self.ACCESS_RATE:
-                                config = self.access_seed.mutate(config, True)
-                                state = FuzzFSM.MUTATE_ACCESS
-                                break
+                                rand_stage = random.randint(0,2)
+                                match rand_stage:
+                                    case 0:
+                                        config = self.trigger_seed.mutate({}, True)
+                                        config = self.access_seed.mutate(config, True)
+                                        state = FuzzFSM.MUTATE_TRIGGER
+                                        break
+                                    case 1:
+                                        config = self.access_seed.mutate(config, True)
+                                        state = FuzzFSM.MUTATE_ACCESS
+                                        break
+                                    case _:
+                                        new_config_list = []
+                                        for leak_seed, config in zip(self.leak_seed_list, config_list):
+                                            config = leak_seed.mutate(config)
+                                            new_config_list.append(config)
+                                        config_list = new_config_list
+                                        break
                             else:
-                                new_config_list = []
-                                for leak_seed, config in zip(self.leak_seed_list, config_list):
-                                    config = leak_seed.mutate(config)
-                                    new_config_list.append(config)
-                                config_list = new_config_list
+                                if cover_contr < self.TRIGGER_RARE:
+                                    config = self.trigger_seed.mutate({}, True)
+                                    config = self.access_seed.mutate(config, True)
+                                    state = FuzzFSM.MUTATE_TRIGGER
+                                    break
+                                elif cover_contr < self.ACCESS_RATE:
+                                    config = self.access_seed.mutate(config, True)
+                                    state = FuzzFSM.MUTATE_ACCESS
+                                    break
+                                else:
+                                    new_config_list = []
+                                    for leak_seed, config in zip(self.leak_seed_list, config_list):
+                                        config = leak_seed.mutate(config)
+                                        new_config_list.append(config)
+                                    config_list = new_config_list
                     case FuzzFSM.STOP:
                         break
                 with open(self.fuzz_working_flag) as _:
