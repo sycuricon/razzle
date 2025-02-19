@@ -347,7 +347,8 @@ class FuzzMachine:
                 data_leak_record.append({})
                 full_leak_record.append(record)
         
-        width_inches = 7840 / 300
+        width_inches = 1960 / 300
+        # width_inches = 7840 / 300
         height_inches = 1080 / 300
 
         plt.figure(figsize=(width_inches, height_inches))
@@ -762,7 +763,7 @@ class FuzzMachine:
                             access_result, access_fuzz_body = self.fuzz_access(config, trigger_fuzz_body)
                             self.access_seed.update_sample(access_result)
                             if self.fuzz_mode in ['leak', 'no_coverage']:
-                                if access_result == FuzzResult.SUCCESS:
+                                if self.fuzz_mode in ['no_coverage'] or access_result == FuzzResult.SUCCESS:
                                     state = FuzzFSM.ACCUMULATE
                                     break
                                 else:
@@ -799,7 +800,7 @@ class FuzzMachine:
 
                             iter_num += 1
                             if self.fuzz_mode in ['no_coverage']:
-                                rand_stage = random.randint(0,9)
+                                rand_stage = random.randint(0,11)
                                 match rand_stage:
                                     case 0:
                                         config = self.trigger_seed.mutate({}, True)
@@ -816,7 +817,7 @@ class FuzzMachine:
                                             config = leak_seed.mutate(config)
                                             new_config_list.append(config)
                                         config_list = new_config_list
-                                    case 6|7|8|9:
+                                    case 6|7|8|9|10|11:
                                         new_config_list = []
                                         for leak_seed, config in zip(self.leak_seed_list, config_list):
                                             config = leak_seed.mutate(config, False, True)
