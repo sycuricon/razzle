@@ -212,7 +212,7 @@ class Seed:
                 if random.random() < 0.5:
                     break
 
-    def mutate(self, config, is_full):
+    def mutate(self, config, is_full, is_entroy=False):
         self.mutate_begin()
         while True:
             self.mutate_random_field(is_full)
@@ -277,10 +277,13 @@ class TriggerSeed(Seed):
         for trigger_type in TriggerType:
             self.stat_table.register_entry(trigger_type)
     
-    def mutate(self, config, is_full=False):
+    def mutate(self, config, is_full=False, is_entroy=False):
         self.mutate_begin()
         while True:
-            self.mutate_random_field(is_full)
+            if is_entroy:
+                self.mutate_field(self.TriggerFieldEnum.TRIGGER_SEED)
+            else:
+                self.mutate_random_field(is_full)
             config = self.parse(config)
             if self.config is None or config != self.config:
                 if self.coverage.add_trigger_state(self.seed):
@@ -391,10 +394,13 @@ class AccessSeed(Seed):
     def update_sample(self, result):
         self.stat_table.update_sample(self.config['secret_migrate_type'], result)
     
-    def mutate(self, config, is_full=False):
+    def mutate(self, config, is_full=False, is_entroy=False):
         self.mutate_begin()
         while True:
-            self.mutate_random_field(is_full)
+            if is_entroy:
+                self.mutate_field(self.AccessFieldEnum.ACCESS_SEED)
+            else:
+                self.mutate_random_field(is_full)
             config = self.parse(config)
             if self.config is None or config != self.config:
                 if self.coverage.add_access_state(self.seed):
@@ -450,10 +456,13 @@ class LeakSeed(Seed):
         super().__init__(self.seed_length)
         self.coverage = coverage
     
-    def mutate(self, config, is_full=False):
+    def mutate(self, config, is_full=False, is_entroy=False):
         self.mutate_begin()
         while True:
-            self.mutate_random_field(is_full)
+            if is_entroy:
+                self.mutate_field(self.LeakFieldEnum.LEAK_SEED)
+            else:
+                self.mutate_random_field(is_full)
             config = self.parse(config)
             if self.config is None or config != self.config:
                 if self.coverage.add_leak_state(self.seed):
