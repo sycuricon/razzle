@@ -303,6 +303,10 @@ class FuzzMachine:
         with open(curve_file_name, "wt") as file:
             for i, cov in enumerate(cov_contr):
                 file.write(f'{i} {cov}\n')
+        time_file_name = os.path.join(self.analysis_path, f'{stage_name}_time_curve')
+        with open(time_file_name, "wt") as file:
+            for time, cov in zip(time_list, cov_contr):
+                file.write(f'{time} {cov}\n')
     
     def _coverage_add_stage_axi(self):
         trigger_time_list = []
