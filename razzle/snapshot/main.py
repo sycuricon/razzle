@@ -1,7 +1,8 @@
 import os
 import logging
 import argparse
-from snapshot import *
+from riscv_csr import *
+from riscv_state import *
 
 if __name__ == "__main__":
     parse = argparse.ArgumentParser(description="RVSnap is a RISC-V processor snapshot generator with a user-friendly interface that allows editing in JSON format.")
@@ -39,4 +40,4 @@ if __name__ == "__main__":
     else:
         design.gen_loader(f"{args.output}/{args.asm}", with_bin=image_name)
     
-    os.system(f"cp ./src/loader/rvsnap.h {args.output}/")
+    os.system(f"cp ./razzle/template/loader/rvsnap.h {args.output}/include")

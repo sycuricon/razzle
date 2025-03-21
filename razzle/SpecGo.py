@@ -1,5 +1,6 @@
 from TransBodyBlock import *
 from TransFrameBlock import *
+import os
 
 if "RAZZLE_ROOT" not in os.environ:
     os.environ["RAZZLE_ROOT"] = os.path.join(os.path.dirname(os.path.realpath(__file__)))
@@ -8,6 +9,9 @@ def CodeGenerate(config, extension, output_path):
 
     if not os.path.exists(output_path):
         os.mkdir(output_path)
+
+    reg_init_hjson = './config/reg_init.hjson'
+    os.system(f'python ./razzle/snapshot/main.py --input {reg_init_hjson} --output {output_path} --format asm --pmp 8')
     
     delay_block = DelayBlock(extension, output_path, config['delay_len'],\
         config['delay_float_rate'], config['delay_mem'])
@@ -24,7 +28,8 @@ def CodeGenerate(config, extension, output_path):
     random_data_block.gen_file('random_data.S')
 
     include_path = os.path.join(output_path, 'include')
-    os.mkdir(include_path)
+    if not os.path.exists(include_path):
+        os.mkdir(include_path)
     os.system(f'cp razzle/template/fuzzing.h {include_path}')
     os.system(f'cp razzle/template/parafuzz.h {include_path}')
     
