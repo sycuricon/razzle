@@ -12,7 +12,8 @@ SUPPORTED_CSR = [
     "scounteren",
     "mscratch",
     "sscratch",
-    "satp"
+    "satp",
+    "fcsr",
 ]
 
 RV64_MEPC_META = [
@@ -180,3 +181,17 @@ RV64_PMPCFG_META = [
     ("L",       7,      0x1),
 ]
 
+RV64_MEPC_META = [
+#   (name,    offset,   mask)
+    ("EPC",     0,      0xffff_ffff_ffff_ffff),
+]
+
+RV64_FCSR_META = [
+#   (name,    offset,   mask)
+    ("NX",      0,      0x1),
+    ("UF",      1,      0x1),
+    ("OF",      2,      0x1),
+    ("DZ",      3,      0x1),
+    ("NV",      4,      0x1),
+    ("FRM",     5,      0x7),
+]
