@@ -1,0 +1,254 @@
+{
+  csr:
+  {
+    mepc:
+    {
+      EPC: BoomTile.core.csr.reg_mepc[39:0]
+    }
+    sepc:
+    {
+      EPC: BoomTile.core.csr.reg_sepc[39:0]
+    }
+    mstatus:
+    {
+      SIE: BoomTile.core.csr.reg_mstatus_sie
+      MIE: BoomTile.core.csr.reg_mstatus_mie
+      SPIE: BoomTile.core.csr.reg_mstatus_spie
+      MPIE: BoomTile.core.csr.reg_mstatus_mpie
+      SPP: BoomTile.core.csr.reg_mstatus_spp
+      MPP: BoomTile.core.csr.reg_mstatus_prv[1:0]
+      FS: BoomTile.core.csr.reg_mstatus_fs[1:0]
+      MPRV: BoomTile.core.csr.reg_mstatus_mprv
+      SUM: BoomTile.core.csr.reg_mstatus_sum
+      MXR: BoomTile.core.csr.reg_mstatus_mxr
+      TVM: BoomTile.core.csr.reg_mstatus_tvm
+      TW: BoomTile.core.csr.reg_mstatus_tw
+      TSR: BoomTile.core.csr.reg_mstatus_tsr
+    }
+    mie:
+    {
+      USI: BoomTile.core.csr.reg_mie[0]
+      SSI: BoomTile.core.csr.reg_mie[1]
+      HSI: BoomTile.core.csr.reg_mie[2]
+      MSI: BoomTile.core.csr.reg_mie[3]
+      UTI: BoomTile.core.csr.reg_mie[4]
+      STI: BoomTile.core.csr.reg_mie[5]
+      HTI: BoomTile.core.csr.reg_mie[6]
+      MTI: BoomTile.core.csr.reg_mie[7]
+      UEI: BoomTile.core.csr.reg_mie[8]
+      SEI: BoomTile.core.csr.reg_mie[9]
+      HEI: BoomTile.core.csr.reg_mie[10]
+      MEI: BoomTile.core.csr.reg_mie[11]
+    }
+    mideleg:
+    {
+      USI: BoomTile.core.csr.reg_mideleg[0]
+      SSI: BoomTile.core.csr.reg_mideleg[1]
+      HSI: BoomTile.core.csr.reg_mideleg[2]
+      MSI: BoomTile.core.csr.reg_mideleg[3]
+      UTI: BoomTile.core.csr.reg_mideleg[4]
+      STI: BoomTile.core.csr.reg_mideleg[5]
+      HTI: BoomTile.core.csr.reg_mideleg[6]
+      MTI: BoomTile.core.csr.reg_mideleg[7]
+      UEI: BoomTile.core.csr.reg_mideleg[8]
+      SEI: BoomTile.core.csr.reg_mideleg[9]
+      HEI: BoomTile.core.csr.reg_mideleg[10]
+      MEI: BoomTile.core.csr.reg_mideleg[11]
+    }
+    medeleg:
+    {
+      Inst_Addr_Misalign: BoomTile.core.csr.reg_medeleg[0]
+      Inst_Access_Fault:  BoomTile.core.csr.reg_medeleg[1]
+      Illegal_Inst:       BoomTile.core.csr.reg_medeleg[2]
+      Breakpoint:         BoomTile.core.csr.reg_medeleg[3]
+      Load_Addr_Misalign: BoomTile.core.csr.reg_medeleg[4]
+      Load_Access_Fault:  BoomTile.core.csr.reg_medeleg[5]
+      Store_Addr_Misalign:BoomTile.core.csr.reg_medeleg[6]
+      Store_Access_Fault: BoomTile.core.csr.reg_medeleg[7]
+      Ecall_U:            BoomTile.core.csr.reg_medeleg[8]
+      Ecall_S:            BoomTile.core.csr.reg_medeleg[9]
+      Ecall_H:            BoomTile.core.csr.reg_medeleg[10]
+      Ecall_M:            BoomTile.core.csr.reg_medeleg[11]
+      Inst_Page_Fault:    BoomTile.core.csr.reg_medeleg[12]
+      Load_Page_Fault:    BoomTile.core.csr.reg_medeleg[13]
+      Store_Page_Fault:   BoomTile.core.csr.reg_medeleg[15]
+    }
+    mcounteren:
+    {
+      CY: BoomTile.core.csr.reg_mcounteren[0]
+      TM: BoomTile.core.csr.reg_mcounteren[1]
+      IR: BoomTile.core.csr.reg_mcounteren[2]
+      HPM3: BoomTile.core.csr.reg_mcounteren[3]
+      HPM4: BoomTile.core.csr.reg_mcounteren[4]
+      HPM5: BoomTile.core.csr.reg_mcounteren[5]
+      HPM6: BoomTile.core.csr.reg_mcounteren[6]
+      HPM7: BoomTile.core.csr.reg_mcounteren[7]
+      HPM8: BoomTile.core.csr.reg_mcounteren[8]
+      HPM9: BoomTile.core.csr.reg_mcounteren[9]
+      HPM10: BoomTile.core.csr.reg_mcounteren[10]
+      HPM11: BoomTile.core.csr.reg_mcounteren[11]
+      HPM12: BoomTile.core.csr.reg_mcounteren[12]
+      HPM13: BoomTile.core.csr.reg_mcounteren[13]
+      HPM14: BoomTile.core.csr.reg_mcounteren[14]
+      HPM15: BoomTile.core.csr.reg_mcounteren[15]
+      HPM16: BoomTile.core.csr.reg_mcounteren[16]
+      HPM17: BoomTile.core.csr.reg_mcounteren[17]
+      HPM18: BoomTile.core.csr.reg_mcounteren[18]
+      HPM19: BoomTile.core.csr.reg_mcounteren[19]
+      HPM20: BoomTile.core.csr.reg_mcounteren[20]
+      HPM21: BoomTile.core.csr.reg_mcounteren[21]
+      HPM22: BoomTile.core.csr.reg_mcounteren[22]
+      HPM23: BoomTile.core.csr.reg_mcounteren[23]
+      HPM24: BoomTile.core.csr.reg_mcounteren[24]
+      HPM25: BoomTile.core.csr.reg_mcounteren[25]
+      HPM26: BoomTile.core.csr.reg_mcounteren[26]
+      HPM27: BoomTile.core.csr.reg_mcounteren[27]
+      HPM28: BoomTile.core.csr.reg_mcounteren[28]
+      HPM29: BoomTile.core.csr.reg_mcounteren[29]
+      HPM30: BoomTile.core.csr.reg_mcounteren[30]
+      HPM31: BoomTile.core.csr.reg_mcounteren[31]
+    }
+    scounteren:
+    {
+      CY: BoomTile.core.csr.reg_scounteren[0]
+      TM: BoomTile.core.csr.reg_scounteren[1]
+      IR: BoomTile.core.csr.reg_scounteren[2]
+      HPM3: BoomTile.core.csr.reg_scounteren[3]
+      HPM4: BoomTile.core.csr.reg_scounteren[4]
+      HPM5: BoomTile.core.csr.reg_scounteren[5]
+      HPM6: BoomTile.core.csr.reg_scounteren[6]
+      HPM7: BoomTile.core.csr.reg_scounteren[7]
+      HPM8: BoomTile.core.csr.reg_scounteren[8]
+      HPM9: BoomTile.core.csr.reg_scounteren[9]
+      HPM10: BoomTile.core.csr.reg_scounteren[10]
+      HPM11: BoomTile.core.csr.reg_scounteren[11]
+      HPM12: BoomTile.core.csr.reg_scounteren[12]
+      HPM13: BoomTile.core.csr.reg_scounteren[13]
+      HPM14: BoomTile.core.csr.reg_scounteren[14]
+      HPM15: BoomTile.core.csr.reg_scounteren[15]
+      HPM16: BoomTile.core.csr.reg_scounteren[16]
+      HPM17: BoomTile.core.csr.reg_scounteren[17]
+      HPM18: BoomTile.core.csr.reg_scounteren[18]
+      HPM19: BoomTile.core.csr.reg_scounteren[19]
+      HPM20: BoomTile.core.csr.reg_scounteren[20]
+      HPM21: BoomTile.core.csr.reg_scounteren[21]
+      HPM22: BoomTile.core.csr.reg_scounteren[22]
+      HPM23: BoomTile.core.csr.reg_scounteren[23]
+      HPM24: BoomTile.core.csr.reg_scounteren[24]
+      HPM25: BoomTile.core.csr.reg_scounteren[25]
+      HPM26: BoomTile.core.csr.reg_scounteren[26]
+      HPM27: BoomTile.core.csr.reg_scounteren[27]
+      HPM28: BoomTile.core.csr.reg_scounteren[28]
+      HPM29: BoomTile.core.csr.reg_scounteren[29]
+      HPM30: BoomTile.core.csr.reg_scounteren[30]
+      HPM31: BoomTile.core.csr.reg_scounteren[31]
+    }
+    mtvec:
+    {
+      MODE: BoomTile.core.csr.reg_mtvec[1:0]
+      BASE: BoomTile.core.csr.reg_mtvec[63:2]
+    }
+    stvec:
+    {
+      MODE: BoomTile.core.csr.reg_stvec[1:0]
+      BASE: BoomTile.core.csr.reg_stvec[63:2]
+    }
+    satp:
+    {
+      PPN: BoomTile.core.csr.reg_satp_ppn[43:0]
+      MODE: BoomTile.core.csr.reg_satp_mode[3:0]
+    }
+    mscratch:
+    {
+      SCRATCH: BoomTile.core.csr.reg_mscratch[63:0]
+    }
+    sscratch:
+    {
+      SCRATCH: BoomTile.core.csr.reg_sscratch[63:0]
+    }
+    fcsr:
+    {
+      NX:  BoomTile.core.csr.reg_fflags[0]
+      UF:  BoomTile.core.csr.reg_fflags[1]
+      OF:  BoomTile.core.csr.reg_fflags[2]
+      DZ:  BoomTile.core.csr.reg_fflags[3]
+      NV:  BoomTile.core.csr.reg_fflags[4]
+      FRM: BoomTile.core.csr.reg_frm[2:0]
+    }
+  }
+  pmp:
+  {
+    pmp0:
+    {
+      R:    BoomTile.core.csr.reg_pmp_0_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_0_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_0_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_0_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_0_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_0_addr[29:0]
+    }
+    pmp1:
+    {
+      R:    BoomTile.core.csr.reg_pmp_1_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_1_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_1_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_1_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_1_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_1_addr[29:0]
+    }
+    pmp2:
+    {
+      R:    BoomTile.core.csr.reg_pmp_2_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_2_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_2_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_2_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_2_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_2_addr[29:0]
+    }
+    pmp3:
+    {
+      R:    BoomTile.core.csr.reg_pmp_3_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_3_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_3_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_3_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_3_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_3_addr[29:0]
+    }
+    pmp4:
+    {
+      R:    BoomTile.core.csr.reg_pmp_4_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_4_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_4_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_4_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_4_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_4_addr[29:0]
+    }
+    pmp5:
+    {
+      R:    BoomTile.core.csr.reg_pmp_5_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_5_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_5_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_5_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_5_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_5_addr[29:0]
+    }
+    pmp6:
+    {
+      R:    BoomTile.core.csr.reg_pmp_6_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_6_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_6_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_6_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_6_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_6_addr[29:0]
+    }
+    pmp7:
+    {
+      R:    BoomTile.core.csr.reg_pmp_7_cfg_r
+      W:    BoomTile.core.csr.reg_pmp_7_cfg_w
+      X:    BoomTile.core.csr.reg_pmp_7_cfg_x
+      A:    BoomTile.core.csr.reg_pmp_7_cfg_a[1:0]
+      L:    BoomTile.core.csr.reg_pmp_7_cfg_l
+      ADDR: BoomTile.core.csr.reg_pmp_7_addr[29:0]
+    }
+  }
+}

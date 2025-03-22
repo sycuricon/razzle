@@ -25,6 +25,8 @@ class RISCVReg:
         return self.decode_raw(reg_str, 2)
 
     def decode_reg(self, reg_str):
+        if type(reg_str) is int:
+            return reg_str
         try:
             if len(reg_str) <= 2:
                 return self.decode_dec(reg_str)
@@ -252,8 +254,105 @@ class RISCVSnapshot:
     def load_state(self, init_state):
         self.state.load_state(init_state)
 
-    def load_snapshot(self, init_file):
+    def csr_map(self, init_state, csr_map, csr_state):
+        def str2int(value):
+            if type(value) is not int:
+                try:
+                    if value.startswith('0x'):
+                        value = int(value, base=16)
+                    elif value.startswith('0b'):
+                        value = int(value, base=2)
+                    else:
+                        value = int(value, base=10)
+                except ValueError:
+                    value = value
+            return value
+
+        def rtl_parse(rtl_state):
+            if '[' not in rtl_state:
+                rtl_name, rtl_len, rtl_offset = rtl_state, 1, 0
+            elif ':' not in rtl_state:
+                rtl_name, suffix = rtl_state.split('[')
+                rtl_offset = str2int(suffix[:-1])
+                rtl_len = 1
+            else:
+                rtl_name, suffix = rtl_state.split('[')
+                suffix = suffix[:-1]
+                rtl_end, rtl_begin = suffix.split(':')
+                rtl_end = str2int(rtl_end)
+                rtl_begin = str2int(rtl_begin)
+                rtl_len = rtl_end - rtl_begin + 1
+                rtl_offset = rtl_begin
+            return rtl_name, rtl_len, rtl_offset
+        
+        for rtl_name, rtl_value in csr_state.items():
+            csr_state[rtl_name] = str2int(rtl_value)
+
+        for i, value in enumerate(init_state['xreg']):
+            init_state['xreg'][i] = str2int(value)
+
+        for i, value in enumerate(init_state['freg']):
+            init_state['freg'][i] = str2int(value)
+
+        for csr_type in ['csr', 'pmp']:
+            for csr_name, csr_field in init_state[csr_type].items():
+                if csr_name not in csr_map[csr_type]:
+                    for csr_sub_field, csr_sub_field_default in csr_field.items():
+                        csr_field[csr_sub_field] = str2int(csr_sub_field_default)
+                    continue
+                
+                for csr_sub_field, csr_sub_field_default in csr_field.items():
+                    if csr_sub_field not in csr_map[csr_type][csr_name]:
+                        csr_field[csr_sub_field] = str2int(csr_sub_field_default)
+                        continue
+                    
+                    rtl_state = csr_map[csr_type][csr_name][csr_sub_field]
+                    rtl_name, rtl_len, rtl_offset = rtl_parse(rtl_state)
+
+                    if rtl_name not in csr_state:
+                        csr_field[csr_sub_field] = str2int(csr_sub_field_default)
+                        continue
+                    
+                    info_value = (str2int(csr_state[rtl_name]) >> rtl_offset) & ((1 << rtl_len) - 1)
+                    match (csr_type, csr_name, csr_sub_field):
+                        case ('pmp', _, 'A'):
+                            pmp_format = ['OFF', 'TOR', 'NA4', 'NAPOT']
+                            csr_value = pmp_format[info_value]
+                        case ('pmp', _, 'ADDR'):
+                            a_value = init_state['pmp'][csr_name]['A']
+                            match a_value:
+                                case 'OFF'|'TOR':
+                                    csr_value = info_value
+                                case 'NA4':
+                                    csr_value = info_value << 2
+                                case 'NAPOT':
+                                    pmp_addr = info_value << 2
+                                    pmp_len = 0b100
+                                    while (pmp_addr & pmp_len) != 0:
+                                        pmp_len <<= 1
+                                    pmp_len <<= 1
+                                    pmp_addr = pmp_addr & ~(pmp_len - 1)
+                                    csr_value = pmp_addr
+                                    init_state['pmp'][csr_name]['RANGE'] = pmp_len
+                                case _:
+                                    raise Exception(f'undefine pmpaddr type {a_value}')
+                        case ('csr', 'mtvec', 'BASE') | ('csr', 'stvec', 'BASE'):
+                            csr_value = info_value << 2
+                        case ('csr', 'satp', 'PPN'):
+                            csr_value = info_value << 12
+                        case _:
+                            csr_value = info_value
+                    csr_field[csr_sub_field] = csr_value
+        return init_state
+                    
+    def load_snapshot(self, init_file, map_file, state_file):
         init_state = hjson.load(open(init_file, "r"))
+        csr_map = hjson.load(open(map_file, "r"))
+        csr_state = hjson.load(open(state_file, "r"))
+        if not (csr_map is None) and not (state_file is None):
+            init_state = self.csr_map(init_state, csr_map, csr_state) 
+            with open('./config/temp', 'wt') as file:
+                hjson.dump(init_state, file)
         self.state.load_state(init_state)
 
     def save(self, output_file, **kwargs):

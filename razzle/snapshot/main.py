@@ -8,6 +8,8 @@ if __name__ == "__main__":
     parse = argparse.ArgumentParser(description="RVSnap is a RISC-V processor snapshot generator with a user-friendly interface that allows editing in JSON format.")
     parse.add_argument("-d", "--debug", dest="debug", action="store_true", help="enable debug mode")
     parse.add_argument("--input", dest="input", required=True, help="input json")
+    parse.add_argument("--map", dest="map", help="csr map processor rtl")
+    parse.add_argument("--state", dest="state", help="processor state of processor rtl")
     parse.add_argument("--output", dest="output", default="build", help="output directory")
     parse.add_argument("--format", dest="format", default="hex,64", help="snapshot format")
     parse.add_argument("--image", dest="image", default="default.hex", help="output image name")
@@ -29,7 +31,7 @@ if __name__ == "__main__":
         logging.basicConfig(level=logging.INFO)
 
     design = RISCVSnapshot("rv64gc", int(args.pmp), SUPPORTED_CSR)
-    design.load_snapshot(args.input)
+    design.load_snapshot(args.input, args.map, args.state)
     image_name=f"{args.output}/{args.image}"
     design.save(image_name, output_format=output_format, output_width=output_width)
 

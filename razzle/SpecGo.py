@@ -11,7 +11,9 @@ def CodeGenerate(config, extension, output_path):
         os.mkdir(output_path)
 
     reg_init_hjson = './config/reg_init.hjson'
-    os.system(f'python ./razzle/snapshot/main.py --input {reg_init_hjson} --output {output_path} --format asm --pmp 8')
+    csr_map_hjson = './config/csr_map.hjson'
+    csr_solve_hjson = './config/csr_solve.hjson'
+    os.system(f'python ./razzle/snapshot/main.py --input {reg_init_hjson} --map {csr_map_hjson} --state {csr_solve_hjson} --output {output_path} --format asm --pmp 8')
     
     delay_block = DelayBlock(extension, output_path, config['delay_len'],\
         config['delay_float_rate'], config['delay_mem'])
