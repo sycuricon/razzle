@@ -108,9 +108,13 @@ def pmp_addr_decode(self, init_state):
     mode = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["A"]
     addr = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["ADDR"]
     match mode:
-        case "OFF" | "TOR" | "NA4":
+        case "OFF" | "TOR":
             self.data = self.decode_fields(
                 {"PMPADDR": addr}, globals()[f"RV{self.width}_PMPADDR_META"]
+            )
+        case "NA4":
+            self.data = self.decode_fields(
+                {"PMPADDR": addr >> 2}, globals()[f"RV{self.width}_PMPADDR_META"]
             )
         case "NAPOT":
             addr = self.decode_reg(addr)
@@ -118,7 +122,7 @@ def pmp_addr_decode(self, init_state):
                 init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"]
             )
             self.data = self.decode_fields(
-                {"PMPADDR": hex(addr & ~range | ((range - 1) >> 1))},
+                {"PMPADDR": ((addr & ~range | ((range - 1) >> 1))) >> 2},
                 globals()[f"RV{self.width}_PMPADDR_META"],
             )
 
