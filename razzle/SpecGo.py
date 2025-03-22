@@ -1,5 +1,6 @@
 from TransBodyBlock import *
 from TransFrameBlock import *
+from PageTableManager import *
 import os
 
 if "RAZZLE_ROOT" not in os.environ:
@@ -15,6 +16,11 @@ def CodeGenerate(config, extension, output_path):
     csr_solve_hjson = './config/csr_solve.hjson'
     os.system(f'python ./razzle/snapshot/main.py --input {reg_init_hjson} --map {csr_map_hjson} --state {csr_solve_hjson} --output {output_path} --format asm --pmp 8')
     
+    page_table_hjson = './config/pgtlb.hjson'
+    page_manager = PageTableManager(config['page_table'])
+    page_manager.load_config(page_table_hjson)
+    page_manager.file_generate('build', 'page_table.S')
+
     delay_block = DelayBlock(extension, output_path, config['delay_len'],\
         config['delay_float_rate'], config['delay_mem'])
     delay_block.gen_instr()
@@ -55,7 +61,20 @@ if __name__ == "__main__":
         "RV_C_D",
     ]
 
-    config = {}
+    config = {
+        'page_table': {
+            'bound': [
+                '0x80001000',
+                '0x80004000'
+            ],
+            'virtual_bound': [
+                '0x0000000000001000',
+                '0x0000000000004000'
+            ],
+            'pg_level': 3,
+            'xLen': 64
+        }
+    }
     config['delay_len'] = 8
     config['delay_float_rate'] = 0.6
     config['delay_mem'] = True

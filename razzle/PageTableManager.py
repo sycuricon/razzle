@@ -1,6 +1,7 @@
 from SectionManager import *
 from SectionUtils import *
-
+import hjson
+import random
 
 class PageTablePage:
     def __init__(self, xLen, pg_level):
@@ -119,6 +120,50 @@ class PageTableManager(SectionManager):
                 )
             else:
                 raise "virtual address is conflicted"
+    
+    def load_config(self, filename):
+        def str2int(value):
+            if type(value) is not int:
+                try:
+                    if value.startswith('0x'):
+                        value = int(value, base=16)
+                    elif value.startswith('0b'):
+                        value = int(value, base=2)
+                    else:
+                        value = int(value, base=10)
+                except ValueError:
+                    value = value
+            return value
+
+        with open(filename) as file:
+            config = hjson.loads(file.read())
+        section_list = []
+        for entry_config in config:
+            flag = 0
+            for key, value in zip(['V', 'W', 'R', 'X', 'U'], [Flag.V, Flag.W, Flag.R, Flag.X, Flag.U]):
+                if key in entry_config:
+                    if entry_config[key] == 1:
+                        flag |= value
+                elif random.randint(0, 1) == 1:
+                    flag |= value
+            flag |= Flag.D | Flag.A
+
+            info = {
+                "name": entry_config['name'],
+                "vaddr": str2int(entry_config['vaddr']),
+                "paddr": str2int(entry_config['paddr']),
+                "length": str2int(entry_config['length']),
+                "flag": flag,
+                "must_m": bool(entry_config.get('must_m', False)),
+                "link": entry_config.get('link', ""),
+            }
+
+            section_list.append(info)
+            
+        with open('./config/temp1', 'wt') as file:
+            hjson.dump(section_list, file)
+            
+        self.register_sections(section_list)
 
     def register_sections(self, section_list):
         for info in section_list:
@@ -128,14 +173,14 @@ class PageTableManager(SectionManager):
             paddr = info["paddr"]
             flag = info["flag"]
             length = info["length"]
-            if vaddr == paddr:
-                continue
+            # if vaddr == paddr:
+            #     continue
             for offset in range(0, length, Page.size):
                 vaddr_offset = vaddr + offset
                 paddr_offset = paddr + offset
-                vaddr_virtual_offset = vaddr_offset + 0xFFFFFFFFFFF00000
+                # vaddr_virtual_offset = vaddr_offset + 0xFFFFFFFFFFF00000
                 self._register_page(vaddr_offset, paddr_offset, flag)
-                self._register_page(vaddr_virtual_offset, paddr_offset, flag & ~Flag.U)
+                # self._register_page(vaddr_virtual_offset, paddr_offset, flag & ~Flag.U)
 
     def _generate_sections(self):
         self.section["pagetable"] = PageTableSection(

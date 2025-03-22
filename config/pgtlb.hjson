@@ -1,0 +1,242 @@
+[
+  {
+    name: entr_1
+    vaddr: 0x80001000
+    paddr: 0x80001000
+    length: 0x1000
+  }
+  {
+    name: entr_2
+    vaddr: 0x80002000
+    paddr: 0x80002000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_3
+    vaddr: 0x80003000
+    paddr: 0x80003000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_4
+    vaddr: 0x80004000
+    paddr: 0x80004000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_5
+    vaddr: 0x80005000
+    paddr: 0x80005000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_6
+    vaddr: 0x80006000
+    paddr: 0x80006000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_7
+    vaddr: 0x80007000
+    paddr: 0x80007000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_8
+    vaddr: 0x80008000
+    paddr: 0x80008000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_9
+    vaddr: 0x80009000
+    paddr: 0x80009000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_10
+    vaddr: 0x8000a000
+    paddr: 0x8000a000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_11
+    vaddr: 0x8000b000
+    paddr: 0x8000b000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_12
+    vaddr: 0x8000c000
+    paddr: 0x8000c000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_13
+    vaddr: 0x8000d000
+    paddr: 0x8000d000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_14
+    vaddr: 0x8000e000
+    paddr: 0x8000e000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_15
+    vaddr: 0x8000f000
+    paddr: 0x8000f000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_16
+    vaddr: 0x80010000
+    paddr: 0x80010000
+    length: 0x1000
+    V: 1
+    X: 1
+  }
+  {
+    name: entr_17
+    vaddr: 0x80011000
+    paddr: 0x80011000
+    length: 0x1000
+    V: 1
+    U: 1
+    R: 1
+    W: 0
+  }
+  {
+    name: entr_18
+    vaddr: 0x80012000
+    paddr: 0x80012000
+    length: 0x1000
+    V: 1
+    U: 1
+    R: 0
+    W: 1
+  }
+  {
+    name: entr_19
+    vaddr: 0x80013000
+    paddr: 0x80013000
+    length: 0x1000
+    V: 1
+    U: 0
+    R: 1
+    W: 0
+  }
+  {
+    name: entr_20
+    vaddr: 0x80014000
+    paddr: 0x80014000
+    length: 0x1000
+    V: 1
+    U: 0
+    R: 0
+    W: 1
+  }
+  {
+    name: entr_21
+    vaddr: 0x80015000
+    paddr: 0x80015000
+    length: 0x1000
+    V: 1
+    U: 1
+    R: 1
+    W: 1
+  }
+  {
+    name: entr_22
+    vaddr: 0x80016000
+    paddr: 0x80016000
+    length: 0x1000
+    V: 1
+    U: 0
+    R: 1
+    W: 1
+  }
+  {
+    name: entr_23
+    vaddr: 0x80017000
+    paddr: 0x80017000
+    length: 0x1000
+  }
+  {
+    name: entr_24
+    vaddr: 0x80018000
+    paddr: 0x80018000
+    length: 0x1000
+  }
+  {
+    name: entr_25
+    vaddr: 0x80019000
+    paddr: 0x80019000
+    length: 0x1000
+  }
+  {
+    name: entr_26
+    vaddr: 0x8001a000
+    paddr: 0x8001a000
+    length: 0x1000
+  }
+  {
+    name: entr_27
+    vaddr: 0x8001b000
+    paddr: 0x8001b000
+    length: 0x1000
+  }
+  {
+    name: entr_28
+    vaddr: 0x8001c000
+    paddr: 0x8001c000
+    length: 0x1000
+  }
+  {
+    name: entr_29
+    vaddr: 0x8001d000
+    paddr: 0x8001d000
+    length: 0x1000
+  }
+  {
+    name: entr_30
+    vaddr: 0x8001e000
+    paddr: 0x8001e000
+    length: 0x1000
+  }
+  {
+    name: entr_31
+    vaddr: 0x8001f000
+    paddr: 0x8001f000
+    length: 0x1000
+  }
+]
