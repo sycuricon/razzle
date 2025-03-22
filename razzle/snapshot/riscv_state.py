@@ -43,10 +43,12 @@ class RISCVReg:
         try:
             val = 0
             for name, offset, mask in meta_list:
-                val |= (
-                    (self.decode_reg(val_dict[name]) & mask)
-                    // ((mask) & ~((mask) << 1))
-                ) << offset
+                mask_temp = mask
+                suffix_zero_num = 0
+                while (mask_temp & 1) == 0 and suffix_zero_num < 64:
+                    suffix_zero_num += 1
+                    mask_temp >>= 1
+                val |= (self.decode_reg(val_dict[name]) & mask) >> suffix_zero_num << offset
             return val
         except TypeError:
             return val_dict[name]
@@ -108,13 +110,9 @@ def pmp_addr_decode(self, init_state):
     mode = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["A"]
     addr = init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["ADDR"]
     match mode:
-        case "OFF" | "TOR":
+        case "OFF" | "TOR" | "NA4":
             self.data = self.decode_fields(
                 {"PMPADDR": addr}, globals()[f"RV{self.width}_PMPADDR_META"]
-            )
-        case "NA4":
-            self.data = self.decode_fields(
-                {"PMPADDR": addr >> 2}, globals()[f"RV{self.width}_PMPADDR_META"]
             )
         case "NAPOT":
             addr = self.decode_reg(addr)
@@ -122,7 +120,7 @@ def pmp_addr_decode(self, init_state):
                 init_state["pmp"][f"pmp{self.pmp_addr_idx}"]["RANGE"]
             )
             self.data = self.decode_fields(
-                {"PMPADDR": ((addr & ~range | ((range - 1) >> 1))) >> 2},
+                {"PMPADDR": (addr & ~range | ((range - 1) >> 1))},
                 globals()[f"RV{self.width}_PMPADDR_META"],
             )
 
@@ -325,9 +323,7 @@ class RISCVSnapshot:
                         case ('pmp', _, 'ADDR'):
                             a_value = init_state['pmp'][csr_name]['A']
                             match a_value:
-                                case 'OFF'|'TOR':
-                                    csr_value = info_value
-                                case 'NA4':
+                                case 'OFF'|'TOR' | 'NA4':
                                     csr_value = info_value << 2
                                 case 'NAPOT':
                                     pmp_addr = info_value << 2
