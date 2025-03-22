@@ -32,8 +32,8 @@ def CodeGenerate(config, extension, output_path):
     include_path = os.path.join(output_path, 'include')
     if not os.path.exists(include_path):
         os.mkdir(include_path)
-    os.system(f'cp razzle/template/fuzzing.h {include_path}')
-    os.system(f'cp razzle/template/parafuzz.h {include_path}')
+    os.system(f'cp razzle/template/fuzzing.h {include_path}/')
+    os.system(f'cp razzle/template/parafuzz.h {include_path}/')
     
 
 if __name__ == "__main__":

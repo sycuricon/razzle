@@ -42,4 +42,6 @@ if __name__ == "__main__":
     else:
         design.gen_loader(f"{args.output}/{args.asm}", with_bin=image_name)
     
-    os.system(f"cp ./razzle/template/loader/rvsnap.h {args.output}/include")
+    if not os.path.exists(f'{args.output}/include'):
+        os.mkdir(f'{args.output}/include')
+    os.system(f"cp ./razzle/template/loader/rvsnap.h {args.output}/include/")
