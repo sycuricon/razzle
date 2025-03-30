@@ -346,9 +346,15 @@ class RISCVSnapshot:
         return init_state
                     
     def load_snapshot(self, init_file, map_file, state_file):
-        init_state = hjson.load(open(init_file, "r"))
-        csr_map = hjson.load(open(map_file, "r"))
-        csr_state = hjson.load(open(state_file, "r"))
+        def get_hjson_value(filename):
+            if filename is None:
+                return None
+            if type(filename) is str:
+                return hjson.load(open(filename, "r"))
+            return filename
+        init_state = get_hjson_value(init_file)
+        csr_map = get_hjson_value(map_file)
+        csr_state = get_hjson_value(state_file)
         if not (csr_map is None) and not (state_file is None):
             init_state = self.csr_map(init_state, csr_map, csr_state) 
             with open('./config/temp', 'wt') as file:

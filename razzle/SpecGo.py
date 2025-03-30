@@ -1,6 +1,7 @@
 from TransBodyBlock import *
 from TransFrameBlock import *
 from PageTableManager import *
+from InitManager import *
 import os
 
 if "RAZZLE_ROOT" not in os.environ:
@@ -11,10 +12,8 @@ def CodeGenerate(config, extension, output_path):
     if not os.path.exists(output_path):
         os.mkdir(output_path)
 
-    reg_init_hjson = './config/reg_init.hjson'
-    csr_map_hjson = './config/csr_map.hjson'
-    csr_solve_hjson = './config/csr_solve.hjson'
-    os.system(f'python ./razzle/snapshot/main.py --input {reg_init_hjson} --map {csr_map_hjson} --state {csr_solve_hjson} --output {output_path} --format asm --pmp 8')
+    init_manager = InitManager(config['init'], output_path, 'U')
+    init_manager.file_generate('build', 'init.S')
     
     page_table_hjson = './config/pgtlb.hjson'
     page_manager = PageTableManager(config['page_table'])
@@ -40,6 +39,7 @@ def CodeGenerate(config, extension, output_path):
         os.mkdir(include_path)
     os.system(f'cp razzle/template/fuzzing.h {include_path}/')
     os.system(f'cp razzle/template/parafuzz.h {include_path}/')
+    os.system(f'cp razzle/template/loader/rvsnap.h {include_path}/')
     
 
 if __name__ == "__main__":
@@ -62,6 +62,20 @@ if __name__ == "__main__":
     ]
 
     config = {
+        'init': {
+            'bound': [
+                '0x80000000',
+                '0x80001000'
+            ],
+            'virtual_bound': [
+                '0x0000000080000000',
+                '0x0000000080001000'
+            ],
+            'pmp': 8,
+            'init_input': 'config/snapshot/dummy_state.hjson',
+            'csr_map': 'config/csr_map.hjson',
+            'csr_solve': 'config/csr_solve.hjson',
+        },
         'page_table': {
             'bound': [
                 '0x8000b000',

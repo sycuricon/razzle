@@ -286,15 +286,14 @@
       L: 0b0
       ADDR: 0x0000000000000000
     }
-    pmp1:
+    pmp2:
     {
-      R: 0b1
-      W: 0b1
-      X: 0b1
-      A: NAPOT
+      R: 0b0
+      W: 0b0
+      X: 0b0
+      A: OFF
       L: 0b0
-      ADDR: 0x80000000
-      RANGE: 0x40000
+      ADDR: 0x0000000000000000
     }
     pmp2:
     {

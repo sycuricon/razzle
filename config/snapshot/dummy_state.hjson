@@ -248,6 +248,14 @@
 		sscratch: {
 			SCRATCH: 0x0
 		}
+		fcsr: {
+		NX:  0x0
+		UF:  0x0
+		OF:  0x0
+		DZ:  0x0
+		NV:  0x0
+		FRM: 0x0
+		}
     }
 	pmp: {
 		pmp0: {
@@ -275,6 +283,38 @@
 			ADDR:	0x0000000000000000
 		}
 		pmp3: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp4: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp5: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		},
+		pmp6: {
+			R:		0b0
+			W:		0b0
+			X:		0b0
+			A:		OFF
+			L:		0b0
+			ADDR:	0x0000000000000000
+		}
+		pmp7: {
 			R:		0b0
 			W:		0b0
 			X:		0b0

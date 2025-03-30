@@ -15,12 +15,12 @@
     BoomTile.core.csr.reg_mideleg: 0x123
     BoomTile.core.csr.reg_medeleg: 0x456
     BoomTile.core.csr.reg_mie: 0x789
-    BoomTile.core.csr.reg_mtvec: 0xabcdef0123456789
+    // BoomTile.core.csr.reg_mtvec: 0xabcdef0123456789
     BoomTile.core.csr.reg_mcounteren: 0xdeadbeef
     BoomTile.core.csr.reg_scounteren: 0xdeadbeef
-    BoomTile.core.csr.reg_stvec: 0x1234123412341234
-    BoomTile.core.csr.reg_satp_mode: 0xf
-    BoomTile.core.csr.reg_satp_ppn: 0xffffffff123
+    // BoomTile.core.csr.reg_stvec: 0x1234123412341234
+    // BoomTile.core.csr.reg_satp_mode: 0xf
+    // BoomTile.core.csr.reg_satp_ppn: 0xffffffff123
     BoomTile.core.csr.reg_mscratch: 0xff00ff00ff00ff00
     BoomTile.core.csr.reg_sscratch: 0x00ff00ff00ff00ff
     BoomTile.core.csr.reg_mepc: 0x1234567890
