@@ -23,9 +23,9 @@ class InitManager(SectionManager):
 
     def _set_symbol_relate_register(self, priv):
         # mtvec/stvec
-        self.reg_init_config["csr"]["mtvec"]["BASE"] = "0x80000800"
+        self.reg_init_config["csr"]["mtvec"]["BASE"] = "0x80001000"
         self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
-        self.reg_init_config["csr"]["stvec"]["BASE"] = "0xffffffff80001000"
+        self.reg_init_config["csr"]["stvec"]["BASE"] = "0xffffffff80001800"
         self.reg_init_config["csr"]["stvec"]["MODE"] = "0b00"
         # mepc/sepc
         if priv == 'U' or priv == 'M':
@@ -56,7 +56,7 @@ class InitManager(SectionManager):
         self.reg_init_config["pmp"][pmp_name]["X"] = "0b0"
         self.reg_init_config["pmp"][pmp_name]["L"] = "0b1"
         self.reg_init_config["pmp"][pmp_name]["A"] = "NAPOT"
-        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80006000"
+        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80007000"
         self.reg_init_config["pmp"][pmp_name]["RANGE"] = "0x1000"
 
         # self.reg_init_config["pmp"]["pmp0"]["R"]="0b0"
