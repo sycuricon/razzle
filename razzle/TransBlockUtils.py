@@ -892,8 +892,8 @@ def inst_simlutor(baker, block_list):
     gen_elf = ShellCommand(
         "riscv64-unknown-elf-gcc",
         [
-            "-march=rv64gc_zicsr",
-            "-mabi=lp64f",
+            "-march=rv64gc",
+            "-mabi=lp64",
             "-mcmodel=medany",
             "-nostdlib",
             "-nostartfiles",
