@@ -36,8 +36,10 @@ SECTIONS
         *(.text.arbtrary_block_1)
         *(.text.jmp_victim)
     }
+    . = 0x80600000;
     .victim : {
         *(.text.load_init_block)
+        *(.text.nop_block)
         *(.text.delay_block)
         *(.text.trigger_block)
     }
