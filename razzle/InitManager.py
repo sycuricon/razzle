@@ -21,7 +21,8 @@ class InitManager(SectionManager):
         self.priv = priv
         self.design = RISCVSnapshot("rv64gc", int(self.pmp), SUPPORTED_CSR, True)
 
-    def _set_symbol_relate_register(self, priv):
+    def _set_symbol_relate_register(self, mode):
+        priv, addr = mode
         # mtvec/stvec
         self.reg_init_config["csr"]["mtvec"]["BASE"] = "0x80001000"
         self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
@@ -33,9 +34,14 @@ class InitManager(SectionManager):
         else:
             self.reg_init_config["csr"]["mepc"]["EPC"] = "0xffffffff80200000"
         # satp
-        self.reg_init_config["csr"]["satp"]["PPN"] = "0x8000a000"
-        self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
-        self.reg_init_config["csr"]["satp"]["MODE"] = "0x8"
+        if addr == 'v':
+            self.reg_init_config["csr"]["satp"]["PPN"] = "0x8000d000"
+            self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
+            self.reg_init_config["csr"]["satp"]["MODE"] = "0x8"
+        else:
+            self.reg_init_config["csr"]["satp"]["PPN"] = "0x0"
+            self.reg_init_config["csr"]["satp"]["ASID"] = "0x0"
+            self.reg_init_config["csr"]["satp"]["MODE"] = "0x0"
         # mstatus
         self.reg_init_config["csr"]["mstatus"]["MPP"] = \
             {'U':'0b00', 'S':'0b01', 'M':'0b11'}[priv]
@@ -56,7 +62,7 @@ class InitManager(SectionManager):
         self.reg_init_config["pmp"][pmp_name]["X"] = "0b0"
         self.reg_init_config["pmp"][pmp_name]["L"] = "0b1"
         self.reg_init_config["pmp"][pmp_name]["A"] = "NAPOT"
-        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80007000"
+        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80005000"
         self.reg_init_config["pmp"][pmp_name]["RANGE"] = "0x1000"
 
         # self.reg_init_config["pmp"]["pmp0"]["R"]="0b0"

@@ -97,6 +97,15 @@
     R: 1
   }
   {
+    name: func_data
+    vaddr: 0x8000c000
+    paddr: 0x8000c000
+    length: 0x1000
+    V: 1
+    W: 1
+    R: 1
+  }
+  {
     name: train_0
     vaddr: 0x80200000
     paddr: 0x80200000
