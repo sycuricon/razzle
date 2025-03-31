@@ -14,12 +14,12 @@ def CodeGenerate(config, seed, extension, output_path):
         os.mkdir(output_path)
 
     init_manager = InitManager(config['init'], output_path, seed['mode'])
-    init_manager.file_generate('build', 'init.S')
+    init_manager.file_generate(output_path, 'init.S')
     
     page_table_hjson = './config/pgtlb.hjson'
     page_manager = PageTableManager(config['page_table'])
     page_manager.load_config(page_table_hjson)
-    page_manager.file_generate('build', 'page_table.S')
+    page_manager.file_generate(output_path, 'page_table.S')
 
     channel_block = ChannelBlock(extension, output_path)
     channel_block.gen_instr()
@@ -56,16 +56,37 @@ def CodeGenerate(config, seed, extension, output_path):
     load_init_block.gen_instr()
     load_init_block.gen_file('load_init.S')
 
-    os.system(f'cp razzle/template/specgo_trans/*.S {output_path}')
-    os.system(f'cp razzle/template/specgo_trans/link.ld {output_path}')
+    baker = BuildManager(
+        {"RAZZLE_ROOT": os.environ["RAZZLE_ROOT"]}, output_path, output_path, file_name=f"compile.sh"
+    )
+    gen_elf = ShellCommand(
+        "riscv64-unknown-elf-gcc",
+        [
+            "-march=rv64gc",
+            "-mabi=lp64",
+            "-mcmodel=medany",
+            "-nostdlib",
+            "-nostartfiles",
+            "-I$OUTPUT_PATH",
+            "-I$RAZZLE_ROOT/template",
+            "-I$RAZZLE_ROOT/template/specgo_trans",
+            "-I$RAZZLE_ROOT/template/loader",
+            "-T$RAZZLE_ROOT/template/specgo_trans/link.ld",
+            "$RAZZLE_ROOT/template/specgo_trans/*.S",
+            f"{output_path}/*.S",
+            "-o",
+            f"{output_path}/victim"
+        ],
+    )
+    baker.add_cmd(gen_elf.gen_cmd())
 
-    include_path = os.path.join(output_path, 'include')
-    if not os.path.exists(include_path):
-        os.mkdir(include_path)
-    os.system(f'cp razzle/template/fuzzing.h {include_path}/')
-    os.system(f'cp razzle/template/parafuzz.h {include_path}/')
-    os.system(f'cp razzle/template/loader/rvsnap.h {include_path}/')
-    os.system(f'cp razzle/template/specgo_trans/template.h {include_path}/')
+    dump_asm = ShellCommand(
+        "riscv64-unknown-elf-objdump",
+        ["-d", f"{output_path}/victim", ">", f"{output_path}/victim.asm"],
+    )
+    baker.add_cmd(dump_asm.gen_cmd())
+
+    baker.run()
     
 
 if __name__ == "__main__":

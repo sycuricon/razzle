@@ -7,4 +7,7 @@
 1:  sd gp, 0(a0);                            \
     j 1b;
 
+#define PASS 1
+#define FAIL 3
+
 #endif
