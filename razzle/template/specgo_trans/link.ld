@@ -6,6 +6,8 @@ SECTIONS
 	.init : {
         _init_start = .;
 		*(.text.init)
+        . = ALIGN(8);
+        *(.data.init)
         _init_end = .;
 	}
     . = 0x80001000;

@@ -1,6 +1,15 @@
 [
   {
-    name: sentry
+    name: init
+    vaddr: 0x80000000
+    paddr: 0x80000000
+    length: 0x1000
+    V: 1
+    R: 1
+    X: 1
+  }
+  {
+    name: trap
     vaddr: 0x80001000
     paddr: 0x80001000
     length: 0x1000

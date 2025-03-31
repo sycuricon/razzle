@@ -18,28 +18,28 @@
       SPP: BoomTile.core.csr.reg_mstatus_spp
       MPP: BoomTile.core.csr.reg_mstatus_prv[1:0]
       FS: BoomTile.core.csr.reg_mstatus_fs[1:0]
-      MPRV: BoomTile.core.csr.reg_mstatus_mprv
+      // MPRV: BoomTile.core.csr.reg_mstatus_mprv
       SUM: BoomTile.core.csr.reg_mstatus_sum
-      MXR: BoomTile.core.csr.reg_mstatus_mxr
-      TVM: BoomTile.core.csr.reg_mstatus_tvm
-      TW: BoomTile.core.csr.reg_mstatus_tw
-      TSR: BoomTile.core.csr.reg_mstatus_tsr
+      // MXR: BoomTile.core.csr.reg_mstatus_mxr
+      // TVM: BoomTile.core.csr.reg_mstatus_tvm
+      // TW: BoomTile.core.csr.reg_mstatus_tw
+      // TSR: BoomTile.core.csr.reg_mstatus_tsr
     }
-    mie:
-    {
-      USI: BoomTile.core.csr.reg_mie[0]
-      SSI: BoomTile.core.csr.reg_mie[1]
-      HSI: BoomTile.core.csr.reg_mie[2]
-      MSI: BoomTile.core.csr.reg_mie[3]
-      UTI: BoomTile.core.csr.reg_mie[4]
-      STI: BoomTile.core.csr.reg_mie[5]
-      HTI: BoomTile.core.csr.reg_mie[6]
-      MTI: BoomTile.core.csr.reg_mie[7]
-      UEI: BoomTile.core.csr.reg_mie[8]
-      SEI: BoomTile.core.csr.reg_mie[9]
-      HEI: BoomTile.core.csr.reg_mie[10]
-      MEI: BoomTile.core.csr.reg_mie[11]
-    }
+    // mie:
+    // {
+    //   USI: BoomTile.core.csr.reg_mie[0]
+    //   SSI: BoomTile.core.csr.reg_mie[1]
+    //   HSI: BoomTile.core.csr.reg_mie[2]
+    //   MSI: BoomTile.core.csr.reg_mie[3]
+    //   UTI: BoomTile.core.csr.reg_mie[4]
+    //   STI: BoomTile.core.csr.reg_mie[5]
+    //   HTI: BoomTile.core.csr.reg_mie[6]
+    //   MTI: BoomTile.core.csr.reg_mie[7]
+    //   UEI: BoomTile.core.csr.reg_mie[8]
+    //   SEI: BoomTile.core.csr.reg_mie[9]
+    //   HEI: BoomTile.core.csr.reg_mie[10]
+    //   MEI: BoomTile.core.csr.reg_mie[11]
+    // }
     mideleg:
     {
       USI: BoomTile.core.csr.reg_mideleg[0]

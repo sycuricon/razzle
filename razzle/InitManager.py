@@ -23,6 +23,12 @@ class InitManager(SectionManager):
 
     def _set_symbol_relate_register(self, mode):
         priv, addr = mode
+        # close interrupt
+        self.reg_init_config["csr"]["mstatus"]["SIE"] = "0b0"
+        self.reg_init_config["csr"]["mstatus"]["SPIE"] = "0b0"
+        self.reg_init_config["csr"]["mstatus"]["MIE"] = "0b0"
+        self.reg_init_config["csr"]["mstatus"]["MPIE"] = "0b0"
+        self.reg_init_config["csr"]["mstatus"]["MPRIV"] = "0b0"
         # mtvec/stvec
         self.reg_init_config["csr"]["mtvec"]["BASE"] = "0x80001000"
         self.reg_init_config["csr"]["mtvec"]["MODE"] = "0b00"
@@ -76,6 +82,17 @@ class InitManager(SectionManager):
     def _reg_init_generate(self):
         with open(self.init_input, "rt") as base_init_file:
             self.reg_init_config = hjson.load(base_init_file)
+        if self.csr_map is not None:
+            with open(self.csr_map, "rt") as csr_map_file:
+                self.csr_map_config = hjson.load(csr_map_file)
+        else:
+            self.csr_map_config = {}
+        if self.csr_solve is not None:
+            with open(self.csr_solve, "rt") as csr_solve_file:
+                self.csr_solve_config = hjson.load(csr_solve_file)
+        else:
+            self.csr_solve_config = {}
+        self.reg_init_config = self.design.csr_map(self.reg_init_config, self.csr_map_config, self.csr_solve_config)
         self._set_symbol_relate_register(self.priv)
         # TODO: add a debug option to enable this
         # output_path = os.path.join(self.output_path, "init.done.hjson")
@@ -84,7 +101,7 @@ class InitManager(SectionManager):
         #     hjson.dump(self.reg_init_config, output_file)
 
     def _reg_asm_generate(self, path, name):
-        self.design.load_snapshot(self.reg_init_config, self.csr_map, self.csr_solve)
+        self.design.load_state(self.reg_init_config)
         image_name = os.path.join(path, "reg_init.h")
         os.makedirs(path, exist_ok=True)
         self.design.save(image_name, output_format="asm", output_width=64)
