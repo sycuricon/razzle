@@ -193,7 +193,8 @@ class RandomBlock(BaseBlock):
     
     def _gen_load_address(self):
         instr_la = Instruction()
-        instr_la.set_label_constraint(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+        # instr_la.set_label_constraint(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
+        instr_la.set_label_constraint(['random_data_block_page_base'])
         instr_la.set_name_constraint(['LA'])
         instr_la.solve()
         return instr_la
@@ -208,7 +209,7 @@ class RandomBlock(BaseBlock):
         def instr_c_reg(reg):
             return reg == rd
         instr = rand_instr(instr_extension=extension, instr_category=[
-            'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7ff))
+            'LOAD', 'STORE', 'FLOAT_LOAD', 'FLOAT_STORE'], imm_range=range(-0x800, 0x7ff, 8))
         instr.add_constraint(instr_c_reg, ['RS1'])
         instr.solve()
 
@@ -221,6 +222,7 @@ class RandomBlock(BaseBlock):
         instr_off = Instruction()
         instr_off.set_name_constraint(['ADDI'])
         offset = random.randint(-0x800, 0x7ff)
+        offset = offset&~0b111
         instr_off.set_imm_constraint(range(offset, offset+1))
         rd = instr_la['RD']
         def c_rd_rd1(r1, r2):
@@ -756,7 +758,7 @@ class TransBlock:
             file.write(f'.section ".text.{self.name}","ax",@progbits\n')
             file.writelines(inst_asm_list)
             file.writelines('\n\n')
-            file.write(f'.section ".data.{self.name}","ax",@progbits\n')
+            file.write(f'.section ".data.{self.name}","aw",@progbits\n')
             file.writelines(data_asm_list)
 
     def work(self):
