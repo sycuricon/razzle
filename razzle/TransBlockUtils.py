@@ -196,6 +196,9 @@ class RandomBlock(BaseBlock):
         # instr_la.set_label_constraint(['random_data_block_page_base', 'page_fault_data_block_page_base', 'access_fault_data_block_page_base'])
         instr_la.set_label_constraint(['random_data_block_page_base'])
         instr_la.set_name_constraint(['LA'])
+        def instr_c_rd(rd):
+            return rd != 'ZERO'
+        instr_la.add_constraint(instr_c_rd, ['RD'])
         instr_la.solve()
         return instr_la
     
