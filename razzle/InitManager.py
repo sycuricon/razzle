@@ -53,31 +53,23 @@ class InitManager(SectionManager):
             {'U':'0b00', 'S':'0b01', 'M':'0b11'}[priv]
         
         # pmp
-        self.reg_init_config["pmp"]["pmp0"]["R"] = "0b1"
-        self.reg_init_config["pmp"]["pmp0"]["W"] = "0b1"
-        self.reg_init_config["pmp"]["pmp0"]["X"] = "0b1"
-        self.reg_init_config["pmp"]["pmp0"]["L"] = "0b0"
-        self.reg_init_config["pmp"]["pmp0"]["A"] = "NAPOT"
-        self.reg_init_config["pmp"]["pmp0"]["ADDR"] = "0x80000000"
-        self.reg_init_config["pmp"]["pmp0"]["RANGE"] = "0x80000000"
+        pmp_name = f'pmp{self.pmp - 1}'
+        self.reg_init_config["pmp"][pmp_name]["R"] = "0b1"
+        self.reg_init_config["pmp"][pmp_name]["W"] = "0b1"
+        self.reg_init_config["pmp"][pmp_name]["X"] = "0b1"
+        self.reg_init_config["pmp"][pmp_name]["L"] = "0b0"
+        self.reg_init_config["pmp"][pmp_name]["A"] = "NAPOT"
+        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80000000"
+        self.reg_init_config["pmp"][pmp_name]["RANGE"] = "0x800000"
 
         # access_fault_pmp
-        pmp_name = f'pmp{self.pmp - 1}'
-        self.reg_init_config["pmp"][pmp_name]["R"] = "0b0"
-        self.reg_init_config["pmp"][pmp_name]["W"] = "0b0"
-        self.reg_init_config["pmp"][pmp_name]["X"] = "0b0"
-        self.reg_init_config["pmp"][pmp_name]["L"] = "0b1"
-        self.reg_init_config["pmp"][pmp_name]["A"] = "NAPOT"
-        self.reg_init_config["pmp"][pmp_name]["ADDR"] = "0x80005000"
-        self.reg_init_config["pmp"][pmp_name]["RANGE"] = "0x1000"
-
-        # self.reg_init_config["pmp"]["pmp0"]["R"]="0b0"
-        # self.reg_init_config["pmp"]["pmp0"]["W"]="0b0"
-        # self.reg_init_config["pmp"]["pmp0"]["X"]="0b0"
-        # self.reg_init_config["pmp"]["pmp0"]["L"]="0b1"
-        # self.reg_init_config["pmp"]["pmp0"]["A"]="NAPOT"
-        # self.reg_init_config["pmp"]["pmp0"]["ADDR"]="0x80004000"
-        # self.reg_init_config["pmp"]["pmp0"]["RANGE"]="0x1000"
+        self.reg_init_config["pmp"]["pmp0"]["R"] = "0b0"
+        self.reg_init_config["pmp"]["pmp0"]["W"] = "0b0"
+        self.reg_init_config["pmp"]["pmp0"]["X"] = "0b0"
+        self.reg_init_config["pmp"]["pmp0"]["L"] = "0b1"
+        self.reg_init_config["pmp"]["pmp0"]["A"] = "NAPOT"
+        self.reg_init_config["pmp"]["pmp0"]["ADDR"] = "0x80005000"
+        self.reg_init_config["pmp"]["pmp0"]["RANGE"] = "0x1000"
 
     def _reg_init_generate(self):
         with open(self.init_input, "rt") as base_init_file:

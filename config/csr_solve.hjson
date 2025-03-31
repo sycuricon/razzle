@@ -25,36 +25,36 @@
     BoomTile.core.csr.reg_sscratch: 0x00ff00ff00ff00ff
     BoomTile.core.csr.reg_mepc: 0x1234567890
     BoomTile.core.csr.reg_sepc: 0x0987654321
-    BoomTile.core.csr.reg_pmp_0_cfg_l: 1
-    BoomTile.core.csr.reg_pmp_0_cfg_a: 3
-    BoomTile.core.csr.reg_pmp_0_cfg_x: 1
-    BoomTile.core.csr.reg_pmp_0_cfg_w: 1
-    BoomTile.core.csr.reg_pmp_0_cfg_r: 1
-    BoomTile.core.csr.reg_pmp_0_addr: 0x1234567
-    BoomTile.core.csr.reg_pmp_1_cfg_l: 0
-    BoomTile.core.csr.reg_pmp_1_cfg_a: 1
-    BoomTile.core.csr.reg_pmp_1_cfg_x: 1
-    BoomTile.core.csr.reg_pmp_1_cfg_w: 0
-    BoomTile.core.csr.reg_pmp_1_cfg_r: 0
-    BoomTile.core.csr.reg_pmp_1_addr: 0x3456
-    BoomTile.core.csr.reg_pmp_2_cfg_l: 1
-    BoomTile.core.csr.reg_pmp_2_cfg_a: 0
-    BoomTile.core.csr.reg_pmp_2_cfg_x: 0
-    BoomTile.core.csr.reg_pmp_2_cfg_w: 1
-    BoomTile.core.csr.reg_pmp_2_cfg_r: 1
-    BoomTile.core.csr.reg_pmp_2_addr: 0x981231
-    BoomTile.core.csr.reg_pmp_3_cfg_l: 1
-    BoomTile.core.csr.reg_pmp_3_cfg_a: 2
-    BoomTile.core.csr.reg_pmp_3_cfg_x: 1
-    BoomTile.core.csr.reg_pmp_3_cfg_w: 0
-    BoomTile.core.csr.reg_pmp_3_cfg_r: 0
-    BoomTile.core.csr.reg_pmp_3_addr: 0x6372112
-    BoomTile.core.csr.reg_pmp_4_cfg_l: 1
-    BoomTile.core.csr.reg_pmp_4_cfg_a: 1
-    BoomTile.core.csr.reg_pmp_4_cfg_x: 1
-    BoomTile.core.csr.reg_pmp_4_cfg_w: 0
-    BoomTile.core.csr.reg_pmp_4_cfg_r: 0
-    BoomTile.core.csr.reg_pmp_4_addr: 0
-    BoomTile.core.csr.reg_fflags: 23
-    BoomTile.core.csr.reg_frm: 7
+    // BoomTile.core.csr.reg_pmp_0_cfg_l: 1
+    // BoomTile.core.csr.reg_pmp_0_cfg_a: 3
+    // BoomTile.core.csr.reg_pmp_0_cfg_x: 1
+    // BoomTile.core.csr.reg_pmp_0_cfg_w: 1
+    // BoomTile.core.csr.reg_pmp_0_cfg_r: 1
+    // BoomTile.core.csr.reg_pmp_0_addr: 0x1234567
+    // BoomTile.core.csr.reg_pmp_1_cfg_l: 0
+    // BoomTile.core.csr.reg_pmp_1_cfg_a: 1
+    // BoomTile.core.csr.reg_pmp_1_cfg_x: 1
+    // BoomTile.core.csr.reg_pmp_1_cfg_w: 0
+    // BoomTile.core.csr.reg_pmp_1_cfg_r: 0
+    // BoomTile.core.csr.reg_pmp_1_addr: 0x3456
+    // BoomTile.core.csr.reg_pmp_2_cfg_l: 1
+    // BoomTile.core.csr.reg_pmp_2_cfg_a: 0
+    // BoomTile.core.csr.reg_pmp_2_cfg_x: 0
+    // BoomTile.core.csr.reg_pmp_2_cfg_w: 1
+    // BoomTile.core.csr.reg_pmp_2_cfg_r: 1
+    // BoomTile.core.csr.reg_pmp_2_addr: 0x981231
+    // BoomTile.core.csr.reg_pmp_3_cfg_l: 1
+    // BoomTile.core.csr.reg_pmp_3_cfg_a: 2
+    // BoomTile.core.csr.reg_pmp_3_cfg_x: 1
+    // BoomTile.core.csr.reg_pmp_3_cfg_w: 0
+    // BoomTile.core.csr.reg_pmp_3_cfg_r: 0
+    // BoomTile.core.csr.reg_pmp_3_addr: 0x6372112
+    // BoomTile.core.csr.reg_pmp_4_cfg_l: 1
+    // BoomTile.core.csr.reg_pmp_4_cfg_a: 1
+    // BoomTile.core.csr.reg_pmp_4_cfg_x: 1
+    // BoomTile.core.csr.reg_pmp_4_cfg_w: 0
+    // BoomTile.core.csr.reg_pmp_4_cfg_r: 0
+    // BoomTile.core.csr.reg_pmp_4_addr: 0
+    // BoomTile.core.csr.reg_fflags: 23
+    // BoomTile.core.csr.reg_frm: 7
 }

@@ -113,10 +113,12 @@ class PageTableManager(SectionManager):
             if not page_table.is_valid(entry_num):
                 next_paddr = paddr
                 next_page_table = None
+                pg_flag = pgtlb_flag
                 if i != self.pg_level - 1:
                     next_page_table = self._alloc_free_page(i + 1)
                     next_paddr = next_page_table.paddr
-                page_table.fill_entry(entry_num, next_paddr, flag, old_vaddr, next_page_table)
+                    pg_flag = Flag.V
+                page_table.fill_entry(entry_num, next_paddr, pg_flag, old_vaddr, next_page_table)
             if i != self.pg_level - 1:
                 page_table = page_table.get_next_table(entry_num)
     
