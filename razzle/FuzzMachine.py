@@ -400,7 +400,7 @@ class FuzzMachine:
             leak_len += 1
             dirname = os.path.join(self.output_path, dirname)
             for filename in os.listdir(dirname):
-                if '.log' not in filename and 'leak' not in filename:
+                if '.log' not in filename or 'leak' not in filename:
                     continue
                 filename = os.path.join(dirname, filename)
                 train_begin = 0
@@ -744,6 +744,7 @@ class FuzzMachine:
                 match(state):
                     case FuzzFSM.IDLE:
                         trigger_try_time = 0
+                        random.seed(self.rand_seed)
                         self.fuzz_log.log_rand_seed(self.rand_seed)
                         config = self.trigger_seed.mutate({}, True)
                         config = self.access_seed.mutate(config, True)
