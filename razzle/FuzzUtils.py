@@ -193,12 +193,12 @@ class Seed:
 
     def mutate_begin(self):
         self.tmp_random_state = random.getstate()
-        global global_random_state 
+        global global_random_state
         random.setstate(global_random_state)
     
     def mutate_end(self):
         global global_random_state 
-        global_random_state= random.getstate()
+        global_random_state = random.getstate()
         random.setstate(self.tmp_random_state)
     
     def mutate_random_field(self, is_full):
