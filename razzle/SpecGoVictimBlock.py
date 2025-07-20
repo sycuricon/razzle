@@ -19,7 +19,7 @@ class SpecGoTriggerBlock(TransBlock):
         super().__init__('trigger_block', extension, output_path)
         with open(root_info_path, 'rt') as file:
             root_info = hjson.loads(file.read())
-        inst_code = int(root_info['inst_code'], base=16)
+        inst_code = root_info['inst_code']
         result_value = int(root_info['result_value'], base=16)
         temp_file = f'{random.randint(0, 2**64)}_temp'
         os.system(f'echo \'DASM({inst_code})\' | spike-dasm > {temp_file}')
@@ -36,7 +36,7 @@ class SpecGoTriggerBlock(TransBlock):
             use_reg = self.trigger_inst['RS1']
             block.inst_list.append(Instruction(f'add {use_reg}, {self.dep_reg}, a0'))
         except Exception as e:
-            pass
+            raise e
         block.inst_list.append(self.trigger_inst)
         self._add_inst_block(block)
 
